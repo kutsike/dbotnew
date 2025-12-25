@@ -1,13 +1,13 @@
 "use strict";
 
 /**
- * ConversationFlow
+ * ConversationFlow - İnsansı Karşılama Asistanı
  *
  * Amaç:
- * - Kullanıcıyı sıcak/insani bir dille karşılamak
- * - Bilgileri "laf arasında" toparlamak (ad soyad, şehir, anne adı, doğum tarihi/yaş, konu)
- * - Bilgiler tamamlanınca profili "waiting" durumuna almak ve randevu mesajı göndermek
- * - Aynı soruyu üst üste sormayı engellemek (last_question_key)
+ * - Kullanıcıyı sıcak ve doğal bir dille karşılamak
+ * - Bilgileri zorlamadan, sohbet akışı içinde toplamak
+ * - Empati göstermek ve kullanıcıyı rahat hissettirmek
+ * - Profesyonel ama samimi bir üslup korumak
  */
 
 class ConversationFlow {
@@ -24,99 +24,125 @@ class ConversationFlow {
       { key: "subject", label: "Konu", priority: 6 }
     ];
 
-    // Basit şehir listesi (isteğe göre genişletilebilir)
+    // Genişletilmiş şehir listesi
     this.cities = [
       "istanbul", "ankara", "izmir", "bursa", "antalya", "konya", "adana",
       "gaziantep", "mersin", "diyarbakır", "kayseri", "eskişehir", "samsun",
       "denizli", "şanlıurfa", "sanliurfa", "malatya", "trabzon", "erzurum", "van",
-      "batman", "elazığ", "elazig", "sivas", "manisa", "balıkesir", "balikesir", "kahramanmaraş", "kahramanmaras"
+      "batman", "elazığ", "elazig", "sivas", "manisa", "balıkesir", "balikesir", 
+      "kahramanmaraş", "kahramanmaras", "hatay", "sakarya", "kocaeli", "muğla",
+      "aydın", "tekirdağ", "ordu", "mardin", "afyon", "afyonkarahisar", "çorum",
+      "tokat", "aksaray", "giresun", "yozgat", "edirne", "düzce", "rize", "artvin",
+      "isparta", "bolu", "çanakkale", "kastamonu", "zonguldak", "karabük", "kırıkkale",
+      "osmaniye", "kilis", "niğde", "nevşehir", "bingöl", "muş", "bitlis", "siirt",
+      "şırnak", "hakkari", "ağrı", "iğdır", "kars", "ardahan", "erzincan", "tunceli"
     ];
 
     this.monthMap = {
-      "ocak": "01",
-      "şubat": "02",
-      "subat": "02",
-      "mart": "03",
-      "nisan": "04",
-      "mayıs": "05",
-      "mayis": "05",
-      "haziran": "06",
-      "temmuz": "07",
-      "ağustos": "08",
-      "agustos": "08",
-      "eylül": "09",
-      "eylul": "09",
-      "ekim": "10",
-      "kasım": "11",
-      "kasim": "11",
-      "aralık": "12",
-      "aralik": "12"
+      "ocak": "01", "şubat": "02", "subat": "02", "mart": "03", "nisan": "04",
+      "mayıs": "05", "mayis": "05", "haziran": "06", "temmuz": "07",
+      "ağustos": "08", "agustos": "08", "eylül": "09", "eylul": "09",
+      "ekim": "10", "kasım": "11", "kasim": "11", "aralık": "12", "aralik": "12"
     };
+
+    // Selamlama varyasyonları
+    this.greetingPatterns = [
+      "selam", "selamun", "selamun aleykum", "aleykum selam", "as", "sa",
+      "merhaba", "meraba", "mrb", "slm", "gunaydin", "günaydın",
+      "iyi gunler", "iyi günler", "iyi aksamlar", "iyi akşamlar",
+      "hayirli", "hayırlı", "hey", "hi", "hello"
+    ];
   }
 
-  // Türkçe karakter/İstanbul problemi: "İ" -> "i", birleşik nokta vb.
+  // Türkçe karakter normalizasyonu
   normalizeTR(str) {
     const s = String(str || "");
     return s
       .replace(/İ/g, "i")
       .replace(/I/g, "ı")
       .normalize("NFKD")
-      .replace(/\u0307/g, "") // i üzerindeki birleşik nokta
+      .replace(/\u0307/g, "")
       .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
+      .toLowerCase()
+      .trim();
   }
 
+  // Selamlama kontrolü
   isGreeting(message) {
-    const lower = this.normalizeTR(message).trim();
-    const greetings = [
-      "selam", "selamun", "selamun aleykum", "aleykum selam", "merhaba", "meraba",
-      "gunaydin", "iyi gunler", "iyi aksamlar", "hayirli",
-      "sa", "as", "slm", "mrb"
-    ];
-    return greetings.some(g => lower === g || lower.includes(g));
+    const lower = this.normalizeTR(message);
+    return this.greetingPatterns.some(g => lower === g || lower.startsWith(g + " ") || lower.includes(g));
   }
 
+  // Saat bazlı selamlama
+  getTimeBasedGreeting() {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Günaydın";
+    if (hour >= 12 && hour < 18) return "İyi günler";
+    if (hour >= 18 && hour < 22) return "İyi akşamlar";
+    return "İyi geceler";
+  }
+
+  // Bilgi çıkarma - geliştirilmiş
   extractInfo(message, profile) {
     const extracted = {};
     const raw = String(message || "");
     const lower = this.normalizeTR(raw);
 
-    // Telefon
-    const phoneMatch = raw.replace(/\s+/g, "").match(/(\+?90)?0?5\d{9}/);
-    if (phoneMatch) {
-      let p = phoneMatch[0].replace(/\D/g, "");
-      if (p.startsWith("90") && p.length === 12) p = "+" + p;
-      else if (p.startsWith("0") && p.length === 11) p = "+9" + p;
-      else if (p.length === 10 && p.startsWith("5")) p = "+90" + p;
-      extracted.phone = p;
+    // Telefon - çeşitli formatlar
+    const phonePatterns = [
+      /(\+?90)?[\s\-]?0?[\s\-]?5\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/,
+      /(\+?90)?0?5\d{9}/,
+      /05\d{2}\s?\d{3}\s?\d{2}\s?\d{2}/
+    ];
+    
+    for (const pattern of phonePatterns) {
+      const phoneMatch = raw.replace(/\s+/g, "").match(pattern);
+      if (phoneMatch) {
+        let p = phoneMatch[0].replace(/[\s\-]/g, "").replace(/\D/g, "");
+        if (p.startsWith("90") && p.length === 12) p = "+" + p;
+        else if (p.startsWith("0") && p.length === 11) p = "+9" + p;
+        else if (p.length === 10 && p.startsWith("5")) p = "+90" + p;
+        extracted.phone = p;
+        break;
+      }
     }
 
-    // İsim
+    // İsim - çeşitli kalıplar
     const namePatterns = [
-      /(?:adım|ismim|ben)\s+([A-ZÇĞİÖŞÜa-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜa-zçğıöşü]+){0,3})/i,
-      /^([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+){1,3})$/
+      /(?:adım|ismim|ben|benim adım|adım benim)\s+([A-ZÇĞİÖŞÜa-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜa-zçğıöşü]+){0,3})/i,
+      /^([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+){1,3})$/,
+      /([A-ZÇĞİÖŞÜ][a-zçğıöşü]+\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+)/
     ];
+    
     for (const pattern of namePatterns) {
       const m = raw.match(pattern);
       if (m && m[1] && m[1].trim().length >= 3) {
-        extracted.full_name = m[1].trim();
-        break;
+        const name = m[1].trim();
+        // Şehir adı değilse isim olarak al
+        if (!this.cities.includes(this.normalizeTR(name))) {
+          extracted.full_name = name;
+          break;
+        }
       }
     }
 
     // Şehir
     for (const city of this.cities) {
-      if (lower.includes(this.normalizeTR(city))) {
-        extracted.city = city.charAt(0).toUpperCase() + city.slice(1);
+      const normalizedCity = this.normalizeTR(city);
+      if (lower.includes(normalizedCity) || lower === normalizedCity) {
+        // Şehir adını düzgün formatta kaydet
+        extracted.city = city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
         break;
       }
     }
 
     // Anne adı
     const motherPatterns = [
-      /anne(?:\s+adı)?(?:m|miz)?\s*[:=]?\s*([A-ZÇĞİÖŞÜa-zçğıöşü]{2,30})/i,
-      /annem(?:in adı)?\s+([A-ZÇĞİÖŞÜa-zçğıöşü]{2,30})/i
+      /anne(?:\s+adı)?(?:m|mız)?\s*[:=]?\s*([A-ZÇĞİÖŞÜa-zçğıöşü]{2,30})/i,
+      /annem(?:in adı)?\s+([A-ZÇĞİÖŞÜa-zçğıöşü]{2,30})/i,
+      /annemin\s+adı\s+([A-ZÇĞİÖŞÜa-zçğıöşü]{2,30})/i
     ];
+    
     for (const pattern of motherPatterns) {
       const m = raw.match(pattern);
       if (m && m[1]) {
@@ -125,12 +151,16 @@ class ConversationFlow {
       }
     }
 
-    // Doğum tarihi
+    // Doğum tarihi - çeşitli formatlar
     const datePatterns = [
       /(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/,
+      /(\d{4})\s*doğumluyum/i,
       /(\d{4})\s*dogumluyum/i,
-      /(\d{2,4})\s*yilinda\s*dogdum/i
+      /(\d{2,4})\s*yılında\s*doğdum/i,
+      /(\d{2,4})\s*yilinda\s*dogdum/i,
+      /doğum\s*(?:tarihim|yılım)?\s*[:=]?\s*(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/i
     ];
+    
     for (const pattern of datePatterns) {
       const m = lower.match(pattern);
       if (m) {
@@ -139,16 +169,17 @@ class ConversationFlow {
           const mm = String(m[2]).padStart(2, "0");
           const yy = String(m[3]).length === 2 ? `19${m[3]}` : String(m[3]);
           extracted.birth_date = `${dd}/${mm}/${yy}`;
-        } else {
+        } else if (m[1]) {
           extracted.birth_date = String(m[1]);
         }
         break;
       }
     }
 
-    // "1 Ocak 1990" gibi
+    // "1 Ocak 1990" formatı
     if (!extracted.birth_date) {
-      const m = lower.match(/\b(\d{1,2})\s+(ocak|subat|şubat|mart|nisan|mayis|mayıs|haziran|temmuz|agustos|ağustos|eylul|eylül|ekim|kasim|kasım|aralik|aralık)\s+(\d{4})\b/i);
+      const monthPattern = /\b(\d{1,2})\s+(ocak|subat|şubat|mart|nisan|mayis|mayıs|haziran|temmuz|agustos|ağustos|eylul|eylül|ekim|kasim|kasım|aralik|aralık)\s+(\d{4})\b/i;
+      const m = lower.match(monthPattern);
       if (m) {
         const dd = String(m[1]).padStart(2, "0");
         const mm = this.monthMap[this.normalizeTR(m[2])] || "01";
@@ -156,41 +187,61 @@ class ConversationFlow {
       }
     }
 
-    // Yaş
-    const ageOnly = lower.match(/^\s*(\d{1,2})\s*$/);
-    const ageLoose = lower.match(/(\d{1,2})\s*yas/i);
-    const age = ageOnly ? parseInt(ageOnly[1], 10) : (ageLoose ? parseInt(ageLoose[1], 10) : null);
-    if (age && !extracted.birth_date && age >= 7 && age <= 99) {
-      const birthYear = new Date().getFullYear() - age;
-      extracted.birth_date = String(birthYear);
-    }
-
-    // Konu (çok kısa değilse)
-    if (raw.trim().length >= 18) {
-      const maybeSubject = raw.trim();
-      // Selam vb. değilse ve sadece şehir/ad değilse
-      if (!this.isGreeting(maybeSubject)) {
-        extracted.subject = maybeSubject;
+    // Sadece yaş
+    const agePatterns = [
+      /^\s*(\d{1,2})\s*$/,
+      /(\d{1,2})\s*yaşındayım/i,
+      /(\d{1,2})\s*yasindayim/i,
+      /yaşım\s*[:=]?\s*(\d{1,2})/i,
+      /yasim\s*[:=]?\s*(\d{1,2})/i
+    ];
+    
+    for (const pattern of agePatterns) {
+      const m = lower.match(pattern);
+      if (m && !extracted.birth_date) {
+        const age = parseInt(m[1], 10);
+        if (age >= 7 && age <= 99) {
+          const birthYear = new Date().getFullYear() - age;
+          extracted.birth_date = String(birthYear);
+          break;
+        }
       }
     }
 
-    // Beklenen alan için bağlamsal yakalama (kısa cevaplar)
-    // Örn: Bot "Anne adınız?" dedi -> kullanıcı "Ayten"
+    // Konu - yeterince uzun mesajlar
+    if (raw.trim().length >= 20 && !this.isGreeting(raw)) {
+      // Sadece bilgi içermeyen mesajları konu olarak al
+      const hasOnlyInfo = extracted.phone || extracted.city || extracted.mother_name || extracted.birth_date;
+      if (!hasOnlyInfo) {
+        extracted.subject = raw.trim();
+      }
+    }
+
+    // Bağlamsal yakalama - beklenen alan için kısa cevaplar
     if (profile) {
       const nextKey = this.getMissingFields(profile)[0]?.key;
       const plain = raw.trim();
       const isWord = /^[A-ZÇĞİÖŞÜa-zçğıöşü]{2,30}(?:\s+[A-ZÇĞİÖŞÜa-zçğıöşü]{2,30})?$/.test(plain);
       const isTwoWords = /^[A-ZÇĞİÖŞÜa-zçğıöşü]{2,30}\s+[A-ZÇĞİÖŞÜa-zçğıöşü]{2,30}(?:\s+[A-ZÇĞİÖŞÜa-zçğıöşü]{2,30})?$/.test(plain);
 
-      if (nextKey === "mother_name" && !extracted.mother_name && isWord) extracted.mother_name = plain;
-      if (nextKey === "city" && !extracted.city && isWord) extracted.city = plain;
-      if (nextKey === "full_name" && !extracted.full_name && isTwoWords) extracted.full_name = plain;
-      if (nextKey === "subject" && !extracted.subject && plain.length >= 12) extracted.subject = plain;
+      if (nextKey === "mother_name" && !extracted.mother_name && isWord) {
+        extracted.mother_name = plain;
+      }
+      if (nextKey === "city" && !extracted.city && isWord) {
+        extracted.city = plain;
+      }
+      if (nextKey === "full_name" && !extracted.full_name && isTwoWords) {
+        extracted.full_name = plain;
+      }
+      if (nextKey === "subject" && !extracted.subject && plain.length >= 15) {
+        extracted.subject = plain;
+      }
     }
 
     return extracted;
   }
 
+  // Eksik alanları al
   getMissingFields(profile) {
     return this.requiredFields
       .slice()
@@ -198,49 +249,68 @@ class ConversationFlow {
       .filter(f => !profile?.[f.key] || String(profile[f.key]).trim() === "");
   }
 
+  // Sıcak isim seç
   _pickWarmName(name, profile) {
     const full = (profile?.full_name || name || "").trim();
-    if (!full) return "kardeşim";
-    // sadece ilk isim
+    if (!full || full === "kardeşim") return "kardeşim";
     return full.split(/\s+/)[0];
   }
 
+  // İnsansı soru oluştur - çeşitli varyasyonlar
   _questionFor(fieldKey, warmName) {
-    // "laf arasında" daha insani akış
-    switch (fieldKey) {
-      case "full_name":
-        return `Merhaba ${warmName} kardeşim, hoş geldin. İsmini bir de tam olarak alayım mı?`;
-      case "phone":
-        return `Tamam ${warmName} kardeşim. Sana dönüş yapabilmemiz için bir telefon numarası bırakır mısın?`;
-      case "city":
-        return `Anladım ${warmName} kardeşim. Hangi şehirde yaşıyorsun?`;
-      case "mother_name":
-        return `Peki ${warmName} kardeşim, hocamızın not alması için anne adını da alayım mı?`;
-      case "birth_date":
-        return `Bir de ${warmName} kardeşim; doğum tarihin ya da yaşın nedir? (Yaklaşık da olur)`;
-      case "subject":
-      default:
-        return `Anladım ${warmName} kardeşim. Kısaca derdini anlatır mısın, hangi konuda destek istiyorsun?`;
-    }
+    const questions = {
+      full_name: [
+        `${warmName} kardeşim, hoş geldin! Seninle tanışalım, adın ne?`,
+        `Merhaba ${warmName} kardeşim! İsmini öğrenebilir miyim?`,
+        `Hoş geldin ${warmName} kardeşim! Adını bir de tam olarak alayım mı?`
+      ],
+      phone: [
+        `Tamam ${warmName} kardeşim. Sana ulaşabilmemiz için telefon numaranı alabilir miyim?`,
+        `${warmName} kardeşim, hocamız sana dönüş yapabilsin diye bir numara bırakır mısın?`,
+        `Peki ${warmName} kardeşim, iletişim için telefon numaranı yazabilir misin?`
+      ],
+      city: [
+        `Anladım ${warmName} kardeşim. Hangi şehirdesin?`,
+        `${warmName} kardeşim, nerelisin, hangi şehirde yaşıyorsun?`,
+        `Peki ${warmName} kardeşim, şehrini de öğrenebilir miyim?`
+      ],
+      mother_name: [
+        `${warmName} kardeşim, hocamızın not alması için anne adını da alayım mı?`,
+        `Bir de ${warmName} kardeşim, annenin adı ne?`,
+        `${warmName} kardeşim, kayıt için anne adını yazabilir misin?`
+      ],
+      birth_date: [
+        `${warmName} kardeşim, doğum tarihin ya da yaşın kaç?`,
+        `Bir de ${warmName} kardeşim, kaç yaşındasın?`,
+        `${warmName} kardeşim, doğum yılını veya yaşını söyler misin?`
+      ],
+      subject: [
+        `${warmName} kardeşim, kısaca derdini anlatır mısın? Hangi konuda destek istiyorsun?`,
+        `Peki ${warmName} kardeşim, ne konuda yardımcı olabiliriz?`,
+        `${warmName} kardeşim, seni dinliyorum. Neler oluyor, anlat bakalım.`
+      ]
+    };
+
+    const list = questions[fieldKey] || questions.subject;
+    return list[Math.floor(Math.random() * list.length)];
   }
 
-  async _avoidRepeatQuestion(chatId, profile, nextKey) {
-    // son sorulan alan aynıysa tekrar sormayalım
-    // (kullanıcı başka bir şey yazsa bile bot aynı soruya kilitlenmesin)
+  // Tekrar soru sormayı engelle
+  async _avoidRepeatQuestion(chatId, clientId, profile, nextKey) {
     try {
       const lastKey = profile?.last_question_key;
       const lastAt = profile?.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
       const now = Date.now();
 
-      if (lastKey && String(lastKey) === String(nextKey) && (now - lastAt) < 60_000) {
-        // 1 dk içinde aynı alanı tekrar sorma; bir "geçiş" cümlesi dön
+      if (lastKey && String(lastKey) === String(nextKey) && (now - lastAt) < 90_000) {
         return true;
       }
 
-      await this.db.updateProfile(chatId, {
+      await this.db.updateProfile(chatId, clientId, {
         last_question_key: nextKey,
         last_question_at: new Date().toISOString().slice(0, 19).replace("T", " ")
       });
+      
       if (profile) {
         profile.last_question_key = nextKey;
         profile.last_question_at = new Date();
@@ -251,26 +321,74 @@ class ConversationFlow {
     }
   }
 
+  // Alternatif sorular - tekrar durumunda
+  _alternativeQuestion(fieldKey, warmName) {
+    const alternatives = {
+      city: [
+        `${warmName} kardeşim, İstanbul'da mısın yoksa başka bir şehirde mi?`,
+        `Şehrini bir de yazabilir misin ${warmName} kardeşim?`
+      ],
+      mother_name: [
+        `Anne adını bir de not alayım ${warmName} kardeşim, tek kelime yeterli.`,
+        `${warmName} kardeşim, annenin adını yazabilir misin?`
+      ],
+      birth_date: [
+        `Yaşın kaçtı ${warmName} kardeşim? Yaklaşık da olur.`,
+        `${warmName} kardeşim, doğum yılını yazsan yeter.`
+      ],
+      full_name: [
+        `İsmini tam yazabilir misin ${warmName} kardeşim?`,
+        `Ad soyadını bir de alayım ${warmName} kardeşim.`
+      ],
+      phone: [
+        `Telefon numaranı yazarsan dönüş sağlarız ${warmName} kardeşim.`,
+        `${warmName} kardeşim, bir numara bırakır mısın?`
+      ],
+      subject: [
+        `Derdini biraz daha açar mısın ${warmName} kardeşim?`,
+        `${warmName} kardeşim, ne konuda yardım istiyorsun, kısaca anlat.`
+      ]
+    };
+
+    const list = alternatives[fieldKey] || [this._questionFor(fieldKey, warmName)];
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  // Ana mesaj işleyici
   async processMessage(chatId, clientId, message, context = {}) {
     const { name, profile } = context;
     const warmName = this._pickWarmName(name, profile);
 
-    // chatId içinden telefon
+    // chatId'den telefon çıkar
     if (profile && !profile.phone && typeof chatId === "string") {
       const raw = chatId.split("@")[0];
       if (/^\d{10,15}$/.test(raw)) {
         const normalized = raw.startsWith("+") ? raw : `+${raw}`;
-        await this.db.updateProfile(chatId, { phone: normalized });
+        await this.db.updateProfile(chatId, clientId, { phone: normalized });
         profile.phone = normalized;
       }
     }
 
-    // Selamlama
+    // Selamlama kontrolü
     const isGreeting = this.isGreeting(message);
     if (isGreeting && (!profile?.full_name || profile?.status === "new")) {
-      const greetingTpl = (await this.db.getSetting("greeting")) || "Merhaba {name} kardeşim, hoş geldin. Bugün nasılsın inşallah?";
+      // Saat bazlı, çeşitli selamlama
+      const timeGreeting = this.getTimeBasedGreeting();
+      const greetings = [
+        `${timeGreeting} ${warmName} kardeşim, hoş geldin! Nasılsın bugün?`,
+        `Hoş geldin ${warmName} kardeşim! ${timeGreeting}, nasıl yardımcı olabilirim?`,
+        `${timeGreeting} ${warmName} kardeşim! Seni görmek güzel, nasılsın?`,
+        `Merhaba ${warmName} kardeşim, hoş geldin! Bugün sana nasıl yardımcı olabilirim?`
+      ];
+      
+      // Özel selamlama varsa kullan
+      const customGreeting = await this.db.getSetting("greeting");
+      const reply = customGreeting 
+        ? customGreeting.replace("{name}", warmName)
+        : greetings[Math.floor(Math.random() * greetings.length)];
+
       return {
-        reply: greetingTpl.replace("{name}", warmName),
+        reply,
         action: "greeting"
       };
     }
@@ -278,56 +396,62 @@ class ConversationFlow {
     // Bilgi çıkar
     const extracted = this.extractInfo(message, profile);
 
-    // subject'i agresif yazmayalım: kullanıcı sadece "İstanbul" yazınca subject set olmasın
-    if (extracted.subject && extracted.subject.length < 18) delete extracted.subject;
+    // Çok kısa subject'leri atla
+    if (extracted.subject && extracted.subject.length < 20) {
+      delete extracted.subject;
+    }
 
+    // Profili güncelle
     if (profile && Object.keys(extracted).length > 0) {
-      await this.db.updateProfile(chatId, extracted);
+      await this.db.updateProfile(chatId, clientId, extracted);
       Object.assign(profile, extracted);
     }
 
-    // Missing?
+    // Eksik alanları kontrol et
     const missing = this.getMissingFields(profile || {});
 
-    // Tamamlandıysa: randevu aşaması
+    // Tüm bilgiler tamam - randevu aşaması
     if (missing.length === 0 && profile) {
-      // profil oluşturuldu etiketi gibi davran: waiting + appointment
       if (!profile.status || profile.status === "new" || profile.status === "collecting" || profile.status === "waiting") {
         try {
           await this.db.createAppointment(profile.id, clientId, profile.subject || "");
         } catch {}
-        await this.db.updateProfileStatus(chatId, "waiting");
+        
+        await this.db.updateProfileStatus(chatId, clientId, "waiting");
         profile.status = "waiting";
 
-        const tpl = (await this.db.getSetting("profile_complete_message"))
-          || "{name} kardeşim o zaman ben hocamızın müsaitlik durumuna göre bir plan oluşturup tarafınıza randevu günü ve saati ile ilgili bilgi vermek için arayacağım.";
+        // Tamamlanma mesajları
+        const completionMessages = [
+          `${warmName} kardeşim, bilgilerini aldım. Hocamızın müsaitlik durumuna göre sana randevu günü ve saati için döneceğiz inşallah.`,
+          `Tamam ${warmName} kardeşim, her şeyi not ettim. En kısa sürede hocamız seninle iletişime geçecek.`,
+          `${warmName} kardeşim, kaydını oluşturdum. Hocamız müsait olunca seni arayacağız inşallah.`
+        ];
+
+        const customComplete = await this.db.getSetting("profile_complete_message");
+        const reply = customComplete 
+          ? customComplete.replace("{name}", warmName)
+          : completionMessages[Math.floor(Math.random() * completionMessages.length)];
 
         return {
-          reply: tpl.replace("{name}", warmName),
+          reply,
           action: "profile_complete",
           profile
         };
       }
     }
 
-    // Bilgi toplama
+    // Bilgi toplama aşaması
     if (missing.length > 0) {
       const nextKey = missing[0].key;
 
-      // Aynı soruyu tekrarlama koruması
-      const skipped = await this._avoidRepeatQuestion(chatId, profile, nextKey);
+      // Tekrar soru kontrolü
+      const skipped = await this._avoidRepeatQuestion(chatId, clientId, profile, nextKey);
       if (skipped) {
-        // Bu durumda bot, kullanıcıyı kilitlemesin; akışı yumuşatıp tekrar soruyu hafifçe soralım.
-        // (Ama soru metni aynı olmadan, farklı bir cümle)
-        const alt = {
-          city: `İstanbul'da mıydınız ${warmName} kardeşim, yoksa başka bir şehir mi?`,
-          mother_name: `Anne adını bir de not alayım ${warmName} kardeşim; tek kelime yeterli.`,
-          birth_date: `Yaşın kaçtı ${warmName} kardeşim, ya da doğum yılını yazsan da olur.`,
-          full_name: `İsmini tam yazabilir misin ${warmName} kardeşim?`,
-          phone: `Telefon numaranı yazarsan dönüş sağlayabiliriz ${warmName} kardeşim.`,
-          subject: `Derdini biraz daha açar mısın ${warmName} kardeşim; hangi konuda destek istiyorsun?`
+        return { 
+          reply: this._alternativeQuestion(nextKey, warmName), 
+          action: "collecting", 
+          nextField: nextKey 
         };
-        return { reply: alt[nextKey] || this._questionFor(nextKey, warmName), action: "collecting", nextField: nextKey };
       }
 
       return {
@@ -337,13 +461,31 @@ class ConversationFlow {
       };
     }
 
-    // AI Chat (genel bilgi, fetva değil)
+    // AI Chat ile genel sohbet
     if (this.aiChat && profile) {
-      return await this.aiChat.answerIslamicQuestion(message, { chatId, profile });
+      // Duygu analizi
+      const emotion = this.aiChat.detectEmotion ? this.aiChat.detectEmotion(message) : "neutral";
+      const empatheticPrefix = this.aiChat.getEmpatheticPrefix ? this.aiChat.getEmpatheticPrefix(emotion, warmName) : "";
+      
+      const aiResult = await this.aiChat.answerIslamicQuestion(message, { chatId, profile });
+      
+      // Empati ön eki ekle (eğer varsa ve cevap zaten empati içermiyorsa)
+      if (empatheticPrefix && aiResult.reply && !aiResult.reply.toLowerCase().includes("anlıyorum")) {
+        aiResult.reply = empatheticPrefix + aiResult.reply;
+      }
+      
+      return aiResult;
     }
 
+    // Fallback cevap
+    const fallbacks = [
+      `Anladım ${warmName} kardeşim. Hocamızla görüşmek en sağlıklısı olur, istersen durumunu kısaca anlat, ben not alayım.`,
+      `${warmName} kardeşim, seni dinliyorum. Ne konuda yardımcı olabilirim?`,
+      `Tamam ${warmName} kardeşim, anlattıklarını not ediyorum. Başka eklemek istediğin bir şey var mı?`
+    ];
+
     return {
-      reply: `Anladım ${warmName} kardeşim. Hocamızla görüşmek en sağlıklısı; istersen kısaca durumunu anlat, ben not alayım.`,
+      reply: fallbacks[Math.floor(Math.random() * fallbacks.length)],
       action: "simple_response"
     };
   }

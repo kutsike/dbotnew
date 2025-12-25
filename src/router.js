@@ -2,7 +2,7 @@
 
 /**
  * Mesaj Yönlendirici ve Sohbet Akış Yöneticisi
- * Hocanın Yardımcısı Konsepti
+ * İnsansı Karşılama Asistanı
  */
 
 const { AIChatService } = require("./services/aiChat");
@@ -28,7 +28,7 @@ class Router {
     // AI Chat Service
     if (process.env.OPENAI_API_KEY) {
       this.aiChat = new AIChatService(this.db);
-      console.log("✅ AI Chat servisi aktif");
+      console.log("✅ AI Chat servisi aktif (insansı mod)");
     } else {
       console.log("⚠️ OPENAI_API_KEY yok, basit mod aktif");
     }
@@ -44,6 +44,26 @@ class Router {
   }
 
   /**
+   * Sesli mesaj transcribe (BotManager'dan çağrılır)
+   */
+  async transcribeVoice(filePath) {
+    if (!this.aiChat) return "";
+    try {
+      const fs = require("fs");
+      const data = fs.readFileSync(filePath);
+      const base64 = data.toString("base64");
+      const media = {
+        data: base64,
+        mimetype: "audio/ogg"
+      };
+      return await this.aiChat.transcribeVoiceMedia(media);
+    } catch (e) {
+      console.error("[Router] Transcribe hatası:", e.message);
+      return "";
+    }
+  }
+
+  /**
    * Ana mesaj işleyici
    */
   async handleMessage(msg, client, clientId, context = {}) {
@@ -55,11 +75,12 @@ class Router {
     try {
       const isVoice = (msg.type === "ptt" || msg.type === "audio");
       if (!body && msg.hasMedia && isVoice) {
-        if (this.aiChat && this.aiChat.transcribeMedia) {
+        if (this.aiChat && this.aiChat.transcribeVoiceMedia) {
           const media = await msg.downloadMedia();
-          const transcript = await this.aiChat.transcribeMedia(media);
+          const transcript = await this.aiChat.transcribeVoiceMedia(media);
           if (transcript && transcript.trim()) {
             body = transcript.trim();
+            console.log(`[${clientId}] 🎤 Sesli mesaj çevrildi: ${body.substring(0, 50)}...`);
           }
         }
       }
@@ -76,7 +97,7 @@ class Router {
       if (botClient?.frozen) {
         const frozenMsg = botClient.frozen_message || 
           await this.db.getSetting("frozen_message") || 
-          "Şu an müsait değilim, lütfen daha sonra tekrar deneyin.";
+          "Şu an müsait değilim kardeşim, biraz sonra tekrar yazabilir misin?";
         
         if (botClient.redirect_phone) {
           return `${frozenMsg}\n\nGüncel numaram: ${botClient.redirect_phone}`;
@@ -85,7 +106,7 @@ class Router {
       }
 
       // Profil al
-      let profile = context.profile || await this.db.getProfile(chatId);
+      let profile = context.profile || await this.db.getProfile(chatId, clientId);
       
       // Admin devralınmış mı kontrol et
       if (profile?.status === "admin") {
@@ -109,20 +130,29 @@ class Router {
 
       // Devir talebi kontrolü
       if (this.isHandoffRequest(body)) {
-        await this.db.updateProfileStatus(chatId, "waiting");
+        await this.db.updateProfileStatus(chatId, clientId, "waiting");
         await this.logActivity(chatId, profile?.id, clientId, "handoff_requested", {});
         
-        const handoffMsg = await this.db.getSetting("handoff_message") || 
-          "Hocamız şu an dergahtaki namazını kılıyor. En kısa sürede size dönüş yapacağız inşallah.";
+        const handoffMessages = [
+          `Tamam ${name} kardeşim, hocamıza ilettim. En kısa sürede sana dönüş yapacak inşallah.`,
+          `${name} kardeşim, hocamız şu an meşgul ama müsait olunca hemen döneceğiz.`,
+          `Anladım ${name} kardeşim, hocamızla görüşme talebini aldım. Biraz sabır, döneceğiz.`
+        ];
         
-        return handoffMsg;
+        const customHandoff = await this.db.getSetting("handoff_message");
+        return customHandoff || handoffMessages[Math.floor(Math.random() * handoffMessages.length)];
       }
 
-      // Konuşmak isteyen var mı
+      // Konuşmak/aramak isteyen var mı
       if (this.wantsToTalk(body)) {
-        const busyMsg = await this.db.getSetting("busy_message") || 
-          "Dergahtaki namazımı kıldıktan sonra müsait olabilirim inşallah.";
-        return busyMsg;
+        const busyMessages = [
+          `${name} kardeşim, şu an telefonda görüşme imkanımız yok ama yazışarak yardımcı olabilirim.`,
+          `Anlıyorum ${name} kardeşim, sesli görüşme şu an mümkün değil. Ama yazarak da hallederiz inşallah.`,
+          `${name} kardeşim, şu an arama yapamıyoruz ama mesajlaşarak da yardımcı olabilirim.`
+        ];
+        
+        const customBusy = await this.db.getSetting("busy_message");
+        return customBusy || busyMessages[Math.floor(Math.random() * busyMessages.length)];
       }
 
       // Conversation Flow ile işle
@@ -142,7 +172,15 @@ class Router {
 
     } catch (err) {
       console.error("[Router] Hata:", err.message);
-      return "Özür dilerim, bir aksaklık yaşandı. Birazdan tekrar deneyebilir misiniz?";
+      
+      // İnsansı hata mesajları
+      const errorMessages = [
+        `${name} kardeşim, bir aksaklık oldu. Birazdan tekrar yazar mısın?`,
+        `Pardon ${name} kardeşim, bir sorun çıktı. Bir dakika sonra tekrar dener misin?`,
+        `${name} kardeşim, sistemde ufak bir problem var. Biraz sonra tekrar yazarsan sevinirim.`
+      ];
+      
+      return errorMessages[Math.floor(Math.random() * errorMessages.length)];
     }
   }
 
@@ -160,40 +198,41 @@ class Router {
       case "menu":
       case "yardim":
       case "yardım":
-        return this.generateMenu();
+        return this.generateMenu(name);
 
       case "namaz":
         const city = args.join(" ") || "istanbul";
-        return this.handlePrayerTimes(city);
+        return this.handlePrayerTimes(city, name);
 
       case "dua":
-        return this.handleDuaRequest(args[0]);
+        return this.handleDuaRequest(args[0], name);
 
       case "haber":
-        return "📰 Son haberler için: https://www.diyanethaber.com.tr";
+        return `${name} kardeşim, güncel haberler için:\n🔗 https://www.diyanethaber.com.tr`;
 
       case "hutbe":
-        return "📜 Güncel hutbe için: https://www.diyanet.gov.tr/tr-TR/Kurumsal/Detay/11/diyanet-isleri-baskanligi-hutbeleri";
+        return `${name} kardeşim, bu haftanın hutbesi için:\n🔗 https://www.diyanet.gov.tr/tr-TR/Kurumsal/Detay/11/diyanet-isleri-baskanligi-hutbeleri`;
 
       case "fetva":
         if (args.length === 0) {
-          return "Fetva aramak için: !fetva [soru]\n\nÖrnek: !fetva namaz kılmak farz mı";
+          return `${name} kardeşim, fetva aramak için:\n!fetva [soru]\n\nÖrnek: !fetva namaz kılmak farz mı`;
         }
         if (this.aiChat) {
           const result = await this.aiChat.processFetva(args.join(" "));
           return result.reply;
         }
-        return `🔍 Fetva arama: https://kurul.diyanet.gov.tr/Cevap-Ara?SearchText=${encodeURIComponent(args.join(" "))}`;
+        return `${name} kardeşim, bu konuyu araştırmak için:\n🔗 https://kurul.diyanet.gov.tr/Cevap-Ara?SearchText=${encodeURIComponent(args.join(" "))}`;
 
       case "temsilci":
       case "hoca":
       case "yetkili":
-        await this.db.updateProfileStatus(chatId, "waiting");
-        return await this.db.getSetting("handoff_message") || 
-          "Hocamız şu an dergahtaki namazını kılıyor. En kısa sürede size dönüş yapacağız inşallah.";
+        await this.db.updateProfileStatus(chatId, clientId, "waiting");
+        const handoffMsg = await this.db.getSetting("handoff_message") || 
+          `Tamam ${name} kardeşim, hocamıza ilettim. En kısa sürede dönüş yapacağız inşallah.`;
+        return handoffMsg.replace("{name}", name);
 
       default:
-        return `Bilinmeyen komut: ${cmd}\n\nKomutları görmek için !menu yazabilirsiniz.`;
+        return `${name} kardeşim, "${cmd}" komutunu tanımadım.\n\nKomutları görmek için !menu yazabilirsin.`;
     }
   }
 
@@ -205,7 +244,8 @@ class Router {
     const keywords = [
       "temsilci", "yetkili", "insan", "gerçek kişi",
       "hoca ile", "hocayla", "görüşmek", "konuşmak istiyorum",
-      "biriyle görüşmek", "canlı destek", "hocamla"
+      "biriyle görüşmek", "canlı destek", "hocamla",
+      "yetkiliye bağla", "müdür", "sorumlu"
     ];
     
     if (body.trim() === "0") return true;
@@ -224,57 +264,57 @@ class Router {
       /telefonla\s+görüşmek/i,
       /sesli\s+görüşme/i,
       /müsait\s+misiniz/i,
-      /ne\s+zaman\s+müsait/i
+      /ne\s+zaman\s+müsait/i,
+      /sizi\s+arayabilir/i,
+      /telefon\s+görüşmesi/i
     ];
     
     return patterns.some(p => p.test(lower));
   }
 
   /**
-   * Menü oluştur
+   * Menü oluştur - insansı
    */
-  generateMenu() {
-    return `🕌 *Hocanın Yardımcısı*
+  generateMenu(name = "kardeşim") {
+    return `Merhaba ${name} kardeşim!
 
-Merhaba kardeşim, size nasıl yardımcı olabilirim?
+Sana nasıl yardımcı olabilirim?
 
-Aşağıdaki komutları kullanabilirsiniz:
+*Kullanabileceğin komutlar:*
 
-1️⃣ *!namaz [şehir]* - Namaz vakitleri
-2️⃣ *!dua* - Dua
-3️⃣ *!haber* - Son haberler
-4️⃣ *!hutbe* - Güncel hutbe
-5️⃣ *!fetva [soru]* - Fetva arama
-0️⃣ *!temsilci* - Hocayla görüşme
+1️⃣ *!namaz [şehir]* - Namaz vakitlerini öğren
+2️⃣ *!dua* - Günlük dua
+3️⃣ *!haber* - Diyanet haberleri
+4️⃣ *!hutbe* - Cuma hutbesi
+5️⃣ *!fetva [soru]* - Fetva ara
+0️⃣ *!temsilci* - Hocayla görüş
 
-Ya da doğrudan durumunuzu anlatabilirsiniz, size yardımcı olmaya çalışayım.
-
-_Diyanet İşleri Başkanlığı kaynaklarından beslenmektedir._`;
+Ya da doğrudan derdini anlat, seni dinliyorum.`;
   }
 
   /**
-   * Namaz vakitleri
+   * Namaz vakitleri - insansı
    */
-  async handlePrayerTimes(city) {
+  async handlePrayerTimes(city, name = "kardeşim") {
     const cityName = city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
     
-    return `🕌 *${cityName} Namaz Vakitleri*
+    return `${name} kardeşim, ${cityName} için namaz vakitlerini buradan görebilirsin:
 
-Güncel vakitler için:
 🔗 https://namazvakti.diyanet.gov.tr
 
-_Not: Kesin vakitler için Diyanet'in resmi sitesini kontrol ediniz._`;
+Kesin vakitler için Diyanet'in sitesini kontrol etmeni öneririm.`;
   }
 
   /**
-   * Dua isteği
+   * Dua isteği - insansı
    */
-  async handleDuaRequest(category) {
+  async handleDuaRequest(category, name = "kardeşim") {
     try {
       const dua = await this.db.getRandomDua(category);
       
       if (dua) {
-        let response = `🤲 *${dua.title}*\n\n`;
+        let response = `${name} kardeşim, işte sana bir dua:\n\n`;
+        response += `*${dua.title}*\n\n`;
         
         if (dua.arabic) {
           response += `📖 *Arapça:*\n${dua.arabic}\n\n`;
@@ -293,10 +333,10 @@ _Not: Kesin vakitler için Diyanet'in resmi sitesini kontrol ediniz._`;
         return response;
       }
       
-      return "🤲 Rabbim dualarınızı kabul etsin.";
+      return `${name} kardeşim, Rabbim dualarını kabul etsin. 🤲`;
     } catch (err) {
       console.error("Dua hatası:", err);
-      return "🤲 Rabbim dualarınızı kabul etsin.";
+      return `${name} kardeşim, Rabbim dualarını kabul etsin. 🤲`;
     }
   }
 

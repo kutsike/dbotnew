@@ -290,7 +290,13 @@ async ensureSchema() {
     return this.getProfile(chatId);
   }
 
-  async updateProfile(chatId, data) {
+  async updateProfile(chatId, clientId, data) {
+    // Eğer clientId bir obje ise (eski kullanım), data olarak al
+    if (typeof clientId === 'object' && clientId !== null) {
+      data = clientId;
+      clientId = null;
+    }
+    
     const cleaned = this._sanitizeValues(data);
     const keys = Object.keys(cleaned);
     if (keys.length === 0) return;
@@ -299,7 +305,12 @@ async ensureSchema() {
     await this.pool.execute(`UPDATE profiles SET ${fields} WHERE chat_id = ?`, values);
   }
 
-  async updateProfileStatus(chatId, status) {
+  async updateProfileStatus(chatId, clientId, status) {
+    // Eğer clientId bir string ve status undefined ise (eski kullanım)
+    if (typeof clientId === 'string' && status === undefined) {
+      status = clientId;
+      clientId = null;
+    }
     await this.pool.execute("UPDATE profiles SET status = ? WHERE chat_id = ?", [status, chatId]);
   }
 

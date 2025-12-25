@@ -19,25 +19,47 @@ class AIChatService {
     const botName = (await this.db.getSetting("bot_name")) || "Hocanın Yardımcısı";
     const template = await this.db.getSetting("ai_system_prompt");
 
-    const defaultPrompt = `Sen bir din görevlisinin (imam/hoca) yardımcısı gibi konuşan bir WhatsApp asistanısın.
-Adın "${botName}".
+    const defaultPrompt = `Sen "${botName}" adında, profesyonel ve sıcakkanlı bir karşılama asistanısın. WhatsApp üzerinden insanlarla iletişim kuruyorsun.
 
-Konuşma dili: Türkçe.
-Üslup: sıcak, insani, sakin; gereksiz resmiyetten kaçın. Kısa cümleler kur.
-Kullanıcıya hitap: saygılı ve samimi ("kardeşim" gibi), ama aşırıya kaçma.
+## KİMLİĞİN VE ÜSLUBUN
+- Gerçek bir insan gibi konuş; robotik veya şablon cümlelerden kaçın
+- Samimi ama saygılı ol; "kardeşim" hitabını doğal kullan
+- Kısa ve öz cevaplar ver (2-5 cümle ideal)
+- Emoji kullanımı minimal olsun (sadece gerektiğinde)
+- Türkçe'yi akıcı ve doğal kullan
 
-ÖNEMLİ KURALLAR:
-1) Fetva verme. "Bu konuda en sağlıklısı bir hocaya/din görevlisine danışmak" de.
-2) Diyanet hassasiyetinde, genellemeleri "genel olarak" diye çerçevele.
-3) Kullanıcı büyü/nazar/ailevi kriz/psikolojik zorlanma gibi hassas bir şey söylüyorsa: önce dinle, sakinleştir, sonra hocamızla görüşmeye yönlendir.
-4) Tıbbi/psikolojik acil durum hissedersen: profesyonel yardım/112 öner.
-5) Cevap uzunluğu: 4-8 cümle. Gereksiz ayrıntı yok.
-6) Kaynak iddiası yapma ("kesin böyledir" yerine "genelde" / "çoğu alim" gibi).`;
+## KONUŞMA PRENSİPLERİ
+1. **Empati göster**: Karşındaki kişinin duygularını anla ve yansıt
+2. **Aktif dinle**: Söyleneni özetle ve doğru anladığını teyit et
+3. **Yardımcı ol**: Pratik çözümler sun, yönlendir
+4. **Sabırlı ol**: Tekrarlayan sorulara bile nazik cevap ver
+5. **Profesyonel kal**: Kişisel görüş belirtme, tarafsız ol
+
+## YASAKLAR
+- Fetva verme, dini hüküm bildirme
+- Tıbbi/hukuki tavsiye verme
+- Politik konulara girme
+- Uzun ve akademik cevaplar verme
+- "Ben bir yapay zekayım" deme
+
+## HASSAS KONULAR
+Kullanıcı aşağıdaki konularda yardım isterse:
+- Psikolojik sıkıntı → Sakinleştir, profesyonel yardım öner
+- Acil durum → 112'yi ara demesini söyle
+- Dini soru → "Bu konuda hocamızla görüşmeniz daha sağlıklı olur" de
+- Aile krizi → Dinle, empati göster, uzman yönlendir
+
+## ÖRNEK ÜSLUP
+❌ "Merhaba, size nasıl yardımcı olabilirim?"
+✅ "Hoş geldin kardeşim, bugün nasılsın?"
+
+❌ "Talebiniz alınmıştır. En kısa sürede dönüş yapılacaktır."
+✅ "Tamam kardeşim, not aldım. Hocamız müsait olunca hemen döneriz sana."
+
+❌ "Bu konuda yetkim bulunmamaktadır."
+✅ "Bu konuda en iyisi hocamızla konuşman, o sana daha net bilgi verir."`;
 
     // Karakter (persona) desteği: panelden seçilen karakter promptu eklenir.
-    // settings:
-    // - characters_json: [{"id":"soft","name":"Sıcak & Samimi","prompt":"..."}]
-    // - active_character_id: "soft"
     try {
       const charsJson = await this.db.getSetting("characters_json");
       const activeId = await this.db.getSetting("active_character_id");
@@ -50,8 +72,7 @@ Kullanıcıya hitap: saygılı ve samimi ("kardeşim" gibi), ama aşırıya kaç
             .replace("{full_name}", profile?.full_name || "")
             .replace("{city}", profile?.city || "")
             .replace("{phone}", profile?.phone || "");
-          // Persona promptunu en sona ekle (daha etkili olur)
-          const combined = (template || defaultPrompt) + `\n\nKARAKTER / ÜSLUP AYARI:\n${cPrompt}\n`;
+          const combined = (template || defaultPrompt) + `\n\n## AKTİF KARAKTER ÜSLUBU\n${cPrompt}\n`;
           return combined;
         }
       }
@@ -70,24 +91,32 @@ Kullanıcıya hitap: saygılı ve samimi ("kardeşim" gibi), ama aşırıya kaç
   }
 
   /**
-   * İslami soruları cevapla (Hafıza destekli)
+   * Sohbet geçmişini formatlı şekilde al
+   */
+  async getFormattedHistory(chatId, limit = 8) {
+    try {
+      const history = await this.db.getChatHistory(chatId, limit);
+      return history.map(h => ({
+        role: h.direction === "incoming" ? "user" : "assistant",
+        content: h.content
+      }));
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * Ana sohbet işleyici - insansı cevaplar
    */
   async answerIslamicQuestion(message, context = {}) {
     const { chatId, profile } = context;
     
     // Geçmiş mesajları al (Hafıza)
-    let historyMessages = [];
-    try {
-      const history = await this.db.getChatHistory(chatId, 6);
-      historyMessages = history.map(h => ({
-        role: h.direction === "incoming" ? "user" : "assistant",
-        content: h.content
-      }));
-    } catch (e) {
-      // Hafıza alınamadı, devam et
-    }
-
+    const historyMessages = await this.getFormattedHistory(chatId, 8);
     const systemPrompt = await this.buildSystemPrompt(profile);
+
+    // Kullanıcı adını al
+    const userName = profile?.full_name?.split(/\s+/)[0] || "kardeşim";
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -95,30 +124,85 @@ Kullanıcıya hitap: saygılı ve samimi ("kardeşim" gibi), ama aşırıya kaç
         messages: [
           { role: "system", content: systemPrompt },
           ...historyMessages,
-          { role: "user", content: message }
+          { 
+            role: "user", 
+            content: `[Kullanıcı: ${userName}]\n${message}` 
+          }
         ],
-        temperature: 0.65,
-        max_tokens: 450
+        temperature: 0.75,
+        max_tokens: 350,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.3
       });
 
-      const answer = (response.choices[0].message.content || "").trim();
+      let answer = (response.choices[0].message.content || "").trim();
+      
+      // Çok uzun cevapları kısalt
+      if (answer.length > 500) {
+        const sentences = answer.split(/[.!?]+/);
+        answer = sentences.slice(0, 4).join(". ").trim();
+        if (!answer.endsWith(".") && !answer.endsWith("!") && !answer.endsWith("?")) {
+          answer += ".";
+        }
+      }
 
       return { reply: answer, action: "ai_response" };
     } catch (err) {
       console.error("AI Chat Hatası:", err.message);
+      
+      // Hata durumunda insansı fallback mesajları
+      const fallbacks = [
+        `${userName} kardeşim, bir saniye bekler misin? Şu an biraz yoğunuz, hemen döneceğim.`,
+        `Pardon ${userName} kardeşim, bir aksaklık oldu. Birazdan tekrar yazar mısın?`,
+        `${userName} kardeşim, sistemde ufak bir sorun var. Bir dakika sonra tekrar dener misin?`
+      ];
+      
       return { 
-        reply: "Kardeşim şu an bir yoğunluk var, birazdan tekrar yazar mısın inşallah?",
+        reply: fallbacks[Math.floor(Math.random() * fallbacks.length)],
         action: "ai_error"
       };
     }
   }
 
   /**
-   * Fetva işle
+   * Selamlama cevabı oluştur
+   */
+  async generateGreeting(name, timeOfDay = null) {
+    const hour = new Date().getHours();
+    let greeting = "";
+    
+    if (hour >= 5 && hour < 12) {
+      greeting = "Günaydın";
+    } else if (hour >= 12 && hour < 18) {
+      greeting = "İyi günler";
+    } else if (hour >= 18 && hour < 22) {
+      greeting = "İyi akşamlar";
+    } else {
+      greeting = "İyi geceler";
+    }
+
+    const greetings = [
+      `${greeting} ${name} kardeşim, hoş geldin! Nasılsın bugün?`,
+      `Hoş geldin ${name} kardeşim! ${greeting}, nasıl yardımcı olabilirim?`,
+      `${greeting} ${name} kardeşim! Seni görmek güzel, nasılsın?`,
+      `${name} kardeşim, ${greeting.toLowerCase()}! Bugün sana nasıl yardımcı olabilirim?`
+    ];
+
+    return greetings[Math.floor(Math.random() * greetings.length)];
+  }
+
+  /**
+   * Fetva işle - nazik yönlendirme
    */
   async processFetva(question) {
+    const responses = [
+      `Bu konuda hocamızla görüşmen daha sağlıklı olur kardeşim. İstersen randevu ayarlayabilirim.`,
+      `Güzel soru kardeşim, ama bu tür konularda hocamız sana daha net bilgi verebilir. Görüşme ayarlayalım mı?`,
+      `Bu konuyu hocamıza sormak en doğrusu olur. Müsaitlik durumuna göre sana dönüş yaparız, olur mu?`
+    ];
+    
     return { 
-      reply: `Kardeşim bu konuda hocamızla görüşmen daha sağlıklı olacaktır. İstersen randevu oluşturabilirim.`,
+      reply: responses[Math.floor(Math.random() * responses.length)],
       action: "fetva_redirect"
     };
   }
@@ -137,7 +221,7 @@ Kullanıcıya hitap: saygılı ve samimi ("kardeşim" gibi), ama aşırıya kaç
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
         ],
-        temperature: 0.7,
+        temperature: 0.75,
         max_tokens: 300
       });
 
@@ -149,15 +233,66 @@ Kullanıcıya hitap: saygılı ve samimi ("kardeşim" gibi), ama aşırıya kaç
   }
 
   /**
+   * Duygu analizi - basit
+   */
+  detectEmotion(message) {
+    const lower = message.toLowerCase();
+    
+    const sadWords = ["üzgün", "kötü", "mutsuz", "ağlıyorum", "zor", "sıkıntı", "dert", "problem", "sorun"];
+    const happyWords = ["mutlu", "iyi", "güzel", "harika", "süper", "teşekkür", "sağol"];
+    const angryWords = ["sinir", "kızgın", "öfke", "bıktım", "yeter"];
+    const anxiousWords = ["endişe", "korku", "kaygı", "panik", "stres"];
+
+    if (sadWords.some(w => lower.includes(w))) return "sad";
+    if (happyWords.some(w => lower.includes(w))) return "happy";
+    if (angryWords.some(w => lower.includes(w))) return "angry";
+    if (anxiousWords.some(w => lower.includes(w))) return "anxious";
+    
+    return "neutral";
+  }
+
+  /**
+   * Duyguya göre empati cümlesi
+   */
+  getEmpatheticPrefix(emotion, name) {
+    const prefixes = {
+      sad: [
+        `${name} kardeşim, anlıyorum seni, zor bir dönemden geçiyorsun.`,
+        `Üzüldüğünü hissediyorum ${name} kardeşim.`,
+        `${name} kardeşim, böyle hissetmen çok normal.`
+      ],
+      angry: [
+        `${name} kardeşim, sinirlenmeni anlıyorum.`,
+        `Haklısın ${name} kardeşim, bu durum insanı zorlar.`,
+        `${name} kardeşim, böyle hissetmen gayet normal.`
+      ],
+      anxious: [
+        `${name} kardeşim, endişelenme, birlikte çözeriz.`,
+        `Sakin ol ${name} kardeşim, her şey yoluna girecek inşallah.`,
+        `${name} kardeşim, kaygılanma, yanındayız.`
+      ],
+      happy: [
+        `Ne güzel ${name} kardeşim!`,
+        `Sevindim ${name} kardeşim!`,
+        `Harika ${name} kardeşim!`
+      ]
+    };
+
+    const list = prefixes[emotion];
+    if (list) {
+      return list[Math.floor(Math.random() * list.length)] + " ";
+    }
+    return "";
+  }
+
+  /**
    * WhatsApp media (base64) sesli mesajı metne çevir.
-   * OPENAI_API_KEY yoksa boş döner.
    */
   async transcribeVoiceMedia(media) {
     try {
       if (!process.env.OPENAI_API_KEY) return "";
       if (!media || !media.data || !media.mimetype) return "";
 
-      // Node 22: fetch + FormData hazır
       const buf = Buffer.from(media.data, "base64");
       const ext = (() => {
         const m = String(media.mimetype);
@@ -190,6 +325,11 @@ Kullanıcıya hitap: saygılı ve samimi ("kardeşim" gibi), ama aşırıya kaç
       console.error("Transcribe exception:", err.message);
       return "";
     }
+  }
+
+  // Alias for backward compatibility
+  async transcribeMedia(media) {
+    return this.transcribeVoiceMedia(media);
   }
 }
 
