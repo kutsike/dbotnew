@@ -5,18 +5,17 @@ const qrcode = require("qrcode");
 const qrcodeTerminal = require("qrcode-terminal");
 const path = require("path");
 const os = require("os");
+const fs = require("fs"); // Dosya işlemleri için
 
 const db = require("./db");
 const Router = require("./router");
 
 /**
  * Multi-bot WhatsApp manager.
- *
- * Goals:
- * - Stabil: undefined SQL bind hatalarını engelle
- * - Mesajların karışmasını/döngüye girmesini önle
- * - İnsansı his: okuma+yazma gecikmesi + typing
- * - Voice/ptt desteği: varsa transcribe edip metin olarak işle
+ * * Özellikler:
+ * - İnsansı Davranış: Rastgele bekleme, okuma süresi, yazma simülasyonu.
+ * - Stabilite: Mesaj kuyruğu (Lock mekanizması).
+ * - Sesli Mesaj: Transkripsiyon desteği.
  */
 class BotManager {
   constructor(config) {
@@ -41,54 +40,24 @@ class BotManager {
 getDefaultCharacters() {
   return [
     {
-      id: "warm",
+      id: "soft",
       name: "Sıcak & Samimi",
-      prompt: `Sıcak, samimi ve içten bir üslup kullan.
-- "Kardeşim" hitabını doğal şekilde kullan
-- Kısa ve öz cevaplar ver (2-4 cümle)
-- Emoji kullanma
-- Sohbet eder gibi, akıcı konuş
-- Empati göster, dinlediğini hissettir`
+      prompt: "Sıcak, insani ve sohbet eder gibi konuş. Kardeşim hitabını kullan. Kısa ama içten ol."
     },
     {
-      id: "professional",
-      name: "Profesyonel",
-      prompt: `Profesyonel ve ölçülü bir üslup kullan.
-- Saygılı ama mesafeli ol
-- Net ve bilgilendirici cevaplar ver
-- Gereksiz samimiyetten kaçın
-- "Siz" hitabını tercih et
-- İş odaklı ve çözüm merkezli ol`
+      id: "formal",
+      name: "Resmi",
+      prompt: "Daha resmi, ölçülü ve bilgilendirici konuş."
     },
     {
-      id: "empathetic",
-      name: "Empatik Dinleyici",
-      prompt: `Empatik ve anlayışlı bir üslup kullan.
-- Önce duyguyu yansıt ve onayla
-- Sakinleştirici ve destekleyici ol
-- "Anlıyorum", "Haklısın" gibi ifadeler kullan
-- Yargılamadan dinle
-- Çözüm sunmadan önce dinlediğini göster`
+      id: "empathy",
+      name: "Duygusal Destek",
+      prompt: "Önce duyguyu yansıt, sakinleştirici ve anlayışlı ol."
     },
     {
       id: "wise",
-      name: "Bilge & Sakin",
-      prompt: `Bilge ve sakin bir üslup kullan.
-- Az ama öz konuş
-- Hikmetli ve düşündürücü cümleler kur
-- Acele etme, sabırlı ol
-- Nasihat verirken yumuşak ol
-- Derin ve anlamlı cevaplar ver`
-    },
-    {
-      id: "friendly",
-      name: "Arkadaş Canlısı",
-      prompt: `Arkadaş canlısı ve enerjik bir üslup kullan.
-- Pozitif ve neşeli ol
-- Rahat ve samimi konuş
-- Espri yapabilirsin (uygun zamanda)
-- Motive edici ol
-- "Sen" hitabını kullan`
+      name: "Bilge",
+      prompt: "Az konuş ama derin konuş. Hikmetli ve yumuşak bir üslup kullan."
     }
   ];
 }
@@ -170,7 +139,19 @@ getDefaultCharacters() {
     client.on("message", async (msg) => {
       // Kendi mesajlarımızı atla
       if (msg.fromMe) return;
-
+// ÇİFT MESAJ KONTROLÜ (YENİ)
+      // Mesaj ID'si veritabanında var mı?
+      const isProcessed = await this.db.messageExists(msg.id.id);
+      if (isProcessed) {
+        console.log(`⚠️ Tekrar eden mesaj engellendi: ${msg.id.id}`);
+        return;
+      }
+      // ENGELLEME KONTROLÜ (YENİ)
+      const profileCheck = await this.db.getProfile(msg.from, id);
+      if (profileCheck && profileCheck.is_blocked) {
+        console.log(`🚫 Engelli kullanıcıdan mesaj geldi, yoksayılıyor: ${msg.from}`);
+        return; // Hiçbir şey yapma
+      }
       // Grup mesajlarını atla
       if (String(msg.from || "").includes("@g.us")) return;
 
@@ -183,6 +164,7 @@ getDefaultCharacters() {
             const frozenMessage = botRow?.frozen_message || "Şu anda müsait değilim, biraz sonra tekrar yazabilir misiniz?";
             const redirectPhone = botRow?.redirect_phone;
             const out = redirectPhone ? `${frozenMessage}\n\nGüncel numara: ${redirectPhone}` : frozenMessage;
+            // Dondurulmuş olsa bile insansı gönder
             await this._humanSend(client, chatId, out, { incomingText: msg.body || "" });
             return;
           }
@@ -194,7 +176,7 @@ getDefaultCharacters() {
           if (!body) return;
           console.log(`[${id}] Gelen: ${body.substring(0, 70)}...`);
 
-          // Profil oluştur / al (bot bazlı ayır)
+          // Profil oluştur / al
           let profile = await this.db.getProfile(chatId, id);
           if (!profile) profile = await this.db.createProfile(chatId, id);
 
@@ -204,7 +186,7 @@ getDefaultCharacters() {
             const contact = await msg.getContact();
             contactName = contact?.pushname || contact?.name || profile?.full_name || "kardeşim";
 
-            // profil foto URL (best-effort)
+            // Profil foto URL güncelle
             try {
               const url = await contact.getProfilePicUrl();
               if (url && url !== profile?.profile_photo_url) {
@@ -216,8 +198,8 @@ getDefaultCharacters() {
             contactName = profile?.full_name || "kardeşim";
           }
 
-          // Mesajı kaydet
-          await this.db.saveMessage(
+          // Gelen Mesajı kaydet
+         await this.db.saveMessage(
             this._sanitizeValues({
               chatId,
               profileId: profile?.id,
@@ -227,10 +209,11 @@ getDefaultCharacters() {
               type: (msg.type || "chat").substring(0, 50),
               senderName: profile?.full_name || contactName || "Kullanıcı",
               mediaType: msg.type || null,
+              wwebId: msg.id.id // <--- YENİ EKLENEN KISIM
             })
           );
 
-          // Panel'e bildir (incoming)
+          // Panel'e bildir
           if (this.io) {
             this.io.emit("newMessage", {
               clientId: id,
@@ -242,7 +225,7 @@ getDefaultCharacters() {
             });
           }
 
-          // Router
+          // Router ile cevabı üret (AMA HENÜZ GÖNDERME)
           const response = await this.router.handleMessage(msg, client, id, {
             name: contactName,
             profile,
@@ -252,8 +235,28 @@ getDefaultCharacters() {
           const replyText = this._normalizeRouterReply(response);
           if (!replyText) return;
 
-          // Gönder (insansı)
-          await this._humanSend(client, chatId, replyText, { incomingText: body });
+          // --- İNSANSI BEKLEME MANTIĞI (Burada başlıyor) ---
+          const delayService = this.router.messageDelay;
+          let readWait = 0;
+
+          // Eğer delay servisi varsa hesaplat
+          if (delayService && delayService.calculateDelays) {
+            // calculateDelays bize { readDelay, typeDelay } döner.
+            // readDelay: Okuma süresi + Rastgele bekleme (1-10 dk) + Uzun mesaj bonusu
+            const delays = await delayService.calculateDelays(body, replyText);
+            readWait = delays.readDelay;
+          }
+
+          // 1. ADIM: Okuma ve Düşünme Beklemesi (Hiçbir şey yapmadan bekle)
+          if (readWait > 0) {
+            console.log(`[${id}] ⏳ Düşünme Molası: ${(readWait / 1000).toFixed(1)} sn boyunca bekleniyor...`);
+            // İstersen burada "görüldü" atabilirsin: await msg.markSeen();
+            await new Promise(resolve => setTimeout(resolve, readWait));
+          }
+
+          // 2. ADIM: Yazma Efekti ve Gönderme (Parçalı)
+          // _humanSend fonksiyonu metni parçalara böler ve her parça için "Yazıyor..." efekti verir.
+          await this._humanSend(client, chatId, replyText);
 
           // Kaydet (outgoing)
           await this.db.saveMessage(
@@ -267,15 +270,14 @@ getDefaultCharacters() {
               senderName: "Bot",
             })
           );
-          console.log(`[${id}] Yanıt: ${replyText.substring(0, 70)}...`);
+          console.log(`[${id}] Yanıt gönderildi.`);
 
         } catch (err) {
           console.error(`[${id}] Mesaj işleme hatası:`, err?.message || err);
-          // Kullanıcıya tek satır özür (sonsuz döngü olmasın diye burada send yok)
         }
       };
 
-      // Chat bazlı lock
+      // Chat bazlı lock (Sıraya alma)
       const prev = this.chatLocks.get(chatId) || Promise.resolve();
       const next = prev
         .catch(() => {})
@@ -286,16 +288,12 @@ getDefaultCharacters() {
       this.chatLocks.set(chatId, next);
     });
 
-    // Disconnected
+    // Disconnected handler
     client.on("disconnected", async (reason) => {
       console.log(`⚠️ Bot ${id} bağlantısı kesildi:`, reason);
-      try {
-        await this.db.updateClient(id, this._sanitizeValues({ status: "disconnected" }));
-      } catch (_) {}
+      try { await this.db.updateClient(id, this._sanitizeValues({ status: "disconnected" })); } catch (_) {}
       if (this.io) this.io.emit("clientDisconnected", { clientId: id, reason });
       this.clients.delete(id);
-
-      // reconnect
       setTimeout(() => {
         console.log(`🔄 Bot ${id} yeniden bağlanıyor...`);
         this.addClient(id, name);
@@ -304,9 +302,7 @@ getDefaultCharacters() {
 
     client.on("auth_failure", async (msg) => {
       console.error(`❌ Bot ${id} kimlik doğrulama hatası:`, msg);
-      try {
-        await this.db.updateClient(id, this._sanitizeValues({ status: "disconnected" }));
-      } catch (_) {}
+      try { await this.db.updateClient(id, this._sanitizeValues({ status: "disconnected" })); } catch (_) {}
     });
 
     this.clients.set(id, client);
@@ -314,18 +310,14 @@ getDefaultCharacters() {
       await client.initialize();
     } catch (err) {
       console.error(`❌ Bot ${id} başlatma hatası:`, err?.message || err);
-      try {
-        await this.db.updateClient(id, this._sanitizeValues({ status: "disconnected" }));
-      } catch (_) {}
+      try { await this.db.updateClient(id, this._sanitizeValues({ status: "disconnected" })); } catch (_) {}
     }
   }
 
   async removeClient(id) {
     const client = this.clients.get(id);
     if (client) {
-      try {
-        await client.destroy();
-      } catch (_) {}
+      try { await client.destroy(); } catch (_) {}
       this.clients.delete(id);
     }
     await this.db.deleteClient(id);
@@ -334,10 +326,7 @@ getDefaultCharacters() {
   }
 
   async freezeClient(id, message, redirectPhone) {
-    await this.db.updateClient(
-      id,
-      this._sanitizeValues({ frozen: 1, frozen_message: message || null, redirect_phone: redirectPhone || null })
-    );
+    await this.db.updateClient(id, this._sanitizeValues({ frozen: 1, frozen_message: message || null, redirect_phone: redirectPhone || null }));
     console.log(`❄️ Bot ${id} donduruldu`);
   }
 
@@ -346,11 +335,12 @@ getDefaultCharacters() {
     console.log(`🔥 Bot ${id} aktif edildi`);
   }
 
+  // Admin panelinden manuel mesaj gönderimi
   async sendMessage(clientId, chatId, message) {
     const client = this.clients.get(clientId);
     if (!client) throw new Error("Bot bulunamadı");
 
-    await this._humanSend(client, chatId, message, { incomingText: "" });
+    await this._humanSend(client, chatId, message);
 
     const profile = await this.db.getProfile(chatId, clientId);
     await this.db.saveMessage(
@@ -367,9 +357,7 @@ getDefaultCharacters() {
     return true;
   }
 
-  getQRCode(id) {
-    return this.qrCodes.get(id);
-  }
+  getQRCode(id) { return this.qrCodes.get(id); }
 
   getClientStatus(id) {
     const client = this.clients.get(id);
@@ -395,63 +383,80 @@ getDefaultCharacters() {
     return "";
   }
 
-  async _getSettingCached(key) {
-    const now = Date.now();
-    if (now - this._settingsCacheAt > 30_000) {
-      this._settingsCache.clear();
-      this._settingsCacheAt = now;
-    }
-    if (this._settingsCache.has(key)) return this._settingsCache.get(key);
-    const v = await this.db.getSetting(key);
-    this._settingsCache.set(key, v);
-    return v;
-  }
-
-  async _getBoolSetting(key, fallback = false) {
+  async _humanSend(client, chatId, text) {
+    // Ayarları DB'den çek (JSON formatında)
+    const configStr = await this.db.getSetting("humanization_config");
+    let config = {
+      enabled: true,
+      split_messages: true,
+      split_threshold: 240,
+      cpm_typing: 300, // Varsayılan yazma hızı (Karakter/Dakika)
+      typing_variance: 20
+    };
+    
     try {
-      const v = await this._getSettingCached(key);
-      if (v === null || v === undefined || v === "") return fallback;
-      return String(v).toLowerCase() === "true" || String(v) === "1" || String(v).toLowerCase() === "on";
-    } catch (_) {
-      return fallback;
-    }
-  }
+      if (configStr) {
+        const parsed = JSON.parse(configStr);
+        Object.assign(config, parsed);
+        // Eski ayarlarla uyumluluk (ayrı key'ler varsa)
+        config.split_messages = await this._getBoolSetting("split_messages", true);
+        const st = await this.db.getSetting("split_threshold");
+        if (st) config.split_threshold = Number(st);
+      }
+    } catch (_) {}
 
-  async _humanSend(client, chatId, text, { incomingText }) {
-    const showTyping = await this._getBoolSetting("show_typing_indicator", true);
-    const splitEnabled = await this._getBoolSetting("split_messages", true);
-    const splitThreshold = Number(await this._getSettingCached("split_threshold")) || 240;
-    const chunks = splitEnabled ? this._splitResponse(String(text || ""), splitThreshold) : [String(text || "")];
+    // Parçalara böl
+    const chunks = config.split_messages 
+      ? this._splitResponse(String(text || ""), config.split_threshold || 240) 
+      : [String(text || "")];
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       if (!chunk) continue;
 
-      // okuma/yazma gecikmesi
-      try {
-        const delaySvc = this.router?.messageDelay;
-        if (delaySvc?.applyDelay) {
-          await delaySvc.applyDelay(incomingText || "", chunk);
-        }
-      } catch (_) {}
+      // Yazma Hızı Hesaplama (Karakter Sayısı / CPM * 60)
+      let typeTime = 0;
+      if (config.enabled) {
+        const charCount = chunk.length;
+        // CPM (Characters Per Minute) -> Saniye
+        typeTime = (charCount / (config.cpm_typing || 300)) * 60;
+        
+        // Varyasyon ekle (Doğallık için ±%variance)
+        const variance = (Math.random() * (config.typing_variance || 20) * 2 - (config.typing_variance || 20)) / 100;
+        typeTime = typeTime * (1 + variance);
+        
+        // Minimum 1.5 saniye yazıyor görünsün
+        if (typeTime < 1.5) typeTime = 1.5;
+      }
 
-      if (showTyping) {
+      // "Yazıyor..." gönder
+      if (config.enabled && typeTime > 0) {
         try {
           const chat = await client.getChatById(chatId);
           if (chat?.sendStateTyping) await chat.sendStateTyping();
         } catch (_) {}
+        
+        // Hesaplanan süre kadar bekle
+        await new Promise(r => setTimeout(r, typeTime * 1000));
       }
 
+      // Mesajı Gönder
       await client.sendMessage(chatId, chunk);
 
+      // Parçalar arası küçük bir nefes (0.5 - 1 sn)
       if (i < chunks.length - 1) {
-        // parçalar arası küçük nefes
-        try {
-          const delaySvc = this.router?.messageDelay;
-          if (delaySvc?.delay) await delaySvc.delay(350 + Math.round(Math.random() * 450));
-        } catch (_) {}
+        await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
       }
     }
+  }
+
+  // Helper: Eski tip boolean ayarları desteklemek için
+  async _getBoolSetting(key, fallback = false) {
+    try {
+      const v = await this.db.getSetting(key);
+      if (v === null || v === undefined || v === "") return fallback;
+      return String(v).toLowerCase() === "true" || String(v) === "1" || String(v).toLowerCase() === "on";
+    } catch (_) { return fallback; }
   }
 
   _splitResponse(text, maxLen = 240) {
@@ -459,28 +464,16 @@ getDefaultCharacters() {
     if (!cleaned) return [];
     if (cleaned.length <= maxLen) return [cleaned];
 
-    const parts = cleaned
-      .split(/(?<=[\.\!\?…])\s+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-
+    const parts = cleaned.split(/(?<=[\.\!\?…])\s+/).map((s) => s.trim()).filter(Boolean);
     const out = [];
     let buf = "";
     for (const p of parts) {
-      if (!buf) {
-        buf = p;
-        continue;
-      }
-      if ((buf + " " + p).length <= maxLen) {
-        buf += " " + p;
-      } else {
-        out.push(buf);
-        buf = p;
-      }
+      if (!buf) { buf = p; continue; }
+      if ((buf + " " + p).length <= maxLen) { buf += " " + p; } 
+      else { out.push(buf); buf = p; }
     }
     if (buf) out.push(buf);
 
-    // hâlâ uzunsa sert kes
     const finalOut = [];
     for (const chunk of out) {
       if (chunk.length <= maxLen) finalOut.push(chunk);
@@ -492,35 +485,32 @@ getDefaultCharacters() {
   }
 
   async _extractInboundText(msg) {
-    // Text mesaj
     if (msg.type === "chat") return msg.body || "";
 
-    // Sesli mesaj (ptt) / audio
     const voiceTypes = new Set(["ptt", "audio"]);
     if (voiceTypes.has(msg.type) && msg.hasMedia) {
+      let tmpPath = null;
       try {
         const media = await msg.downloadMedia();
         if (!media?.data) return "";
         const buf = Buffer.from(media.data, "base64");
+        
+        // Geçici dosya oluştur
+        tmpPath = path.join(os.tmpdir(), `voice_${Date.now()}_${Math.random().toString(16).slice(2)}.ogg`);
+        fs.writeFileSync(tmpPath, buf);
 
-        const tmp = path.join(os.tmpdir(), `voice_${Date.now()}_${Math.random().toString(16).slice(2)}.ogg`);
-        require("fs").writeFileSync(tmp, buf);
-
-        // Router üzerinden transcribe (OpenAI varsa)
-        const transcript = await this.router?.transcribeVoice?.(tmp);
-        try { require("fs").unlinkSync(tmp); } catch (_) {}
-
-        if (transcript && typeof transcript === "string") {
-          return transcript.trim();
-        }
+        // Transcribe et
+        const transcript = await this.router?.transcribeVoice?.(tmpPath);
+        if (transcript && typeof transcript === "string") return transcript.trim();
         return "";
       } catch (err) {
         console.error("🔊 Sesli mesaj işleme hatası:", err?.message || err);
         return "";
+      } finally {
+        // Dosyayı her durumda temizle
+        if (tmpPath) { try { fs.unlinkSync(tmpPath); } catch (_) {} }
       }
     }
-
-    // Diğer medya türleri için: varsa body
     return msg.body || "";
   }
 }

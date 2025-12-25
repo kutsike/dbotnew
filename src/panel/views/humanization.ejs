@@ -1,0 +1,119 @@
+<%- include('partials/header') %>
+
+<div class="container-fluid p-0">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-3">İnsanlaştırma & Karakter Ayarları</h1>
+            <p class="text-muted">Botun robotik hissini yok etmek için tepki sürelerini ve yazma hızlarını buradan en ince detayına kadar ayarlayabilirsin.</p>
+        </div>
+    </div>
+
+    <% if (typeof saved !== 'undefined') { %>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Ayarlar başarıyla kaydedildi!
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    <% } %>
+
+    <form action="/humanization" method="POST">
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-0">İnsanlaştırma Modu</h5>
+                            <small class="text-muted">Kapalıyken bot anında cevap verir.</small>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="enabled" name="enabled" style="width: 3em; height: 1.5em;" <%= config.enabled ? 'checked' : '' %>>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">🕒 Tepki Süresi (Düşünme Payı)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Minimum Bekleme (Saniye)</span>
+                                <span class="fw-bold" id="minVal"><%= config.min_response_delay %> sn</span>
+                            </label>
+                            <input type="range" class="form-range" name="min_response_delay" min="0" max="1800" step="10" value="<%= config.min_response_delay %>" oninput="document.getElementById('minVal').innerText = this.value + ' sn'">
+                            <div class="form-text">Mesajı okuduktan sonra en az ne kadar beklesin? (Örn: 1 dakika = 60 sn)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Maksimum Bekleme (Saniye)</span>
+                                <span class="fw-bold" id="maxVal"><%= config.max_response_delay %> sn</span>
+                            </label>
+                            <input type="range" class="form-range" name="max_response_delay" min="60" max="3600" step="30" value="<%= config.max_response_delay %>" oninput="document.getElementById('maxVal').innerText = this.value + ' sn'">
+                            <div class="form-text">Bot bu iki değer arasında RASTGELE bir süre bekler. (Örn: 10 dakika = 600 sn)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">⚡ Okuma ve Yazma Hızı</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Okuma Hızı (Kelime/Dakika)</label>
+                                <input type="number" class="form-control" name="wpm_reading" value="<%= config.wpm_reading %>">
+                                <div class="form-text">Ortalama insan: 200-250</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Yazma Hızı (Karakter/Dakika)</label>
+                                <input type="number" class="form-control" name="cpm_typing" value="<%= config.cpm_typing %>">
+                                <div class="form-text">Mobil yazma hızı: 180-300</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Yazma Hızı Değişkenliği (±%)</label>
+                                <input type="range" class="form-range" name="typing_variance" min="0" max="50" value="<%= config.typing_variance %>">
+                                <div class="form-text">Yazma hızı her mesajda %<%= config.typing_variance %> oranında rastgele değişir (Doğallık katar).</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark bg-opacity-10">
+                        <h5 class="card-title mb-0">📜 Uzun Mesaj Algoritması</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label">Uzun Mesaj Eşiği (Karakter)</label>
+                                <input type="number" class="form-control" name="long_message_threshold" value="<%= config.long_message_threshold %>">
+                                <div class="form-text">Bu karakter sayısını geçerse mesaj "uzun" sayılır.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Ekstra Bekleme Süresi (Saniye)</label>
+                                <input type="number" class="form-control" name="long_message_extra_delay" value="<%= config.long_message_extra_delay %>">
+                                <div class="form-text">Uzun mesaj geldiğinde okuma süresine eklenecek ekstra süre (+1 dk = 60).</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary btn-lg w-100">
+                    <i class="bi bi-save"></i> Ayarları Kaydet
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<%- include('partials/footer') %>

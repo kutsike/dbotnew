@@ -17,7 +17,7 @@ function startPanel({ manager, port, host }) {
   const server = http.createServer(app);
   const io = socketIo(server, { cors: { origin: "*" } });
 
-  // Basic Auth
+  // Basic Auth (Tüm sayfalar şifreli)
   const adminUser = process.env.ADMIN_USER || "admin";
   const adminPass = process.env.ADMIN_PASS || "diyanet123";
   app.use(
@@ -30,7 +30,16 @@ function startPanel({ manager, port, host }) {
   app.set("view engine", "ejs");
   app.set("views", path.join(__dirname, "views"));
   app.use(express.static(path.join(__dirname, "public")));
+  
+  // Form verileri için
+  app.use(express.urlencoded({ extended: true }));
   app.use(express.json({ limit: "2mb" }));
+
+  // --- HATA DÜZELTME: Tüm görünümlere 'path' değişkenini gönder ---
+  app.use((req, res, next) => {
+    res.locals.path = req.path;
+    next();
+  });
 
   // ========= PAGES =========
   app.get("/", async (req, res) => {
@@ -58,33 +67,32 @@ function startPanel({ manager, port, host }) {
   });
 
   // WhatsApp-like inbox
-app.get("/whatsapp", async (req, res) => {
-  try {
-    const profiles = await manager.db.getProfiles();
+  app.get("/whatsapp", async (req, res) => {
+    try {
+      const profiles = await manager.db.getProfiles();
+      const chats = profiles.map(p => ({
+        chat_id: p.chat_id,
+        full_name: p.full_name || p.phone || "Bilinmeyen",
+        profile_photo_url: p.profile_photo_url || p.profile_pic_url || null,
+        last_message_at: p.last_message_at,
+        msg_count: p.msg_count || 0,
+        client_id: p.client_id
+      }));
 
-    const chats = profiles.map(p => ({
-      chat_id: p.chat_id,
-      full_name: p.full_name || p.phone || "Bilinmeyen",
-      profile_photo_url: p.profile_pic_url || null,
-      last_message_at: p.last_message_at,
-      msg_count: p.msg_count || 0,
-      client_id: p.client_id
-    }));
-
-    res.render("whatsapp", {
-      title: "WhatsApp",
-      page: "whatsapp",
-      chats
-    });
-  } catch (err) {
-    console.error("WhatsApp panel hatası:", err);
-    res.render("whatsapp", {
-      title: "WhatsApp",
-      page: "whatsapp",
-      chats: []
-    });
-  }
-});
+      res.render("whatsapp", {
+        title: "WhatsApp",
+        page: "whatsapp",
+        chats
+      });
+    } catch (err) {
+      console.error("WhatsApp panel hatası:", err);
+      res.render("whatsapp", {
+        title: "WhatsApp",
+        page: "whatsapp",
+        chats: []
+      });
+    }
+  });
 
   // Sohbetler (eski sayfa) -> whatsapp
   app.get("/chats", (req, res) => res.redirect("/whatsapp"));
@@ -166,7 +174,6 @@ app.get("/whatsapp", async (req, res) => {
       asList(settings).forEach((s) => (map[s.key] = s.value));
 
       const defaultCharacters = manager.getDefaultCharacters();
-
       let chars = [];
       try {
         chars = map.characters_json ? JSON.parse(map.characters_json) : [];
@@ -175,7 +182,7 @@ app.get("/whatsapp", async (req, res) => {
       }
       if (!Array.isArray(chars) || chars.length === 0) chars = defaultCharacters;
 
-      const activeId = map.active_character_id || chars[0]?.id || "soft";
+      const activeId = map.active_character_id || chars[0]?.id || "warm";
       res.render("character", {
         title: "Karakter Ayarları",
         page: "character",
@@ -206,7 +213,70 @@ app.get("/whatsapp", async (req, res) => {
     }
   });
 
+  // Humanization Settings (GET)
+  app.get("/humanization", async (req, res) => {
+    const configStr = await manager.db.getSetting("humanization_config");
+    let config = {
+      enabled: true, min_response_delay: 60, max_response_delay: 600,
+      wpm_reading: 200, cpm_typing: 300, long_message_threshold: 150,
+      long_message_extra_delay: 60, typing_variance: 20
+    };
+    try { if(configStr) Object.assign(config, JSON.parse(configStr)); } catch(e){}
+    
+    res.render("humanization", { 
+      title: "İnsanlaştırma Ayarları",
+      page: "humanization", 
+      config,
+      saved: req.query.saved === 'true'
+    });
+  });
+
+  // Humanization Settings (POST)
+  app.post("/humanization", async (req, res) => {
+    const newConfig = {
+      enabled: req.body.enabled === "on",
+      min_response_delay: parseInt(req.body.min_response_delay) || 60,
+      max_response_delay: parseInt(req.body.max_response_delay) || 600,
+      wpm_reading: parseInt(req.body.wpm_reading) || 200,
+      cpm_typing: parseInt(req.body.cpm_typing) || 300,
+      long_message_threshold: parseInt(req.body.long_message_threshold) || 150,
+      long_message_extra_delay: parseInt(req.body.long_message_extra_delay) || 60,
+      typing_variance: parseInt(req.body.typing_variance) || 20,
+    };
+
+    await manager.db.setSetting("humanization_config", JSON.stringify(newConfig));
+    res.redirect("/humanization?saved=true");
+  });
+
   // ========= API =========
+  // Kullanıcı Analizi Yap
+  app.post("/api/chat/:chatId/analyze", async (req, res) => {
+    try {
+      const profile = await manager.db.getProfile(req.params.chatId);
+      if (!profile) return res.json({ success: false, error: "Profil bulunamadı" });
+
+      if (manager.router?.aiChat) {
+        const analysis = await manager.router.aiChat.analyzeUserCharacter(profile);
+        await manager.db.saveAiAnalysis(req.params.chatId, analysis);
+        res.json({ success: true, analysis });
+      } else {
+        res.json({ success: false, error: "AI kapalı" });
+      }
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Engelle / Engel Kaldır
+  app.post("/api/chat/:chatId/block", async (req, res) => {
+    try {
+      const { blocked } = req.body; // true veya false
+      await manager.db.toggleBlockProfile(req.params.chatId, blocked);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
 
   app.get("/api/stats", async (req, res) => {
     try {

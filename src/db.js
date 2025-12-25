@@ -19,10 +19,10 @@ class Database {
     try {
       this.pool = mysql.createPool({
         host: process.env.DB_HOST || "127.0.0.1",
-        port: Number(process.env.DB_PORT || 3306),
-        user: process.env.DB_USER,
-        password: process.env.DB_PASS,
-        database: process.env.DB_NAME,
+        port: Number(process.env.MYSQL_PORT || 3306),
+        user: process.env.MYSQL_USER,
+        password: process.env.MYSQL_PASSWORD,
+        database: process.env.MYSQL_DATABASE,
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
@@ -163,7 +163,18 @@ async ensureSchema() {
       "ALTER TABLE profiles ADD COLUMN last_message_at DATETIME NULL",
       "ALTER TABLE profiles ADD COLUMN conversation_started_at DATETIME NULL",
       "ALTER TABLE profiles ADD COLUMN msg_count INT NOT NULL DEFAULT 0",
-      "ALTER TABLE profiles ADD COLUMN profile_pic_url TEXT NULL"
+      
+      // HATA 1 ÇÖZÜMÜ: Bu satırı ekleyin (Eksik olan sütun)
+      "ALTER TABLE profiles ADD COLUMN last_seen_at DATETIME NULL",
+
+      // HATA 2 ÇÖZÜMÜ (Öneri): BotManager.js 'profile_photo_url' kullanıyor ama burada 'profile_pic_url' denmiş. 
+      // Doğrusu 'profile_photo_url' olmalı:
+      "ALTER TABLE profiles ADD COLUMN profile_photo_url TEXT NULL",
+      // (Eski satır: "ALTER TABLE profiles ADD COLUMN profile_pic_url TEXT NULL" şeklindeydi, değiştirebilirsiniz)
+      "ALTER TABLE messages ADD COLUMN message_wweb_id VARCHAR(255) UNIQUE NULL",
+      "ALTER TABLE profiles ADD COLUMN is_blocked TINYINT(1) DEFAULT 0",
+      "ALTER TABLE profiles ADD COLUMN ai_analysis TEXT NULL",
+      "ALTER TABLE profiles ADD COLUMN job VARCHAR(100) NULL" // Meslek alanı eksikse
     ];
 
     for (const sql of alters) {
@@ -174,8 +185,16 @@ async ensureSchema() {
       }
     }
   }
-
-  async initDefaultSettings() {
+  // Ayrıca profili engelleme metodu ekleyelim
+  async toggleBlockProfile(chatId, blockStatus) {
+    await this.pool.execute("UPDATE profiles SET is_blocked = ? WHERE chat_id = ?", [blockStatus ? 1 : 0, chatId]);
+  }
+  
+  // AI Analizini kaydetme metodu
+  async saveAiAnalysis(chatId, analysis) {
+    await this.pool.execute("UPDATE profiles SET ai_analysis = ? WHERE chat_id = ?", [analysis, chatId]);
+  }
+async initDefaultSettings() {
     const defaults = [
       ["bot_name", "Hocanın Yardımcısı"],
       ["greeting", "Selamün aleyküm {name} kardeşim, hoş geldin. Nasıl yardımcı olabilirim?"],
@@ -188,9 +207,21 @@ async ensureSchema() {
       [
         "ai_system_prompt",
         "Sen bir din görevlisinin (imam/hoca) yardımcısı gibi konuşan bir WhatsApp asistanısın. Adın \"{bot_name}\".\n\nKullanıcıya sıcak ve insani bir dille konuş; kısa ve net ol.\n\nKurallar: Fetva verme; genel bilgi ver ve gerektiğinde \"Hocamızla görüşmek en sağlıklısı\" de. Hassas durumlarda sakinleştirip hocaya yönlendir. Tıbbi/psikolojik acil durumda profesyonel yardım/112 öner.\n\nKullanıcı bilgileri: ad={full_name}, şehir={city}."
-      ]
+      ],
+      // YENİ İNSANLAŞTIRMA AYARLARI BURAYA EKLENDİ
+      ["humanization_config", JSON.stringify({
+        enabled: true,
+        min_response_delay: 60,   // En az bekleme (saniye) -> 1 dk
+        max_response_delay: 600,  // En fazla bekleme (saniye) -> 10 dk
+        wpm_reading: 200,         // Okuma hızı (Kelime/Dakika)
+        cpm_typing: 300,          // Yazma hızı (Karakter/Dakika)
+        long_message_threshold: 150, // Uzun mesaj sınırı (karakter)
+        long_message_extra_delay: 60, // Uzun mesaj için ek bekleme (saniye)
+        typing_variance: 20       // Yazma hızında % kaç sapma olsun
+      })]
     ];
 
+    // Döngü burada başlıyor (Dizinin dışında olmalı)
     for (const [key, value] of defaults) {
       try {
         await this.pool.execute(
@@ -198,7 +229,7 @@ async ensureSchema() {
           [key, value]
         );
       } catch (err) {
-        // Hata varsa geç
+        // Hata varsa geç (zaten ekliyse)
       }
     }
   }
@@ -325,22 +356,39 @@ async ensureSchema() {
 
   // ==================== MESSAGE METODLARI ====================
 
+ // YENİ METOD: Mesajın daha önce işlenip işlenmediğini kontrol et
+  async messageExists(wwebId) {
+    if (!wwebId) return false;
+    const [rows] = await this.pool.execute("SELECT id FROM messages WHERE message_wweb_id = ?", [wwebId]);
+    return rows.length > 0;
+  }
+
+  // saveMessage metodunu güncelle (wwebId parametresini ekle)
   async saveMessage(data) {
-    const { chatId, profileId, clientId, direction, content, type, senderName } = data;
+    // wwebId'yi al, yoksa null geç
+    const { chatId, profileId, clientId, direction, content, type, senderName, wwebId } = data;
+    
+    // Eğer ID varsa ve daha önce kaydedildiyse tekrar kaydetme (Güvenlik önlemi)
+    if (wwebId && await this.messageExists(wwebId)) {
+        return; 
+    }
+
     const safeType = (type || 'chat').substring(0, 50);
     const safeContent = (content === undefined ? null : content);
     
     await this.pool.execute(
-      `INSERT INTO messages (chat_id, profile_id, client_id, direction, content, type, sender_name) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [chatId, profileId || null, clientId, direction, safeContent, safeType, senderName || null]
+      `INSERT INTO messages (chat_id, profile_id, client_id, direction, content, type, sender_name, message_wweb_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [chatId, profileId || null, clientId, direction, safeContent, safeType, senderName || null, wwebId || null]
     );
 
-    // metrikler
-    await this.pool.execute(
-      "UPDATE profiles SET msg_count = COALESCE(msg_count,0) + 1, last_message_at = NOW(), last_seen_at = NOW() WHERE chat_id = ?",
-      [chatId]
-    );
+    // İstatistikleri güncelle
+    if (direction === 'incoming') {
+        await this.pool.execute(
+          "UPDATE profiles SET msg_count = COALESCE(msg_count,0) + 1, last_message_at = NOW(), last_seen_at = NOW() WHERE chat_id = ?",
+          [chatId]
+        );
+    }
   }
 
   async getChatHistory(chatId, limit = 10) {
