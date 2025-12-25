@@ -1,0 +1,162 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2><i class="fas fa-cog"></i> Ayarlar</h2>
+</div>
+
+<form id="settings-form">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-comment-dots"></i> Bot Mesajları</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Bot Adı</label>
+        <input type="text" name="bot_name" class="form-control" value="<%= settings.bot_name || 'Hocanın Yardımcısı' %>">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Karşılama Mesajı</label>
+        <textarea name="greeting" class="form-control" rows="2"><%= settings.greeting || '{name} kardeşim, hoş geldin. Nasıl yardımcı olabilirim?' %></textarea>
+        <small class="text-muted">{name} kullanıcı adı ile değiştirilir</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Devir Mesajı (Hocayla görüşme talebi)</label>
+        <textarea name="handoff_message" class="form-control" rows="2"><%= settings.handoff_message || 'İnşallah hocamızla görüştürmek için not aldım kardeşim. En kısa sürede dönüş yapılacaktır.' %></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Profil Tamamlandı Mesajı</label>
+        <textarea name="profile_complete_message" class="form-control" rows="2"><%= settings.profile_complete_message || '{name} kardeşim, bilgilerini aldım. Hocamızın müsaitliğine göre sana dönüş yapacağım inşallah.' %></textarea>
+        <small class="text-muted">{name} otomatik doldurulur</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Bot Dondurma Mesajı</label>
+        <textarea name="frozen_message" class="form-control" rows="2"><%= settings.frozen_message || 'Şu an müsait değilim kardeşim, biraz sonra tekrar yazar mısın?' %></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-user-clock"></i> Mesaj Gecikme Simülasyonu (İnsansı Davranış)</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Okuma Süresi (ms)</label>
+        <input type="number" min="0" step="100" name="read_delay_ms" class="form-control" value="<%= settings.read_delay_ms || 3000 %>">
+        <small class="text-muted">Bot mesajı okumuş gibi bekler</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Yazma/Düşünme Süresi (ms)</label>
+        <input type="number" min="0" step="100" name="think_delay_ms" class="form-control" value="<%= settings.think_delay_ms || 2000 %>">
+        <small class="text-muted">Cevap yazmaya başlamadan önce</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">İnsan Yazma Hızı (karakter/saniye)</label>
+        <input type="number" min="5" step="1" name="typing_speed_cps" class="form-control" value="<%= settings.typing_speed_cps || 45 %>">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Yazıyor Göstergesi</label>
+        <select class="form-control" name="show_typing_indicator">
+          <option value="true" <%= (String(settings.show_typing_indicator||'true')==='true') ? 'selected' : '' %>>Açık</option>
+          <option value="false" <%= (String(settings.show_typing_indicator||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Rastgele Gecikme</label>
+        <select class="form-control" name="random_delay_enabled">
+          <option value="true" <%= (String(settings.random_delay_enabled||'true')==='true') ? 'selected' : '' %>>Açık</option>
+          <option value="false" <%= (String(settings.random_delay_enabled||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
+        </select>
+        <small class="text-muted">Her mesajda küçük varyasyon ekler</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Rastgele Gecikme Oranı (0.00 - 0.60)</label>
+        <input type="number" min="0" max="0.6" step="0.05" name="random_delay_percent" class="form-control" value="<%= settings.random_delay_percent || 0.30 %>">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-feather"></i> İnsansı Davranış Özellikleri</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Mesaj Bölme</label>
+        <select class="form-control" name="split_messages">
+          <option value="true" <%= (String(settings.split_messages||'true')==='true') ? 'selected' : '' %>>Açık</option>
+          <option value="false" <%= (String(settings.split_messages||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
+        </select>
+        <small class="text-muted">Uzun yanıtları 2-3 parça göndererek daha doğal görünür</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Bölme Eşiği (karakter)</label>
+        <input type="number" min="120" step="10" name="split_threshold" class="form-control" value="<%= settings.split_threshold || 240 %>">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-robot"></i> OpenAI (Opsiyonel)</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">AI Sistem Promptu</label>
+        <textarea name="ai_system_prompt" class="form-control" rows="7"><%= settings.ai_system_prompt || '' %></textarea>
+        <small class="text-muted">
+          Boş bırakırsan güvenli varsayılan prompt kullanılır. Karakter sayfasında seçtiğin üslup bunun sonuna eklenir.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Test Mesajı</label>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="testPersonalityInput" class="form-control" placeholder="Bir mesaj yaz...">
+          <button type="button" class="btn btn-secondary" id="testPersonalityBtn">Test Et</button>
+        </div>
+        <pre id="testPersonalityOutput" style="margin-top:10px; white-space:pre-wrap;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 14px;">
+    <button class="btn btn-success" type="submit"><i class="fas fa-save"></i> Ayarları Kaydet</button>
+  </div>
+</form>
+
+<script>
+  // AI test butonu
+  (function(){
+    const btn = document.getElementById('testPersonalityBtn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const message = document.getElementById('testPersonalityInput')?.value || '';
+      const out = document.getElementById('testPersonalityOutput');
+      if (out) out.textContent = '...';
+      try {
+        const resp = await fetch('/api/test-personality', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ message })
+        });
+        const res = await resp.json();
+        if (out) out.textContent = res.success ? (res.response || '') : (res.error || 'Hata');
+      } catch (e) {
+        if (out) out.textContent = e.message;
+      }
+    });
+  })();
+</script>
+
+<%- include('partials/footer') %>

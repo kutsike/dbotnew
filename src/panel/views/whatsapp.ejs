@@ -1,0 +1,169 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="wa-layout" id="waRoot">
+  <div class="wa-list">
+    <div style="padding: 12px;">
+      <input id="waSearch" class="search" placeholder="Ara (isim, numara, şehir...)" style="width:100%" />
+    </div>
+    <div id="waChats">
+      <% (chats || []).forEach((c) => { %>
+        <button class="wa-item" data-chatid="<%= c.chat_id %>">
+          <div class="wa-avatar">
+            <% if (c.profile_photo_url) { %>
+              <img src="<%= c.profile_photo_url %>" alt="avatar" />
+            <% } else { %>
+              <span><%= (c.full_name || c.chat_id || '?').toString().trim().charAt(0).toUpperCase() %></span>
+            <% } %>
+          </div>
+          <div class="wa-meta">
+            <div class="wa-row">
+              <div class="wa-name"><%= c.full_name || c.chat_id %></div>
+              <div class="wa-badges">
+                <span class="badge">Bot: <%= c.client_id %></span>
+                <span class="badge">Durum: <%= c.status %></span>
+              </div>
+            </div>
+            <div class="wa-row">
+              <div class="wa-preview"><%= c.last_message || '' %></div>
+              <div class="wa-stats">
+                <span title="Mesaj sayısı">💬 <%= c.msg_count || 0 %></span>
+                <span title="Süre">⏱️ <%= c.duration || '-' %></span>
+              </div>
+            </div>
+          </div>
+        </button>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="wa-chat">
+    <div class="wa-chat-header">
+      <div id="waChatTitle" style="font-weight:700;">Bir sohbet seç</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn" id="waTakeover">Devral</button>
+        <button class="btn" id="waRelease">Bota Devret</button>
+        <select id="waStatus" class="select" style="min-width:160px;">
+          <option value="new">new</option>
+          <option value="waiting">waiting</option>
+          <option value="called">called</option>
+          <option value="customer">customer</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="wa-messages" id="waMessages">
+      <div class="muted" style="padding:16px;">Soldan bir sohbet seçince mesajlar burada görünür.</div>
+    </div>
+
+    <div class="wa-compose">
+      <input id="waText" class="input" placeholder="Mesaj yaz..." />
+      <button id="waSend" class="btn btn-primary">Gönder</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const qs = (s) => document.querySelector(s);
+    const chatList = qs('#waChats');
+    const msgBox = qs('#waMessages');
+    const title = qs('#waChatTitle');
+    const input = qs('#waText');
+    const btnSend = qs('#waSend');
+    const btnTakeover = qs('#waTakeover');
+    const btnRelease = qs('#waRelease');
+    const selStatus = qs('#waStatus');
+    const search = qs('#waSearch');
+
+    let selectedChatId = null;
+    let selectedClientId = null;
+
+    function escapeHtml(str){
+      return (str||'').toString()
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+    }
+
+    async function loadChat(chatId){
+      selectedChatId = chatId;
+      const [profileRes, msgsRes] = await Promise.all([
+        fetch(`/api/chat/${encodeURIComponent(chatId)}/profile`).then(r=>r.json()),
+        fetch(`/api/chat/${encodeURIComponent(chatId)}/messages`).then(r=>r.json()),
+      ]);
+      if (profileRes?.success) {
+        const p = profileRes.profile || {};
+        title.textContent = `${p.full_name || p.chat_id || chatId} (${p.client_id || '-'})`;
+        selectedClientId = p.client_id || null;
+        selStatus.value = p.status || 'new';
+      }
+      if (msgsRes?.success) {
+        msgBox.innerHTML = '';
+        (msgsRes.messages || []).reverse().forEach(m => {
+          const who = m.direction === 'out' ? 'out' : 'in';
+          const div = document.createElement('div');
+          div.className = `wa-bubble ${who}`;
+          div.innerHTML = `<div>${escapeHtml(m.body || '')}</div><div class="wa-time">${escapeHtml(m.created_at || '')}</div>`;
+          msgBox.appendChild(div);
+        });
+        msgBox.scrollTop = msgBox.scrollHeight;
+      }
+    }
+
+    chatList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.wa-item');
+      if (!btn) return;
+      [...chatList.querySelectorAll('.wa-item')].forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadChat(btn.dataset.chatid);
+    });
+
+    btnSend.addEventListener('click', async () => {
+      const text = (input.value || '').trim();
+      if (!selectedChatId || !selectedClientId || !text) return;
+      input.value = '';
+      await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: selectedClientId, chatId: selectedChatId, message: text })
+      });
+      setTimeout(() => loadChat(selectedChatId), 400);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btnSend.click();
+    });
+
+    btnTakeover.addEventListener('click', async () => {
+      if (!selectedChatId) return;
+      await fetch(`/api/chat/${encodeURIComponent(selectedChatId)}/takeover`, { method: 'POST' });
+      setTimeout(() => loadChat(selectedChatId), 300);
+    });
+
+    btnRelease.addEventListener('click', async () => {
+      if (!selectedChatId) return;
+      await fetch(`/api/chat/${encodeURIComponent(selectedChatId)}/release`, { method: 'POST' });
+      setTimeout(() => loadChat(selectedChatId), 300);
+    });
+
+    selStatus.addEventListener('change', async () => {
+      if (!selectedChatId) return;
+      await fetch(`/api/chat/${encodeURIComponent(selectedChatId)}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: selStatus.value })
+      });
+    });
+
+    search.addEventListener('input', () => {
+      const q = (search.value || '').toLowerCase();
+      [...chatList.querySelectorAll('.wa-item')].forEach(btn => {
+        const txt = btn.innerText.toLowerCase();
+        btn.style.display = txt.includes(q) ? '' : 'none';
+      });
+    });
+  })();
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,79 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2><i class="fas fa-user-astronaut"></i> Karakter Ayarları</h2>
+  <div class="header-actions">
+    <button class="btn btn-primary" id="addCharacterBtn"><i class="fas fa-plus"></i> Yeni Karakter</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3><i class="fas fa-wand-magic-sparkles"></i> İnsansı Davranış</h3>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">
+      Buradan botun konuşma tarzını (persona) seçersin. Seçtiğin karakter, AI açıkken cevaplara üslup ve akış katar.
+      (AI kapalıysa da akış soruları yine çalışır.)
+    </p>
+
+    <div class="form-group">
+      <label class="form-label">Aktif Karakter</label>
+      <select class="form-control" id="activeCharacterSelect">
+        <% (characters || []).forEach(c => { %>
+          <option value="<%= c.id %>" <%= (String(activeCharacterId) === String(c.id)) ? 'selected' : '' %>>
+            <%= c.name %>
+          </option>
+        <% }) %>
+      </select>
+      <small class="text-muted">Not: Etkisi AI yanıtlarında daha belirgin olur.</small>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3><i class="fas fa-list"></i> Karakter Listesi</h3>
+  </div>
+  <div class="card-body">
+    <div id="characterList" class="grid">
+      <% (characters || []).forEach(c => { %>
+        <div class="card mini-card">
+          <div class="mini-card-header">
+            <div>
+              <div class="mini-title"><%= c.name %></div>
+              <div class="mini-sub text-muted">id: <%= c.id %></div>
+            </div>
+            <button class="btn btn-sm btn-danger deleteCharacterBtn" data-id="<%= c.id %>">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">İsim</label>
+            <input class="form-control char-name" data-id="<%= c.id %>" value="<%= c.name %>">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Prompt / Üslup Metni</label>
+            <textarea class="form-control char-prompt" data-id="<%= c.id %>" rows="6"><%= c.prompt || '' %></textarea>
+            <small class="text-muted">
+              Değişkenler: {bot_name}, {full_name}, {city}, {phone}
+            </small>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <div style="margin-top: 14px; display:flex; gap:10px; align-items:center;">
+      <button class="btn btn-success" id="saveCharactersBtn"><i class="fas fa-save"></i> Karakterleri Kaydet</button>
+      <span class="text-muted">Kaydetmeden çıkarsan değişiklikler gitmez.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__CHARACTERS__ = <%- JSON.stringify(characters || []) %>;
+</script>
+
+<%- include('partials/footer') %>

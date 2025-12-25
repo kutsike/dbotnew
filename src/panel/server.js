@@ -1,0 +1,435 @@
+"use strict";
+
+const express = require("express");
+const path = require("path");
+const http = require("http");
+const socketIo = require("socket.io");
+const basicAuth = require("express-basic-auth");
+
+function asList(rowsOrMap) {
+  if (Array.isArray(rowsOrMap)) return rowsOrMap;
+  if (!rowsOrMap || typeof rowsOrMap !== "object") return [];
+  return Object.values(rowsOrMap);
+}
+
+function startPanel({ manager, port, host }) {
+  const app = express();
+  const server = http.createServer(app);
+  const io = socketIo(server, { cors: { origin: "*" } });
+
+  // Basic Auth
+  const adminUser = process.env.ADMIN_USER || "admin";
+  const adminPass = process.env.ADMIN_PASS || "diyanet123";
+  app.use(
+    basicAuth({
+      users: { [adminUser]: adminPass },
+      challenge: true,
+    })
+  );
+
+  app.set("view engine", "ejs");
+  app.set("views", path.join(__dirname, "views"));
+  app.use(express.static(path.join(__dirname, "public")));
+  app.use(express.json({ limit: "2mb" }));
+
+  // ========= PAGES =========
+  app.get("/", async (req, res) => {
+    try {
+      const stats = await manager.db.getStats();
+      const clients = await manager.db.getClients();
+      const appointments = await manager.db.getAppointments({ status: "pending" });
+      res.render("dashboard", {
+        title: "Dashboard",
+        page: "dashboard",
+        stats,
+        clients,
+        appointments: (appointments || []).slice(0, 5),
+      });
+    } catch (err) {
+      console.error("Dashboard hatası:", err);
+      res.render("dashboard", {
+        title: "Dashboard",
+        page: "dashboard",
+        stats: {},
+        clients: [],
+        appointments: [],
+      });
+    }
+  });
+
+  // WhatsApp-like inbox
+app.get("/whatsapp", async (req, res) => {
+  try {
+    const profiles = await manager.db.getProfiles();
+
+    const chats = profiles.map(p => ({
+      chat_id: p.chat_id,
+      full_name: p.full_name || p.phone || "Bilinmeyen",
+      profile_photo_url: p.profile_pic_url || null,
+      last_message_at: p.last_message_at,
+      msg_count: p.msg_count || 0,
+      client_id: p.client_id
+    }));
+
+    res.render("whatsapp", {
+      title: "WhatsApp",
+      page: "whatsapp",
+      chats
+    });
+  } catch (err) {
+    console.error("WhatsApp panel hatası:", err);
+    res.render("whatsapp", {
+      title: "WhatsApp",
+      page: "whatsapp",
+      chats: []
+    });
+  }
+});
+
+  // Sohbetler (eski sayfa) -> whatsapp
+  app.get("/chats", (req, res) => res.redirect("/whatsapp"));
+
+  // Randevular
+  app.get("/appointments", async (req, res) => {
+    try {
+      const appointments = await manager.db.getAppointments();
+      res.render("appointments", {
+        title: "Randevular",
+        page: "appointments",
+        appointments: appointments || [],
+      });
+    } catch (err) {
+      console.error("Appointments hatası:", err);
+      res.render("appointments", { title: "Randevular", page: "appointments", appointments: [] });
+    }
+  });
+
+  // Botlar
+  app.get("/bots", async (req, res) => {
+    try {
+      const clients = await manager.db.getClients();
+      const list = (clients || []).map((c) => ({
+        ...c,
+        qrCode: manager.getQRCode(c.id),
+        isFrozen: !!c.is_frozen,
+      }));
+      res.render("bots", { title: "Botlar", page: "bots", clients: list });
+    } catch (err) {
+      console.error("Bots hatası:", err);
+      res.render("bots", { title: "Botlar", page: "bots", clients: [] });
+    }
+  });
+
+  // Profiller
+  app.get("/profiles", async (req, res) => {
+    try {
+      const tab = (req.query.tab || "active").toString();
+      const profiles = await manager.db.getProfiles();
+      const completedStatuses = new Set(["appointment_scheduled", "called", "customer"]);
+      const completed = (profiles || []).filter((p) => completedStatuses.has(p.status));
+      const active = (profiles || []).filter((p) => !completedStatuses.has(p.status));
+      res.render("profiles", {
+        title: "Profiller",
+        page: "profiles",
+        tab,
+        activeProfiles: active,
+        completedProfiles: completed,
+      });
+    } catch (err) {
+      console.error("Profiles hatası:", err);
+      res.render("profiles", {
+        title: "Profiller",
+        page: "profiles",
+        tab: "active",
+        activeProfiles: [],
+        completedProfiles: [],
+      });
+    }
+  });
+
+  // Dualar
+  app.get("/duas", async (req, res) => {
+    try {
+      const duas = await manager.db.getDuas();
+      res.render("duas", { title: "Dualar", page: "duas", duas: duas || [] });
+    } catch (err) {
+      console.error("Duas hatası:", err);
+      res.render("duas", { title: "Dualar", page: "duas", duas: [] });
+    }
+  });
+
+  // Karakter
+  app.get("/character", async (req, res) => {
+    try {
+      const settings = await manager.db.getSettings();
+      const map = {};
+      asList(settings).forEach((s) => (map[s.key] = s.value));
+
+      const defaultCharacters = manager.getDefaultCharacters();
+
+      let chars = [];
+      try {
+        chars = map.characters_json ? JSON.parse(map.characters_json) : [];
+      } catch (e) {
+        chars = [];
+      }
+      if (!Array.isArray(chars) || chars.length === 0) chars = defaultCharacters;
+
+      const activeId = map.active_character_id || chars[0]?.id || "soft";
+      res.render("character", {
+        title: "Karakter Ayarları",
+        page: "character",
+        characters: chars,
+        activeCharacterId: activeId,
+      });
+    } catch (err) {
+      console.error("Character hatası:", err);
+      res.render("character", {
+        title: "Karakter Ayarları",
+        page: "character",
+        characters: [],
+        activeCharacterId: "",
+      });
+    }
+  });
+
+  // Ayarlar
+  app.get("/settings", async (req, res) => {
+    try {
+      const rows = await manager.db.getSettings();
+      const settings = {};
+      asList(rows).forEach((r) => (settings[r.key] = r.value));
+      res.render("settings", { title: "Ayarlar", page: "settings", settings });
+    } catch (err) {
+      console.error("Settings hatası:", err);
+      res.render("settings", { title: "Ayarlar", page: "settings", settings: {} });
+    }
+  });
+
+  // ========= API =========
+
+  app.get("/api/stats", async (req, res) => {
+    try {
+      const stats = await manager.db.getStats();
+      res.json({ success: true, stats });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/clients", async (req, res) => {
+    try {
+      const clients = await manager.db.getClients();
+      res.json({ success: true, clients });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/clients", async (req, res) => {
+    try {
+      const { id, name } = req.body || {};
+      const clientId = id || `bot_${Date.now()}`;
+      await manager.db.createClient(clientId, name);
+      await manager.addClient(clientId, name);
+      res.json({ success: true, clientId });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.delete("/api/clients/:id", async (req, res) => {
+    try {
+      await manager.removeClient(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/clients/:id/freeze", async (req, res) => {
+    try {
+      const { message, redirectPhone } = req.body || {};
+      await manager.freezeClient(req.params.id, message, redirectPhone);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/clients/:id/unfreeze", async (req, res) => {
+    try {
+      await manager.unfreezeClient(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // WhatsApp inbox list
+  app.get("/api/inbox", async (req, res) => {
+    try {
+      const profiles = await manager.db.getProfiles();
+      res.json({ success: true, profiles: profiles || [] });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Chat messages
+  app.get("/api/chat/:chatId/messages", async (req, res) => {
+    try {
+      const messages = await manager.db.getChatMessages(req.params.chatId, 200);
+      res.json({ success: true, messages: messages || [] });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/chat/:chatId/profile", async (req, res) => {
+    try {
+      const profile = await manager.db.getProfile(req.params.chatId);
+      res.json({ success: true, profile });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/chat/:chatId/status", async (req, res) => {
+    try {
+      const { status } = req.body || {};
+      await manager.db.updateProfileStatus(req.params.chatId, status);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/chat/:chatId/takeover", async (req, res) => {
+    try {
+      const { note } = req.body || {};
+      await manager.takeOverChat(req.params.chatId, note);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/chat/:chatId/release", async (req, res) => {
+    try {
+      await manager.releaseChat(req.params.chatId);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Mesaj gönder
+  app.post("/api/send", async (req, res) => {
+    try {
+      const { clientId, chatId, message } = req.body || {};
+      await manager.sendMessage(clientId, chatId, message);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Appointments
+  app.get("/api/appointments", async (req, res) => {
+    try {
+      const appointments = await manager.db.getAppointments(req.query);
+      res.json({ success: true, appointments: appointments || [] });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/appointments/:id/status", async (req, res) => {
+    try {
+      const { status } = req.body || {};
+      await manager.db.updateAppointment(req.params.id, { status });
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Settings
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await manager.db.getSettings();
+      res.json({ success: true, settings });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/settings", async (req, res) => {
+    try {
+      for (const [key, value] of Object.entries(req.body || {})) {
+        await manager.db.setSetting(key, value);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Characters API
+  app.get("/api/characters", async (req, res) => {
+    try {
+      const charsJson = await manager.db.getSetting("characters_json");
+      const activeId = await manager.db.getSetting("active_character_id");
+      res.json({ success: true, characters_json: charsJson || "[]", active_character_id: activeId || "" });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/characters", async (req, res) => {
+    try {
+      const { characters, activeCharacterId } = req.body || {};
+      if (!Array.isArray(characters) || characters.length === 0) {
+        return res.json({ success: false, error: "Karakter listesi boş olamaz." });
+      }
+      await manager.db.setSetting("characters_json", JSON.stringify(characters));
+      if (activeCharacterId) await manager.db.setSetting("active_character_id", String(activeCharacterId));
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Test personality
+  app.post("/api/test-personality", async (req, res) => {
+    try {
+      const { message } = req.body || {};
+      if (manager.router?.aiChat) {
+        const response = await manager.router.aiChat.testPersonality(message);
+        res.json({ success: true, response });
+      } else {
+        res.json({ success: true, response: "AI servisi aktif değil." });
+      }
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= SOCKET.IO =========
+
+  io.on("connection", (socket) => {
+    console.log("Panel bağlantısı:", socket.id);
+    socket.on("disconnect", () => console.log("Panel bağlantısı kesildi:", socket.id));
+  });
+
+  manager.panel = { io };
+
+  server.listen(port, host, () => {
+    console.log(`📊 Admin Paneli: http://${host}:${port}`);
+  });
+
+  return { io };
+}
+
+module.exports = { startPanel };

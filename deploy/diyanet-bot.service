@@ -1,0 +1,23 @@
+[Unit]
+Description=Hocanin Yardimcisi WhatsApp Bot
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/diyanet-bot
+ExecStart=/usr/bin/node /opt/diyanet-bot/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+# Eğer Chromium yolu farklıysa düzenleyin
+Environment=PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# .env kullanıyorsanız burada belirtin
+EnvironmentFile=/opt/diyanet-bot/.env
+
+# Güvenlik (opsiyonel)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

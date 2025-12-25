@@ -1,0 +1,79 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2><i class="fas fa-users"></i> Profiller</h2>
+  <div class="header-actions">
+    <a href="/profiles?tab=active" class="btn <%= (tab === 'active') ? 'btn-primary' : 'btn-secondary' %>">Aktif</a>
+    <a href="/profiles?tab=completed" class="btn <%= (tab === 'completed') ? 'btn-primary' : 'btn-secondary' %>">Tamamlanan Müşteriler</a>
+  </div>
+</div>
+
+<%
+  const list = (tab === 'completed') ? (completedProfiles || []) : (activeProfiles || []);
+%>
+
+<div class="card">
+  <div class="card-body">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span class="badge badge-info"><%= list.length %> Profil</span>
+      <span class="text-muted">
+        <%= (tab === 'completed') ? 'Bilgileri tamamlanmış / süreç bitmiş profiller' : 'Bilgi toplama / bekleyen profiller' %>
+      </span>
+    </div>
+
+    <% if (list && list.length > 0) { %>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>İsim</th>
+            <th>WhatsApp</th>
+            <th>Şehir</th>
+            <th>Anne Adı</th>
+            <th>Doğum</th>
+            <th>Durum</th>
+            <th>Tarih</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% list.forEach(p => { %>
+            <tr>
+              <td><strong><%= p.full_name || 'İsimsiz' %></strong></td>
+              <td><%= p.chat_id?.split('@')[0] || '-' %></td>
+              <td><%= p.city || '-' %></td>
+              <td><%= p.mother_name || '-' %></td>
+              <td><%= p.birth_date || '-' %></td>
+              <td>
+                <% if (p.status === 'new') { %>
+                  <span class="badge badge-info">Yeni</span>
+                <% } else if (p.status === 'collecting') { %>
+                  <span class="badge badge-warning">Bilgi Toplama</span>
+                <% } else if (p.status === 'waiting') { %>
+                  <span class="badge badge-warning">Bekliyor</span>
+                <% } else if (p.status === 'appointment_scheduled') { %>
+                  <span class="badge badge-success">Randevu Alındı</span>
+                <% } else if (p.status === 'called') { %>
+                  <span class="badge badge-success">Arandı</span>
+                <% } else if (p.status === 'customer') { %>
+                  <span class="badge badge-success">Müşteri</span>
+                <% } else if (p.status === 'admin') { %>
+                  <span class="badge badge-danger">Admin</span>
+                <% } else { %>
+                  <span class="badge badge-secondary"><%= p.status %></span>
+                <% } %>
+              </td>
+              <td><%= new Date(p.created_at).toLocaleDateString('tr-TR') %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div class="empty-state">
+        <i class="fas fa-users"></i>
+        <h4>Profil Yok</h4>
+        <p>Bu sekmede henüz profil bulunmuyor.</p>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

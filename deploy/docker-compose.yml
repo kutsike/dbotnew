@@ -1,0 +1,45 @@
+version: "3.9"
+services:
+  db:
+    image: mysql:8
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: diyanetbot
+      MYSQL_USER: diyanetbot
+      MYSQL_PASSWORD: your_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - diyanetbot_mysql:/var/lib/mysql
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_USER: diyanetbot
+      MYSQL_PASSWORD: your_password
+      MYSQL_DATABASE: diyanetbot
+      PANEL_PORT: 3000
+      PANEL_HOST: 0.0.0.0
+      ADMIN_USER: admin
+      ADMIN_PASS: diyanet123
+      DATA_DIR: /app/data
+      # OPENAI_API_KEY: sk-...
+      # AI_MODEL: gpt-4o-mini
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+    ports:
+      - "3000:3000"
+    volumes:
+      - diyanetbot_data:/app/data
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  diyanetbot_mysql:
+  diyanetbot_data:

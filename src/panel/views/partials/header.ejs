@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> | Hocanın Yardımcısı</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="admin-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <i class="fas fa-mosque"></i>
+        <span>Hocanın Yardımcısı</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li>
+            <a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>">
+              <i class="fas fa-chart-pie"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a href="/whatsapp" class="<%= page === 'whatsapp' ? 'active' : '' %>">
+              <i class="fas fa-message"></i>
+              <span>WhatsApp</span>
+            </a>
+          </li>
+          <li>
+            <a href="/chats" class="<%= page === 'chats' ? 'active' : '' %>">
+              <i class="fas fa-comments"></i>
+              <span>Sohbetler</span>
+            </a>
+          </li>
+          <li>
+            <a href="/appointments" class="<%= page === 'appointments' ? 'active' : '' %>">
+              <i class="fas fa-calendar-check"></i>
+              <span>Randevular</span>
+            </a>
+          </li>
+          <li>
+            <a href="/bots" class="<%= page === 'bots' ? 'active' : '' %>">
+              <i class="fas fa-robot"></i>
+              <span>Botlar</span>
+            </a>
+          </li>
+          <li>
+            <a href="/profiles" class="<%= page === 'profiles' ? 'active' : '' %>">
+              <i class="fas fa-users"></i>
+              <span>Profiller</span>
+            </a>
+          </li>
+          <li>
+            <a href="/duas" class="<%= page === 'duas' ? 'active' : '' %>">
+              <i class="fas fa-pray"></i>
+              <span>Dualar</span>
+            </a>
+          </li>
+          <li>
+            <a href="/character" class="<%= page === 'character' ? 'active' : '' %>">
+              <i class="fas fa-user-astronaut"></i>
+              <span>Karakter</span>
+            </a>
+          </li>
+          <li>
+            <a href="/settings" class="<%= page === 'settings' ? 'active' : '' %>">
+              <i class="fas fa-cog"></i>
+              <span>Ayarlar</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menü">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar-title"><%= title %></div>
+      </div>
+      <div id="toastContainer" class="toast-container"></div>

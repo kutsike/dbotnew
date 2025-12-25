@@ -1,0 +1,28 @@
+{
+  "name": "diyanet-bot-final",
+  "version": "10.0.0",
+  "description": "Hocanın Yardımcısı - WhatsApp Bot Final",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "whatsapp-web.js": "^1.26.0",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0",
+    "mysql2": "^3.6.0",
+    "express": "^4.18.2",
+    "express-basic-auth": "^1.2.1",
+    "ejs": "^3.1.9",
+    "socket.io": "^4.7.2",
+    "openai": "^4.20.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

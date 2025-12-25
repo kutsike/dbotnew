@@ -1,0 +1,127 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2><i class="fas fa-chart-pie"></i> Dashboard</h2>
+  <div class="header-actions">
+    <span class="text-muted"><%= new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) %></span>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon green">
+      <i class="fas fa-robot"></i>
+    </div>
+    <div class="stat-info">
+      <h4>Toplam Bot</h4>
+      <div class="value" id="total-bots"><%= stats.totalBots || 0 %></div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon blue">
+      <i class="fas fa-check-circle"></i>
+    </div>
+    <div class="stat-info">
+      <h4>Aktif Bot</h4>
+      <div class="value" id="active-bots"><%= stats.activeBots || 0 %></div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon purple">
+      <i class="fas fa-users"></i>
+    </div>
+    <div class="stat-info">
+      <h4>Toplam Profil</h4>
+      <div class="value" id="total-profiles"><%= stats.totalProfiles || 0 %></div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon orange">
+      <i class="fas fa-clock"></i>
+    </div>
+    <div class="stat-info">
+      <h4>Bekleyen</h4>
+      <div class="value" id="waiting-profiles"><%= stats.waitingProfiles || 0 %></div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex gap-3">
+  <div class="card" style="flex: 1;">
+    <div class="card-header">
+      <h3><i class="fas fa-robot"></i> Bot Durumları</h3>
+    </div>
+    <div class="card-body">
+      <% if (clients && clients.length > 0) { %>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Bot</th>
+              <th>Telefon</th>
+              <th>Durum</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% clients.forEach(client => { %>
+              <tr>
+                <td><%= client.name || client.id %></td>
+                <td><%= client.phone || '-' %></td>
+                <td>
+                  <% if (client.status === 'ready') { %>
+                    <span class="badge badge-success"><i class="fas fa-check"></i> Aktif</span>
+                  <% } else if (client.status === 'qr_pending') { %>
+                    <span class="badge badge-warning"><i class="fas fa-qrcode"></i> QR Bekliyor</span>
+                  <% } else if (client.frozen) { %>
+                    <span class="badge badge-info"><i class="fas fa-snowflake"></i> Dondurulmuş</span>
+                  <% } else { %>
+                    <span class="badge badge-secondary"><i class="fas fa-times"></i> <%= client.status %></span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div class="empty-state">
+          <i class="fas fa-robot"></i>
+          <h4>Bot Yok</h4>
+          <p>Henüz bot eklenmemiş.</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+  
+  <div class="card" style="flex: 1;">
+    <div class="card-header">
+      <h3><i class="fas fa-calendar-check"></i> Son Randevular</h3>
+    </div>
+    <div class="card-body">
+      <% if (appointments && appointments.length > 0) { %>
+        <div class="appointment-list">
+          <% appointments.forEach(apt => { %>
+            <div class="appointment-item">
+              <div class="appointment-info">
+                <h4><%= apt.full_name || 'İsimsiz' %></h4>
+                <p><%= apt.subject || 'Konu belirtilmemiş' %></p>
+              </div>
+              <span class="badge badge-<%= apt.status === 'pending' ? 'warning' : apt.status === 'confirmed' ? 'info' : 'success' %>">
+                <%= apt.status === 'pending' ? 'Bekliyor' : apt.status === 'confirmed' ? 'Onaylandı' : apt.status %>
+              </span>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="empty-state">
+          <i class="fas fa-calendar"></i>
+          <h4>Randevu Yok</h4>
+          <p>Henüz randevu talebi yok.</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

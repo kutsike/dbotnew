@@ -1,0 +1,79 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2><i class="fas fa-calendar-check"></i> Randevular</h2>
+  <div class="header-actions">
+    <span class="badge badge-warning"><%= appointments.filter(a => a.status === 'pending').length %> Bekleyen</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <% if (appointments && appointments.length > 0) { %>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>İsim</th>
+            <th>Telefon</th>
+            <th>Şehir</th>
+            <th>Konu</th>
+            <th>Durum</th>
+            <th>Tarih</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% appointments.forEach(apt => { %>
+            <tr>
+              <td><strong><%= apt.full_name || 'İsimsiz' %></strong></td>
+              <td><%= apt.phone?.split('@')[0] || '-' %></td>
+              <td><%= apt.city || '-' %></td>
+              <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;"><%= apt.subject || '-' %></td>
+              <td>
+                <% if (apt.status === 'pending') { %>
+                  <span class="badge badge-warning">Bekliyor</span>
+                <% } else if (apt.status === 'confirmed') { %>
+                  <span class="badge badge-info">Onaylandı</span>
+                <% } else if (apt.status === 'completed') { %>
+                  <span class="badge badge-success">Tamamlandı</span>
+                <% } else if (apt.status === 'cancelled') { %>
+                  <span class="badge badge-danger">İptal</span>
+                <% } else { %>
+                  <span class="badge badge-secondary"><%= apt.status %></span>
+                <% } %>
+              </td>
+              <td><%= new Date(apt.requested_at).toLocaleDateString('tr-TR') %></td>
+              <td>
+                <div class="d-flex gap-2">
+                  <% if (apt.status === 'pending') { %>
+                    <button class="btn btn-sm btn-primary" onclick="updateAppointmentStatus(<%= apt.id %>, 'confirmed')">
+                      <i class="fas fa-check"></i>
+                    </button>
+                  <% } %>
+                  <% if (apt.status === 'confirmed') { %>
+                    <button class="btn btn-sm btn-secondary" onclick="updateAppointmentStatus(<%= apt.id %>, 'completed')">
+                      <i class="fas fa-check-double"></i>
+                    </button>
+                  <% } %>
+                  <% if (apt.status !== 'cancelled' && apt.status !== 'completed') { %>
+                    <button class="btn btn-sm btn-danger" onclick="updateAppointmentStatus(<%= apt.id %>, 'cancelled')">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  <% } %>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div class="empty-state">
+        <i class="fas fa-calendar"></i>
+        <h4>Randevu Yok</h4>
+        <p>Henüz randevu talebi bulunmuyor.</p>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
