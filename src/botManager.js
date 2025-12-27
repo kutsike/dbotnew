@@ -388,26 +388,24 @@ getDefaultCharacters() {
     const configStr = await this.db.getSetting("humanization_config");
     let config = {
       enabled: true,
+      show_typing_indicator: true,
       split_messages: true,
       split_threshold: 240,
-      cpm_typing: 300, // Varsayılan yazma hızı (Karakter/Dakika)
+      chunk_delay: 800,
+      cpm_typing: 300,
       typing_variance: 20
     };
-    
+
     try {
       if (configStr) {
         const parsed = JSON.parse(configStr);
         Object.assign(config, parsed);
-        // Eski ayarlarla uyumluluk (ayrı key'ler varsa)
-        config.split_messages = await this._getBoolSetting("split_messages", true);
-        const st = await this.db.getSetting("split_threshold");
-        if (st) config.split_threshold = Number(st);
       }
     } catch (_) {}
 
     // Parçalara böl
-    const chunks = config.split_messages 
-      ? this._splitResponse(String(text || ""), config.split_threshold || 240) 
+    const chunks = config.split_messages
+      ? this._splitResponse(String(text || ""), config.split_threshold || 240)
       : [String(text || "")];
 
     for (let i = 0; i < chunks.length; i++) {
@@ -420,32 +418,38 @@ getDefaultCharacters() {
         const charCount = chunk.length;
         // CPM (Characters Per Minute) -> Saniye
         typeTime = (charCount / (config.cpm_typing || 300)) * 60;
-        
+
         // Varyasyon ekle (Doğallık için ±%variance)
         const variance = (Math.random() * (config.typing_variance || 20) * 2 - (config.typing_variance || 20)) / 100;
         typeTime = typeTime * (1 + variance);
-        
+
         // Minimum 1.5 saniye yazıyor görünsün
         if (typeTime < 1.5) typeTime = 1.5;
       }
 
-      // "Yazıyor..." gönder
-      if (config.enabled && typeTime > 0) {
+      // "Yazıyor..." göstergesi (show_typing_indicator ayarına göre)
+      if (config.enabled && config.show_typing_indicator && typeTime > 0) {
         try {
           const chat = await client.getChatById(chatId);
           if (chat?.sendStateTyping) await chat.sendStateTyping();
         } catch (_) {}
-        
+
         // Hesaplanan süre kadar bekle
+        await new Promise(r => setTimeout(r, typeTime * 1000));
+      } else if (config.enabled && typeTime > 0) {
+        // Typing indicator kapalı ama yine de bekle (sessiz bekleme)
         await new Promise(r => setTimeout(r, typeTime * 1000));
       }
 
       // Mesajı Gönder
       await client.sendMessage(chatId, chunk);
 
-      // Parçalar arası küçük bir nefes (0.5 - 1 sn)
+      // Parçalar arası bekleme (chunk_delay ayarından)
       if (i < chunks.length - 1) {
-        await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
+        const baseDelay = config.chunk_delay || 800;
+        const variance = baseDelay * 0.3; // ±%30 varyasyon
+        const delay = baseDelay + (Math.random() * variance * 2 - variance);
+        await new Promise(r => setTimeout(r, delay));
       }
     }
   }

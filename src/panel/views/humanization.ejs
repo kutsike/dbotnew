@@ -1,119 +1,231 @@
-<%- include('partials/header') %>
+<%- include('partials/header', { title, page }) %>
 
-<div class="container-fluid p-0">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h3 mb-3">İnsanlaştırma & Karakter Ayarları</h1>
-            <p class="text-muted">Botun robotik hissini yok etmek için tepki sürelerini ve yazma hızlarını buradan en ince detayına kadar ayarlayabilirsin.</p>
-        </div>
-    </div>
-
-    <% if (typeof saved !== 'undefined') { %>
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        Ayarlar başarıyla kaydedildi!
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    <% } %>
-
-    <form action="/humanization" method="POST">
-        <div class="row">
-            <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-body d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="card-title mb-0">İnsanlaştırma Modu</h5>
-                            <small class="text-muted">Kapalıyken bot anında cevap verir.</small>
-                        </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="enabled" name="enabled" style="width: 3em; height: 1.5em;" <%= config.enabled ? 'checked' : '' %>>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header bg-light">
-                        <h5 class="card-title mb-0">🕒 Tepki Süresi (Düşünme Payı)</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-4">
-                            <label class="form-label d-flex justify-content-between">
-                                <span>Minimum Bekleme (Saniye)</span>
-                                <span class="fw-bold" id="minVal"><%= config.min_response_delay %> sn</span>
-                            </label>
-                            <input type="range" class="form-range" name="min_response_delay" min="0" max="1800" step="10" value="<%= config.min_response_delay %>" oninput="document.getElementById('minVal').innerText = this.value + ' sn'">
-                            <div class="form-text">Mesajı okuduktan sonra en az ne kadar beklesin? (Örn: 1 dakika = 60 sn)</div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label d-flex justify-content-between">
-                                <span>Maksimum Bekleme (Saniye)</span>
-                                <span class="fw-bold" id="maxVal"><%= config.max_response_delay %> sn</span>
-                            </label>
-                            <input type="range" class="form-range" name="max_response_delay" min="60" max="3600" step="30" value="<%= config.max_response_delay %>" oninput="document.getElementById('maxVal').innerText = this.value + ' sn'">
-                            <div class="form-text">Bot bu iki değer arasında RASTGELE bir süre bekler. (Örn: 10 dakika = 600 sn)</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header bg-light">
-                        <h5 class="card-title mb-0">⚡ Okuma ve Yazma Hızı</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Okuma Hızı (Kelime/Dakika)</label>
-                                <input type="number" class="form-control" name="wpm_reading" value="<%= config.wpm_reading %>">
-                                <div class="form-text">Ortalama insan: 200-250</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Yazma Hızı (Karakter/Dakika)</label>
-                                <input type="number" class="form-control" name="cpm_typing" value="<%= config.cpm_typing %>">
-                                <div class="form-text">Mobil yazma hızı: 180-300</div>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Yazma Hızı Değişkenliği (±%)</label>
-                                <input type="range" class="form-range" name="typing_variance" min="0" max="50" value="<%= config.typing_variance %>">
-                                <div class="form-text">Yazma hızı her mesajda %<%= config.typing_variance %> oranında rastgele değişir (Doğallık katar).</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header bg-warning text-dark bg-opacity-10">
-                        <h5 class="card-title mb-0">📜 Uzun Mesaj Algoritması</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row align-items-end">
-                            <div class="col-md-6">
-                                <label class="form-label">Uzun Mesaj Eşiği (Karakter)</label>
-                                <input type="number" class="form-control" name="long_message_threshold" value="<%= config.long_message_threshold %>">
-                                <div class="form-text">Bu karakter sayısını geçerse mesaj "uzun" sayılır.</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Ekstra Bekleme Süresi (Saniye)</label>
-                                <input type="number" class="form-control" name="long_message_extra_delay" value="<%= config.long_message_extra_delay %>">
-                                <div class="form-text">Uzun mesaj geldiğinde okuma süresine eklenecek ekstra süre (+1 dk = 60).</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12">
-                <button type="submit" class="btn btn-primary btn-lg w-100">
-                    <i class="bi bi-save"></i> Ayarları Kaydet
-                </button>
-            </div>
-        </div>
-    </form>
+<div class="content-header">
+  <h2><i class="fas fa-user-clock"></i> İnsanlaştırma Ayarları</h2>
 </div>
+
+<% if (saved) { %>
+<div class="alert alert-success" style="margin-bottom: 20px;">
+  <i class="fas fa-check-circle"></i> Ayarlar başarıyla kaydedildi!
+</div>
+<% } %>
+
+<form action="/humanization" method="POST">
+  <!-- Ana Kontroller -->
+  <div class="card" style="margin-bottom: 20px;">
+    <div class="card-header">
+      <h3><i class="fas fa-power-off"></i> Temel Kontroller</h3>
+    </div>
+    <div class="card-body">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+
+        <!-- İnsanlaştırma Modu -->
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">İnsanlaştırma Modu</div>
+            <div class="switch-desc">Kapalıyken bot anında cevap verir</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="enabled" <%= config.enabled ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Yazıyor Göstergesi -->
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">"Yazıyor..." Göstergesi</div>
+            <div class="switch-desc">WhatsApp'ta "yazıyor..." durumu gösterilsin mi?</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="show_typing_indicator" <%= config.show_typing_indicator !== false ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Parça Parça Gönderme -->
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">Parça Parça Gönderme</div>
+            <div class="switch-desc">Uzun cevapları ayrı mesajlar halinde gönder</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="split_messages" <%= config.split_messages !== false ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 20px;">
+
+    <!-- Tepki Süresi Kartı -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-hourglass-half"></i> Tepki Süresi (Düşünme Payı)</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">
+            Minimum Bekleme
+            <span class="badge badge-info" id="minVal"><%= config.min_response_delay %> sn</span>
+          </label>
+          <input type="range" class="form-control" name="min_response_delay" min="0" max="1800" step="10"
+                 value="<%= config.min_response_delay %>"
+                 oninput="document.getElementById('minVal').innerText = this.value + ' sn'">
+          <small class="text-muted">Mesajı okuduktan sonra en az ne kadar beklesin? (60 = 1 dk)</small>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">
+            Maksimum Bekleme
+            <span class="badge badge-info" id="maxVal"><%= config.max_response_delay %> sn</span>
+          </label>
+          <input type="range" class="form-control" name="max_response_delay" min="60" max="3600" step="30"
+                 value="<%= config.max_response_delay %>"
+                 oninput="document.getElementById('maxVal').innerText = this.value + ' sn'">
+          <small class="text-muted">Min-Max arasında rastgele süre seçilir. (600 = 10 dk)</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Okuma/Yazma Hızı Kartı -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-keyboard"></i> Okuma & Yazma Hızı</h3>
+      </div>
+      <div class="card-body">
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Okuma Hızı (Kelime/dk)</label>
+            <input type="number" class="form-control" name="wpm_reading" value="<%= config.wpm_reading %>">
+            <small class="text-muted">Ortalama insan: 200-250</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Yazma Hızı (Karakter/dk)</label>
+            <input type="number" class="form-control" name="cpm_typing" value="<%= config.cpm_typing %>">
+            <small class="text-muted">Mobil yazma: 180-300</small>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">
+            Yazma Hızı Değişkenliği
+            <span class="badge badge-secondary" id="varVal">±<%= config.typing_variance %>%</span>
+          </label>
+          <input type="range" class="form-control" name="typing_variance" min="0" max="50"
+                 value="<%= config.typing_variance %>"
+                 oninput="document.getElementById('varVal').innerText = '±' + this.value + '%'">
+          <small class="text-muted">Her mesajda yazma hızına doğallık katan rastgele varyasyon</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alt Ayarlar -->
+  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 20px;">
+
+    <!-- Uzun Mesaj Algoritması -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-file-alt"></i> Uzun Mesaj Algoritması</h3>
+      </div>
+      <div class="card-body">
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Uzun Mesaj Eşiği (Karakter)</label>
+            <input type="number" class="form-control" name="long_message_threshold" value="<%= config.long_message_threshold %>">
+            <small class="text-muted">Bu sayıyı geçen mesajlar "uzun" sayılır</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ekstra Bekleme (Saniye)</label>
+            <input type="number" class="form-control" name="long_message_extra_delay" value="<%= config.long_message_extra_delay %>">
+            <small class="text-muted">Uzun mesajda okuma süresine eklenir</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parça Parça Gönderme Ayarları -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-puzzle-piece"></i> Mesaj Bölme Ayarları</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Bölme Eşiği (Karakter)</label>
+          <input type="number" class="form-control" name="split_threshold" value="<%= config.split_threshold || 240 %>">
+          <small class="text-muted">Bu karakterden uzun cevaplar parçalara bölünür (WhatsApp'ta insan hissi verir)</small>
+        </div>
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">
+            Parçalar Arası Bekleme
+            <span class="badge badge-secondary" id="chunkVal"><%= config.chunk_delay || 800 %> ms</span>
+          </label>
+          <input type="range" class="form-control" name="chunk_delay" min="300" max="3000" step="100"
+                 value="<%= config.chunk_delay || 800 %>"
+                 oninput="document.getElementById('chunkVal').innerText = this.value + ' ms'">
+          <small class="text-muted">Her parça gönderimi arasındaki bekleme süresi</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kaydet Butonu -->
+  <div class="card">
+    <div class="card-body" style="text-align: center;">
+      <button type="submit" class="btn btn-primary btn-lg">
+        <i class="fas fa-save"></i> Ayarları Kaydet
+      </button>
+    </div>
+  </div>
+</form>
+
+<style>
+/* Switch Card Styles */
+.switch-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+.switch-info { flex: 1; }
+.switch-title { font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+.switch-desc { font-size: 12px; color: var(--text-muted); }
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .3s;
+  border-radius: 26px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+input:checked + .slider { background-color: #25D366; }
+input:checked + .slider:before { transform: translateX(24px); }
+</style>
 
 <%- include('partials/footer') %>

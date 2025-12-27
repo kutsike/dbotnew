@@ -1,0 +1,212 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2>
+    <a href="/bots" style="color: inherit; text-decoration: none;"><i class="fas fa-arrow-left me-2"></i></a>
+    <i class="fas fa-robot"></i> Bot Ayarlari - <%= client.name || client.id %>
+  </h2>
+</div>
+
+<div class="card">
+  <div class="card-header" style="background: linear-gradient(135deg, #00a884 0%, #00796b 100%); color: white;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center;">
+        <i class="fas fa-robot fa-lg"></i>
+      </div>
+      <div>
+        <h3 style="margin: 0;"><%= client.name || client.id %></h3>
+        <small><%= client.phone || 'Telefon bekleniyor...' %></small>
+      </div>
+      <div style="margin-left: auto;">
+        <% if (client.status === 'ready') { %>
+          <span class="badge badge-success"><i class="fas fa-check"></i> Aktif</span>
+        <% } else if (client.status === 'qr_pending') { %>
+          <span class="badge badge-warning"><i class="fas fa-qrcode"></i> QR Bekliyor</span>
+        <% } else { %>
+          <span class="badge badge-secondary"><%= client.status %></span>
+        <% } %>
+      </div>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if (client.qrCode || client.qr) { %>
+    <div style="text-align: center; padding: 20px;">
+      <img src="<%= client.qrCode || client.qr %>" alt="QR Code" style="max-width: 200px; border-radius: 8px;">
+      <p style="margin: 10px 0 0; color: #666;">WhatsApp ile QR kodu okutun</p>
+    </div>
+    <% } %>
+    
+    <div style="display: flex; gap: 10px; margin-top: 16px;">
+      <% if (client.frozen) { %>
+        <button class="btn btn-success" onclick="unfreezeBot()"><i class="fas fa-fire"></i> Aktif Et</button>
+      <% } else { %>
+        <button class="btn btn-warning" onclick="freezeBot()"><i class="fas fa-snowflake"></i> Dondur</button>
+      <% } %>
+      <button class="btn btn-danger" onclick="deleteBot()"><i class="fas fa-trash"></i> Sil</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3><i class="fas fa-theater-masks"></i> Karakter Secimi</h3>
+  </div>
+  <div class="card-body">
+    <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+      <% characters.forEach(function(char) { %>
+      <div class="card mini-card" style="cursor: pointer; border: 2px solid <%= activeCharacterId === char.id ? '#00a884' : '#ddd' %>; background: <%= activeCharacterId === char.id ? '#e8f5e9' : '#fff' %>;" onclick="selectCharacter('<%= char.id %>')">
+        <div class="card-body">
+          <h5 style="margin: 0 0 6px 0;"><%= char.name %></h5>
+          <p style="margin: 0; font-size: 12px; color: #666;"><%= (char.prompt || '').substring(0, 60) %>...</p>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3><i class="fas fa-user-clock"></i> Insanlastirma Ayarlari</h3>
+  </div>
+  <div class="card-body">
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="humanEnabled" <%= humanConfig.enabled ? 'checked' : '' %>>
+        <span>Insanlastirma Aktif</span>
+      </label>
+    </div>
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="showTyping" <%= humanConfig.show_typing_indicator ? 'checked' : '' %>>
+        <span>"Yaziyor..." Gostergesi</span>
+      </label>
+    </div>
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="splitMessages" <%= humanConfig.split_messages ? 'checked' : '' %>>
+        <span>Uzun Mesajlari Bol</span>
+      </label>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+      <div class="form-group">
+        <label>Min Bekleme (sn)</label>
+        <input type="number" class="form-control" id="minDelay" value="<%= humanConfig.min_response_delay %>">
+      </div>
+      <div class="form-group">
+        <label>Max Bekleme (sn)</label>
+        <input type="number" class="form-control" id="maxDelay" value="<%= humanConfig.max_response_delay %>">
+      </div>
+      <div class="form-group">
+        <label>Yazma Hizi (KPM)</label>
+        <input type="number" class="form-control" id="cpmTyping" value="<%= humanConfig.cpm_typing %>">
+      </div>
+      <div class="form-group">
+        <label>Parca Arasi (ms)</label>
+        <input type="number" class="form-control" id="chunkDelay" value="<%= humanConfig.chunk_delay %>">
+      </div>
+    </div>
+    
+    <button class="btn btn-success" onclick="saveSettings()" id="saveBtn" style="margin-top: 16px;">
+      <i class="fas fa-save"></i> Kaydet
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3><i class="fas fa-flask"></i> Canli Test</h3>
+  </div>
+  <div class="card-body">
+    <div style="background: #efeae2; border-radius: 8px; padding: 16px; min-height: 300px;" id="testMessages">
+      <div style="background: #d9fdd3; padding: 8px 12px; border-radius: 8px; max-width: 80%; margin-left: auto; margin-bottom: 8px;">
+        Merhaba! Test mesaji yazin.
+      </div>
+    </div>
+    <div style="display: flex; gap: 10px; margin-top: 12px;">
+      <input type="text" class="form-control" id="testInput" placeholder="Test mesaji..." onkeypress="if(event.key==='Enter')sendTest()">
+      <button class="btn btn-primary" onclick="sendTest()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>
+</div>
+
+<script>
+var clientId = '<%= client.id %>';
+var selectedCharacterId = '<%= activeCharacterId %>';
+
+function selectCharacter(id) {
+  selectedCharacterId = id;
+  document.querySelectorAll('.mini-card').forEach(function(c) {
+    c.style.borderColor = c.onclick.toString().indexOf(id) > -1 ? '#00a884' : '#ddd';
+    c.style.background = c.onclick.toString().indexOf(id) > -1 ? '#e8f5e9' : '#fff';
+  });
+}
+
+function saveSettings() {
+  var btn = document.getElementById('saveBtn');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  
+  var config = {
+    enabled: document.getElementById('humanEnabled').checked,
+    show_typing_indicator: document.getElementById('showTyping').checked,
+    split_messages: document.getElementById('splitMessages').checked,
+    min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+    max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+    cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+    chunk_delay: parseInt(document.getElementById('chunkDelay').value) || 800
+  };
+  
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      active_character_id: selectedCharacterId,
+      humanization_config: JSON.stringify(config)
+    })
+  }).then(function() {
+    btn.innerHTML = '<i class="fas fa-check"></i> Kaydedildi';
+    setTimeout(function() { btn.innerHTML = '<i class="fas fa-save"></i> Kaydet'; }, 2000);
+  });
+}
+
+function freezeBot() {
+  var msg = prompt('Dondurma mesaji:');
+  fetch('/api/clients/' + clientId + '/freeze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: msg})
+  }).then(function() { location.reload(); });
+}
+
+function unfreezeBot() {
+  fetch('/api/clients/' + clientId + '/unfreeze', {method: 'POST'}).then(function() { location.reload(); });
+}
+
+function deleteBot() {
+  if(confirm('Silmek istediginize emin misiniz?')) {
+    fetch('/api/clients/' + clientId, {method: 'DELETE'}).then(function() { location.href = '/bots'; });
+  }
+}
+
+function sendTest() {
+  var input = document.getElementById('testInput');
+  var text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  
+  var box = document.getElementById('testMessages');
+  box.innerHTML += '<div style="background: white; padding: 8px 12px; border-radius: 8px; max-width: 80%; margin-bottom: 8px;">' + text + '</div>';
+  
+  fetch('/api/test-personality', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: text})
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    box.innerHTML += '<div style="background: #d9fdd3; padding: 8px 12px; border-radius: 8px; max-width: 80%; margin-left: auto; margin-bottom: 8px;">' + (data.response || 'Hata') + '</div>';
+    box.scrollTop = box.scrollHeight;
+  });
+}
+</script>
+
+<%- include('partials/footer') %>
