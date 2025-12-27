@@ -259,28 +259,80 @@ async analyzeUserCharacter(profile) {
   }
 
   /**
-   * Karakter testi
+   * Karakter testi - Bot ayarlarına göre test yanıtı üret
    */
   async testPersonality(message, personality = {}) {
-    const systemPrompt = personality.system_prompt ||
-      (await this.buildSystemPrompt({ full_name: "Kardeşim", city: "" }));
+    // Önce custom prompt varsa onu kullan
+    let systemPrompt = personality.system_prompt;
+
+    if (!systemPrompt) {
+      systemPrompt = await this.buildSystemPrompt({ full_name: "Kardeşim", city: "" });
+    }
+
+    // İnsansı his için ek talimatlar
+    const humanTouchPrompt = `
+${systemPrompt}
+
+EK TALİMATLAR (TEST İÇİN):
+- Çok kısa cevap ver (1-3 cümle max)
+- Bazen ufak yazım hataları yap: "insallah", "maşallah", "bi" gibi
+- Samimi ve sıcak ol
+- Dini ifadeler kullan ama abartma
+- İsim bilmiyorsan "değerli kardeşim" veya "güzel kardeşim" de
+`;
 
     try {
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: humanTouchPrompt },
           { role: "user", content: message }
         ],
-        temperature: 0.75,
-        max_tokens: 300
+        temperature: 0.85,  // Daha yaratıcı/insansı
+        max_tokens: 150,    // Kısa tutmak için
+        presence_penalty: 0.3,
+        frequency_penalty: 0.3
       });
 
-      return response.choices[0].message.content;
+      let answer = response.choices[0].message.content || "";
+
+      // İnsansı dokunuşlar ekle
+      answer = this.addHumanTouch(answer);
+
+      return answer;
     } catch (err) {
       console.error("Test hatası:", err.message);
       return "Test yanıtı oluşturulamadı.";
     }
+  }
+
+  /**
+   * İnsansı dokunuşlar - küçük yazım hataları ve doğal his
+   */
+  addHumanTouch(text) {
+    if (!text) return text;
+
+    // Rastgele bazı değişiklikler yap (her zaman değil)
+    if (Math.random() < 0.3) {
+      text = text.replace(/inşallah/gi, "insallah");
+    }
+    if (Math.random() < 0.3) {
+      text = text.replace(/bir /g, "bi ");
+    }
+    if (Math.random() < 0.2) {
+      text = text.replace(/değil/g, "deil");
+    }
+
+    // Çok uzunsa kısalt
+    if (text.length > 300) {
+      const sentences = text.split(/[.!?]+/);
+      text = sentences.slice(0, 3).join(". ").trim();
+      if (!text.endsWith(".") && !text.endsWith("!") && !text.endsWith("?")) {
+        text += ".";
+      }
+    }
+
+    return text;
   }
 
   /**

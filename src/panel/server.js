@@ -534,12 +534,29 @@ function startPanel({ manager, port, host }) {
     }
   });
 
-  // Test personality
+  // Test personality - Bot ayarlarını kullanarak test et
   app.post("/api/test-personality", async (req, res) => {
     try {
-      const { message } = req.body || {};
+      const { message, clientId } = req.body || {};
+
+      // Bot ayarlarını al
+      let botSettings = null;
+      let characterPrompt = null;
+
+      if (clientId) {
+        try {
+          botSettings = await manager.db.getBotSettings(clientId);
+          characterPrompt = botSettings?.character_prompt;
+        } catch (e) {
+          console.log("Bot settings alınamadı:", e.message);
+        }
+      }
+
       if (manager.router?.aiChat) {
-        const response = await manager.router.aiChat.testPersonality(message);
+        const response = await manager.router.aiChat.testPersonality(message, {
+          system_prompt: characterPrompt,
+          bot_settings: botSettings
+        });
         res.json({ success: true, response });
       } else {
         res.json({ success: true, response: "AI servisi aktif değil." });
