@@ -1,13 +1,16 @@
 "use strict";
 
 /**
- * ConversationFlow v5.0 - Tamamen İnsansı Sohbet
+ * ConversationFlow v6.0 - İnsansı Hoca Asistanı
  *
- * KURALLAR:
- * 1. HER ZAMAN kısa cevap (1-2 cümle max)
- * 2. Kullanıcının söylediğini DİNLE ve CEVAP VER
- * 3. Aynı mesajı tekrarlama
- * 4. Profil tamamlansa bile sohbete devam et
+ * DAVRANIŞLAR:
+ * 1. Bilgi toplanana kadar HOCA gibi davran
+ * 2. Bilgi tamamlanınca yardımcı olduğunu açıkla
+ * 3. Kısa cevaplar (1-3 cümle max)
+ * 4. Doğal sohbet, laf arasında bilgi topla
+ * 5. Bazen küçük yazım hataları yap (insallah, bi vs)
+ * 6. İsim bilinmiyorsa "değerli kardeşim" de
+ * 7. Dua alıntıları ekle
  */
 
 class ConversationFlow {
@@ -28,6 +31,48 @@ class ConversationFlow {
       "istanbul", "ankara", "izmir", "bursa", "antalya", "konya", "adana", "gaziantep", "mersin", "diyarbakır",
       "kayseri", "eskişehir", "samsun", "denizli", "şanlıurfa", "malatya", "trabzon", "erzurum", "van", "batman"
     ];
+
+    // Dua alıntıları
+    this.prayers = [
+      "Allah kolaylık versin",
+      "Rabbim yardımcın olsun",
+      "Allah hayırlısını nasip etsin",
+      "insallah hayırlara vesile olur",
+      "Rabbim sıkıntını gidersin",
+      "Allah gönlüne göre versin"
+    ];
+
+    // Hitap şekilleri (isim bilinmiyorsa)
+    this.warmAddresses = ["değerli kardeşim", "güzel kardeşim", "kıymetli kardeşim"];
+  }
+
+  // Rastgele dua al
+  getRandomPrayer() {
+    return this.prayers[Math.floor(Math.random() * this.prayers.length)];
+  }
+
+  // Rastgele hitap al
+  getWarmAddress() {
+    return this.warmAddresses[Math.floor(Math.random() * this.warmAddresses.length)];
+  }
+
+  // İnsansı yazım hataları ekle
+  addHumanTouch(text) {
+    if (!text) return text;
+
+    // %30 ihtimalle inşallah -> insallah
+    if (Math.random() < 0.3) {
+      text = text.replace(/inşallah/gi, "insallah");
+    }
+    // %30 ihtimalle bir -> bi
+    if (Math.random() < 0.3) {
+      text = text.replace(/\bbir\b/g, "bi");
+    }
+    // %20 ihtimalle şey -> bişey
+    if (Math.random() < 0.2) {
+      text = text.replace(/\bşey\b/g, "bişey");
+    }
+    return text;
   }
 
   // Türkçe normalize
@@ -139,8 +184,12 @@ class ConversationFlow {
   // === ANA FONKSİYON ===
   async processMessage(chatId, clientId, message, context = {}) {
     const { name, profile } = context;
-    const warmName = profile?.full_name?.split(" ")[0] || name || "kardeşim";
+    // İsim biliniyorsa kullan, yoksa sıcak hitap
+    const warmName = profile?.full_name?.split(" ")[0] || name || this.getWarmAddress();
     const msg = message.trim();
+
+    // Profil tamamlanmış mı?
+    const isComplete = this.getMissing(profile || {}).length === 0;
 
     // 1. Kısa cevap algıla ve kaydet
     const shortAnswer = this.detectShortAnswer(msg, profile);
@@ -163,30 +212,45 @@ class ConversationFlow {
     // === SELAMLAMA ===
     if (this.isGreeting(msg)) {
       if (!profile?.full_name) {
-        return { reply: `Aleyküm selam, hoş geldin. İsmin ne?`, action: "greeting" };
+        const reply = this.addHumanTouch(`Aleyküm selam, hoş geldin ${this.getWarmAddress()}. Nasılsın, ismin ne senin?`);
+        return { reply, action: "greeting" };
       }
-      return { reply: `Aleyküm selam ${warmName}, nasılsın? Seni dinliyorum.`, action: "greeting" };
+      const prayer = Math.random() < 0.4 ? ` ${this.getRandomPrayer()}.` : "";
+      const reply = this.addHumanTouch(`Aleyküm selam ${warmName}, nasılsın?${prayer} Anlat bakalım.`);
+      return { reply, action: "greeting" };
     }
 
     // === TEŞEKKÜR ===
     if (this.isThanks(msg)) {
-      return { reply: `Rica ederim ${warmName}.`, action: "thanks" };
+      const prayer = this.getRandomPrayer();
+      const reply = this.addHumanTouch(`Estağfurullah ${warmName}. ${prayer}.`);
+      return { reply, action: "thanks" };
     }
 
     // === SORU SORUYORSA - DİNLE VE CEVAPLA ===
     if (this.isQuestion(msg)) {
       // Ne zaman arayacak sorusu
       if (msg.includes("ne zaman") && (msg.includes("ara") || msg.includes("dön"))) {
-        return { reply: `${warmName}, hocamız genelde 1-2 gün içinde dönüş yapıyor. Biraz sabır.`, action: "answer" };
+        const reply = this.addHumanTouch(`${warmName}, bi kaç gün içinde mutlaka döneriz. Sabır hayırlıdır.`);
+        return { reply, action: "answer" };
       }
 
-      // Genel soru - AI ile cevapla
-      if (this.aiChat) {
+      // Profil tamamsa AI ile cevapla
+      if (isComplete && this.aiChat) {
         const aiReply = await this._askAI(msg, warmName);
-        if (aiReply) return { reply: aiReply, action: "ai_answer" };
+        if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "ai_answer" };
       }
 
-      return { reply: `${warmName}, bu konuda hocamız sana daha iyi cevap verir. Biraz bekle, döneceğiz.`, action: "answer" };
+      // Eksik bilgi varken soruya cevap verip bilgi sor
+      if (!isComplete && missing.length > 0) {
+        const next = missing[0];
+        await this.db.updateProfile(chatId, clientId, { last_question_key: next.key, last_question_at: new Date() });
+        const reply = this.addHumanTouch(`${warmName}, bu konuyu konuşuruz insallah. ${this._questionNatural(next.key)}`);
+        return { reply, action: "ask_in_flow" };
+      }
+
+      const reply = this.addHumanTouch(`${warmName}, bu konuda sana yardımcı olurum. Biraz bekle.`);
+      return { reply, action: "answer" };
     }
 
     // === UZUN MESAJ (DERT ANLATIYORSA) ===
@@ -197,130 +261,198 @@ class ConversationFlow {
         if (profile) profile.subject = msg;
       }
 
-      // AI ile empati göster
+      // AI ile empati göster (hoca gibi)
       if (this.aiChat) {
-        const aiReply = await this._empathize(msg, warmName, missing);
-        if (aiReply) return { reply: aiReply, action: "empathy" };
+        const aiReply = await this._empathize(msg, warmName, missing, isComplete);
+        if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "empathy" };
       }
 
-      return { reply: `Anlıyorum ${warmName}. Hocamız bu konuda sana yardımcı olur. Biraz bekle.`, action: "empathy" };
+      // Eksik bilgi varsa laf arasında sor
+      if (!isComplete && missing.length > 0) {
+        const next = missing[0];
+        await this.db.updateProfile(chatId, clientId, { last_question_key: next.key, last_question_at: new Date() });
+        const prayer = this.getRandomPrayer();
+        const reply = this.addHumanTouch(`Anlıyorum ${warmName}, ${prayer}. ${this._questionNatural(next.key)}`);
+        return { reply, action: "empathy_ask" };
+      }
+
+      const prayer = this.getRandomPrayer();
+      const reply = this.addHumanTouch(`Anlıyorum ${warmName}. ${prayer}. Sana yardımcı olurum.`);
+      return { reply, action: "empathy" };
     }
 
     // === KISA CEVAP ALINDIYSA - BİR SONRAKİ BİLGİYİ SOR ===
     if (shortAnswer && missing.length > 0) {
       const next = missing[0];
       await this.db.updateProfile(chatId, clientId, { last_question_key: next.key, last_question_at: new Date() });
-      return { reply: `Tamam ${warmName}. ${this._question(next.key)}`, action: "next_field" };
+      const reply = this.addHumanTouch(`Tamam ${warmName}. ${this._questionNatural(next.key)}`);
+      return { reply, action: "next_field" };
     }
 
-    // === TÜM BİLGİLER TAMAM ===
+    // === TÜM BİLGİLER TAMAM - YARDIMCI OLDUĞUNU AÇIKLA ===
     if (missing.length === 0 && profile) {
-      // İlk kez tamamlandıysa
+      // İlk kez tamamlandıysa - yardımcı olduğunu söyle
       if (profile.status !== "waiting") {
         try { await this.db.createAppointment(profile.id, clientId, profile.subject || ""); } catch {}
         await this.db.updateProfileStatus(chatId, clientId, "waiting");
-        return { reply: `Tamam ${warmName}, hocamıza ilettim. Seni arayacak. Başka bir şey var mı?`, action: "complete" };
+        const reply = this.addHumanTouch(
+          `${warmName}, ben aslında hocanın yardımcısıyım. Bilgilerini aldım, ` +
+          `hocam en kısa sürede seni arayacak insallah. ${this.getRandomPrayer()}.`
+        );
+        return { reply, action: "complete" };
       }
 
       // Zaten bekliyorsa - doğal sohbet et
       if (this.aiChat) {
         const aiReply = await this._chat(msg, warmName);
-        if (aiReply) return { reply: aiReply, action: "chat" };
+        if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "chat" };
       }
 
-      return { reply: `Seni dinliyorum ${warmName}.`, action: "listening" };
+      const reply = this.addHumanTouch(`Seni dinliyorum ${warmName}.`);
+      return { reply, action: "listening" };
     }
 
     // === EKSİK BİLGİ SOR ===
     if (missing.length > 0) {
       const next = missing[0];
 
-      // Aynı soruyu 2 dk içinde tekrar sorma
+      // Aynı soruyu 3 dk içinde tekrar sorma
       const lastAt = profile?.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
-      if (profile?.last_question_key === next.key && Date.now() - lastAt < 120000) {
-        return { reply: `Seni dinliyorum ${warmName}.`, action: "waiting" };
+      if (profile?.last_question_key === next.key && Date.now() - lastAt < 180000) {
+        const reply = this.addHumanTouch(`Seni dinliyorum ${warmName}. ${this.getRandomPrayer()}.`);
+        return { reply, action: "waiting" };
       }
 
       await this.db.updateProfile(chatId, clientId, { last_question_key: next.key, last_question_at: new Date() });
-      return { reply: this._question(next.key, warmName), action: "ask_" + next.key };
+      const reply = this.addHumanTouch(this._questionNatural(next.key, warmName));
+      return { reply, action: "ask_" + next.key };
     }
 
-    return { reply: `Seni dinliyorum ${warmName}.`, action: "default" };
+    const reply = this.addHumanTouch(`Seni dinliyorum ${warmName}.`);
+    return { reply, action: "default" };
   }
 
-  // Doğal soru sor
+  // Basit soru (fallback)
   _question(key, warmName = "kardeşim") {
     const q = {
       full_name: `İsmin ne?`,
       city: `Nerelisin?`,
-      phone: `Hocamız arasın mı? Numara bırak.`,
+      phone: `Numara bırak, seni arayalım.`,
       birth_date: `Kaç yaşındasın?`,
-      mother_name: `Anne adın ne? (Bakım için lazım)`,
+      mother_name: `Anne adın ne?`,
       subject: `Anlat, derdin ne?`
     };
     return q[key] || "Nasıl yardımcı olabilirim?";
   }
 
-  // AI: Soru cevapla
+  // Doğal, insansı soru sor
+  _questionNatural(key, warmName = "kardeşim") {
+    const questions = {
+      full_name: [
+        `Adın ne senin?`,
+        `İsmin nedir?`,
+        `Nasıl hitap edeyim sana?`
+      ],
+      city: [
+        `Nerelisin sen?`,
+        `Hangi şehirdesin?`,
+        `Nereden yazıyorsun?`
+      ],
+      phone: [
+        `Bi numara bırak, seni arayalım.`,
+        `Numaran ne, hocam seni arasın?`,
+        `Telefon numarası bırakır mısın?`
+      ],
+      birth_date: [
+        `Kaç yaşındasın?`,
+        `Yaşın kaç senin?`,
+        `Kaç yaşında olduğunu söyler misin?`
+      ],
+      mother_name: [
+        `Anne adın ne?`,
+        `Annenin adı ne?`,
+        `Anne ismini alabilir miyim?`
+      ],
+      subject: [
+        `Anlat bakalım, ne sıkıntı var?`,
+        `Derdin ne senin?`,
+        `Neyle ilgili yardım istiyorsun?`
+      ]
+    };
+
+    const opts = questions[key] || [`${key} nedir?`];
+    return opts[Math.floor(Math.random() * opts.length)];
+  }
+
+  // AI: Soru cevapla (hoca gibi)
   async _askAI(msg, warmName) {
     if (!this.aiChat?.openai) return null;
     try {
       const resp = await this.aiChat.openai.chat.completions.create({
         model: this.aiChat.model,
         messages: [{
+          role: "system",
+          content: `Sen bir dini danışman/hocasın. Samimi, sıcak ve kısa cevaplar ver.
+- 1-2 cümle max
+- Dini ifadeler kullan (Allah, insallah, maşallah vs)
+- "${warmName}" diye hitap et
+- Ciddi konularda "hocamız seni arayacak" de`
+        }, {
           role: "user",
-          content: `Sen hocanın yardımcısısın. Kısa cevap ver (1-2 cümle). Tavsiye verme, hocaya yönlendir.
-
-Soru: "${msg}"
-
-"${warmName}" diye hitap et. Kısa ve samimi cevap:`
+          content: msg
         }],
-        temperature: 0.7,
-        max_tokens: 60
+        temperature: 0.75,
+        max_tokens: 80
       });
       return resp.choices[0]?.message?.content?.trim() || null;
     } catch { return null; }
   }
 
-  // AI: Empati göster
-  async _empathize(msg, warmName, missing) {
+  // AI: Empati göster (hoca gibi)
+  async _empathize(msg, warmName, missing, isComplete = false) {
     if (!this.aiChat?.openai) return null;
     try {
-      const askFor = missing.length > 0 ? missing[0].label : "";
+      const askFor = !isComplete && missing.length > 0 ? missing[0].label : "";
       const resp = await this.aiChat.openai.chat.completions.create({
         model: this.aiChat.model,
         messages: [{
+          role: "system",
+          content: `Sen bir dini danışman/hocasın. Biri derdini anlatıyor.
+- Empati göster, dinlediğini hissettir
+- 1-2 cümle max
+- Dua/hayır dile (Allah yardımcın olsun gibi)
+- "${warmName}" diye hitap et
+${askFor ? `- Laf arasında doğal şekilde "${askFor}" bilgisini sor` : ""}`
+        }, {
           role: "user",
-          content: `Sen hocanın yardımcısısın. Biri derdini anlatıyor. Empati göster, kısa cevap ver (1-2 cümle).
-${askFor ? `Laf arasında "${askFor}" sor.` : ""}
-
-Mesaj: "${msg}"
-
-"${warmName}" diye hitap et. Samimi ol:`
+          content: msg
         }],
         temperature: 0.8,
-        max_tokens: 70
+        max_tokens: 90
       });
       return resp.choices[0]?.message?.content?.trim() || null;
     } catch { return null; }
   }
 
-  // AI: Doğal sohbet (profil tamamken)
+  // AI: Doğal sohbet (profil tamamken - yardımcı olarak)
   async _chat(msg, warmName) {
     if (!this.aiChat?.openai) return null;
     try {
       const resp = await this.aiChat.openai.chat.completions.create({
         model: this.aiChat.model,
         messages: [{
+          role: "system",
+          content: `Sen hocanın yardımcısısın (artık bunu biliyorlar).
+- Kısa ve samimi sohbet et (1 cümle)
+- "${warmName}" diye hitap et
+- Hocam sizi arayacak de
+- Dini ifadeler kullan`
+        }, {
           role: "user",
-          content: `Sen hocanın yardımcısısın. Kısa ve samimi sohbet et (1 cümle). "${warmName}" diye hitap et.
-
-Mesaj: "${msg}"
-
-Kısa cevap:`
+          content: msg
         }],
         temperature: 0.8,
-        max_tokens: 50
+        max_tokens: 60
       });
       return resp.choices[0]?.message?.content?.trim() || null;
     } catch { return null; }
