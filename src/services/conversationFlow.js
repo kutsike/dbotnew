@@ -1,13 +1,12 @@
 "use strict";
 
 /**
- * ConversationFlow v3.0 - İnsansı Sohbet Motoru
+ * ConversationFlow v4.0 - İnsansı Sohbet Motoru
  *
- * ÖNCELİK SIRASI:
- * 1. Kullanıcının niyetini anla (soru mu soruyor, bilgi mi veriyor, selamlama mı?)
- * 2. Doğal cevap ver (robot gibi değil, insan gibi)
- * 3. Bilgi toplamayı sohbetin içine gizle
- * 4. Aynı soruyu tekrar sorma
+ * DEĞİŞİKLİKLER:
+ * - Niyet algılama düzeltildi (greeting false positive önlendi)
+ * - Manevi konularda empati ve hocaya yönlendirme
+ * - Doğal sohbet akışı
  */
 
 class ConversationFlow {
@@ -15,7 +14,6 @@ class ConversationFlow {
     this.db = db;
     this.aiChat = aiChat;
 
-    // Toplanacak bilgiler
     this.requiredFields = [
       { key: "full_name", label: "isim", priority: 1 },
       { key: "city", label: "şehir", priority: 2 },
@@ -25,43 +23,70 @@ class ConversationFlow {
       { key: "subject", label: "konu/dert", priority: 6 }
     ];
 
-    // Türk isimleri
     this.commonNames = new Set([
       "ahmet", "mehmet", "mustafa", "ali", "hasan", "hüseyin", "ibrahim", "ismail", "osman", "yusuf",
       "fatma", "ayşe", "emine", "hatice", "zeynep", "elif", "meryem", "sultan", "hacer", "hanife",
-      "ayten", "aysel", "gülşen", "sevim", "nurten", "nuriye", "naime", "naciye", "halime", "havva",
-      "ömer", "recep", "ramazan", "süleyman", "abdullah", "abdulkadir", "murat", "burak", "emre", "can",
-      "derya", "deniz", "ceren", "selin", "ece", "buse", "merve", "büşra", "seda", "gamze"
+      "ayten", "aysel", "gülşen", "sevim", "nurten", "nuriye", "naime", "naciye", "halime", "havva"
     ]);
 
-    // Şehirler
     this.cities = [
       "istanbul", "ankara", "izmir", "bursa", "antalya", "konya", "adana", "gaziantep", "mersin", "diyarbakır",
-      "kayseri", "eskişehir", "samsun", "denizli", "şanlıurfa", "malatya", "trabzon", "erzurum", "van", "batman",
-      "elazığ", "sivas", "manisa", "balıkesir", "kahramanmaraş", "hatay", "sakarya", "kocaeli", "muğla", "aydın"
+      "kayseri", "eskişehir", "samsun", "denizli", "şanlıurfa", "malatya", "trabzon", "erzurum", "van", "batman"
     ];
 
-    // Niyet kalıpları
-    this.intentPatterns = {
-      greeting: ["selam", "merhaba", "mrb", "slm", "günaydın", "iyi günler", "iyi akşamlar", "sa", "as", "selamün"],
-      question: ["soru", "sormak", "soracak", "merak", "öğrenmek", "bilgi", "nasıl", "neden", "ne zaman", "nerede"],
-      help: ["yardım", "destek", "problem", "sıkıntı", "dert", "sorun", "muska", "büyü", "nazar", "ayrılık", "sevgi"],
-      thanks: ["teşekkür", "sağol", "eyvallah", "allah razı", "çok iyi"],
-      confirm: ["tamam", "olur", "evet", "peki", "anladım", "ok", "he", "hı", "tamamdır"],
-      phone: ["ara", "arayın", "telefon", "numara", "iletişim"]
-    };
+    // Manevi/spiritüel konular - bunlarda hocaya yönlendir
+    this.spiritualTopics = [
+      "büyü", "muska", "nazar", "cin", "rüya", "fal", "bağlama", "ayrılık", "sevgi", "geri getirme",
+      "kısmet", "uğur", "şans", "bereket", "hastalık", "iyileşme", "dua", "zikir", "vefk", "tılsım",
+      "eş", "evlilik", "boşanma", "koca", "karı", "aldatma", "ihanet", "aile", "anne", "baba",
+      "para", "borç", "iş", "rızık", "zenginlik", "fakirlik", "sıkıntı", "dert", "sorun", "problem"
+    ];
   }
 
-  // === NİYET ALGILAMA ===
+  // === NİYET ALGILAMA (GELİŞTİRİLMİŞ) ===
   detectIntent(message) {
     const lower = this.normalizeTR(message);
+    const words = lower.split(/\s+/);
 
-    for (const [intent, patterns] of Object.entries(this.intentPatterns)) {
-      if (patterns.some(p => lower.includes(p))) {
-        return intent;
-      }
+    // SELAMLAMA: Sadece mesaj selam ile BAŞLIYORSA veya çok kısaysa
+    const greetingStarts = ["selam", "merhaba", "mrb", "slm", "sa ", "as ", "selamun", "selamın"];
+    const isGreeting = greetingStarts.some(g => lower.startsWith(g)) ||
+                       (words.length <= 2 && greetingStarts.some(g => lower.includes(g)));
+    if (isGreeting) return "greeting";
+
+    // MANEVİ KONU: Büyü, muska, nazar vs.
+    if (this.spiritualTopics.some(t => lower.includes(t))) {
+      return "spiritual";
     }
-    return "unknown";
+
+    // SORU SORMAK İSTİYOR
+    if (lower.includes("soru") || lower.includes("sormak") || lower.includes("soracak") ||
+        lower.includes("merak") || lower.includes("öğrenmek")) {
+      return "question";
+    }
+
+    // NASIL sorusu
+    if (lower.includes("nasıl") || lower.includes("ne yapmalı") || lower.includes("ne yapmam")) {
+      return "how_question";
+    }
+
+    // TEŞEKKÜR
+    if (lower.includes("teşekkür") || lower.includes("sağol") || lower.includes("eyvallah")) {
+      return "thanks";
+    }
+
+    // ONAY
+    if (words.length <= 3 && (lower.includes("tamam") || lower.includes("olur") ||
+        lower.includes("evet") || lower.includes("peki") || lower === "ok" || lower === "he")) {
+      return "confirm";
+    }
+
+    // TELEFON/ARAMA İSTEĞİ
+    if (lower.includes("ara") || lower.includes("telefon") || lower.includes("numara")) {
+      return "phone_request";
+    }
+
+    return "general";
   }
 
   // === KISA CEVAP ALGILAMA ===
@@ -71,7 +96,6 @@ class ConversationFlow {
     const words = raw.split(/\s+/);
 
     if (words.length > 4 || raw.length > 50) return null;
-    if (this.isGreeting(raw)) return null;
 
     const lastQ = profile?.last_question_key;
     if (!lastQ) return null;
@@ -98,7 +122,9 @@ class ConversationFlow {
             return { city: city.charAt(0).toUpperCase() + city.slice(1) };
           }
         }
-        if (words.length === 1) return { city: this._capitalizeWords(raw) };
+        if (words.length === 1 && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(raw)) {
+          return { city: this._capitalizeWords(raw) };
+        }
         break;
 
       case "birth_date":
@@ -106,8 +132,6 @@ class ConversationFlow {
         if (ageMatch && parseInt(ageMatch[1]) >= 10 && parseInt(ageMatch[1]) <= 100) {
           return { birth_date: String(new Date().getFullYear() - parseInt(ageMatch[1])) };
         }
-        const yearMatch = raw.match(/^(19\d{2}|20[0-2]\d)$/);
-        if (yearMatch) return { birth_date: yearMatch[1] };
         break;
 
       case "phone":
@@ -125,11 +149,9 @@ class ConversationFlow {
     const raw = String(message || "");
     const lower = this.normalizeTR(raw);
 
-    // Telefon
     const phoneMatch = raw.replace(/\s+/g, "").match(/(\+?90)?0?5\d{9}/);
     if (phoneMatch) extracted.phone = phoneMatch[0];
 
-    // Şehir
     for (const city of this.cities) {
       if (lower.includes(this.normalizeTR(city))) {
         extracted.city = city.charAt(0).toUpperCase() + city.slice(1);
@@ -137,7 +159,6 @@ class ConversationFlow {
       }
     }
 
-    // Yaş
     const ageMatch = lower.match(/(\d{1,2})\s*yaş/);
     if (ageMatch) extracted.birth_date = String(new Date().getFullYear() - parseInt(ageMatch[1]));
 
@@ -161,6 +182,20 @@ class ConversationFlow {
       await this.db.updateProfile(chatId, clientId, shortAnswer);
       Object.assign(profile, shortAnswer);
       await this.db.updateProfile(chatId, clientId, { last_question_key: null });
+
+      // Kısa cevap alındıysa teşekkür et ve devam et
+      const missing = this.getMissingFields(profile);
+      if (missing.length > 0) {
+        const nextField = missing[0];
+        await this.db.updateProfile(chatId, clientId, {
+          last_question_key: nextField.key,
+          last_question_at: new Date()
+        });
+        return {
+          reply: `Tamam ${warmName}. ${this._naturalQuestion(nextField.key, warmName)}`,
+          action: "short_answer_next"
+        };
+      }
     }
 
     // 2. Normal veri çıkarma
@@ -174,7 +209,7 @@ class ConversationFlow {
     const intent = this.detectIntent(message);
     const missing = this.getMissingFields(profile || {});
 
-    // === SELAMLAMAise ===
+    // === SELAMLAMA ===
     if (intent === "greeting") {
       if (!profile?.full_name) {
         return {
@@ -183,12 +218,33 @@ class ConversationFlow {
         };
       }
       return {
-        reply: `Aleyküm selam ${warmName}, nasılsın? Seni dinliyorum.`,
+        reply: `Aleyküm selam ${warmName}, hoş geldin. Nasıl yardımcı olabilirim?`,
         action: "greeting"
       };
     }
 
-    // === SORU SORMAK İSTİYORSA ===
+    // === MANEVİ KONU (büyü, muska, nazar vs.) ===
+    if (intent === "spiritual") {
+      // Konuyu kaydet
+      if (!profile?.subject) {
+        await this.db.updateProfile(chatId, clientId, { subject: message });
+        if (profile) profile.subject = message;
+      }
+
+      // AI ile empati ve yönlendirme
+      if (this.aiChat) {
+        const aiReply = await this._generateSpiritualReply(message, profile, missing, warmName);
+        if (aiReply) return { reply: aiReply, action: "spiritual_response" };
+      }
+
+      // AI yoksa manuel cevap
+      return {
+        reply: `${warmName}, bu konuda hocamız çok deneyimli. Endişelenme, daha detaylı anlat bana, hocamıza iletelim.`,
+        action: "spiritual_fallback"
+      };
+    }
+
+    // === SORU SORMAK İSTİYOR ===
     if (intent === "question") {
       return {
         reply: `Buyur ${warmName}, dinliyorum. Ne sormak istiyorsun?`,
@@ -196,41 +252,29 @@ class ConversationFlow {
       };
     }
 
-    // === YARDIM/DERT ANLATIYORSA ===
-    if (intent === "help" || message.length > 30) {
-      // Konu olarak kaydet
-      if (!profile?.subject && message.length > 15) {
-        await this.db.updateProfile(chatId, clientId, { subject: message });
-        if (profile) profile.subject = message;
-      }
-
-      // AI ile cevap üret
+    // === NASIL SORUSU (nasıl yapmalıyım vs.) ===
+    if (intent === "how_question") {
       if (this.aiChat) {
-        const aiReply = await this._generateNaturalReply(message, profile, missing);
-        if (aiReply) {
-          return { reply: aiReply, action: "ai_response" };
-        }
+        const aiReply = await this._generateHelpfulReply(message, profile, warmName);
+        if (aiReply) return { reply: aiReply, action: "how_response" };
       }
-
-      // AI yoksa basit cevap
       return {
-        reply: `Anlıyorum ${warmName}. Bu konuda hocamız sana yardımcı olabilir inşallah. Seni hocamıza ileteceğim.`,
-        action: "help_response"
+        reply: `${warmName}, bu konuda hocamız sana daha iyi yol gösterir. Biraz daha anlat, ne oldu?`,
+        action: "how_fallback"
       };
     }
 
     // === TEŞEKKÜR ===
     if (intent === "thanks") {
       return {
-        reply: `Rica ederim ${warmName}, Allah razı olsun.`,
+        reply: `Rica ederim ${warmName}. Başka bir şey var mı yardımcı olabileceğim?`,
         action: "thanks"
       };
     }
 
-    // === ONAY (evet, tamam vs) ===
+    // === ONAY ===
     if (intent === "confirm") {
-      // Eğer kısa cevap değilse ve eksik alan varsa sor
-      if (missing.length > 0 && !shortAnswer) {
+      if (missing.length > 0) {
         const nextField = missing[0];
         await this.db.updateProfile(chatId, clientId, {
           last_question_key: nextField.key,
@@ -242,13 +286,13 @@ class ConversationFlow {
         };
       }
       return {
-        reply: `Tamam ${warmName}, başka bir şey var mı?`,
+        reply: `Tamam ${warmName}. Başka bir şey var mı?`,
         action: "confirm"
       };
     }
 
     // === TELEFON İSTEĞİ ===
-    if (intent === "phone") {
+    if (intent === "phone_request") {
       if (!profile?.phone) {
         await this.db.updateProfile(chatId, clientId, {
           last_question_key: "phone",
@@ -260,7 +304,7 @@ class ConversationFlow {
         };
       }
       return {
-        reply: `Numaran kayıtlı ${warmName}, hocamız en kısa sürede arayacak inşallah.`,
+        reply: `Numaran kayıtlı ${warmName}. Hocamız müsait olunca arayacak inşallah.`,
         action: "phone_exists"
       };
     }
@@ -272,28 +316,34 @@ class ConversationFlow {
         await this.db.updateProfileStatus(chatId, clientId, "waiting");
       }
       return {
-        reply: `Tamam ${warmName}, bilgilerini hocamıza ilettim. Seni arayacak inşallah.`,
+        reply: `Tamam ${warmName}, bilgilerini hocamıza ilettim. Seni arayacak inşallah. Başka bir şey var mı?`,
         action: "profile_complete"
       };
     }
 
-    // === EKSİK BİLGİ VAR AMA DOĞAL AKIŞTA SOR ===
-    // Sadece her 3-4 mesajda bir eksik bilgi sor, sürekli sorma
-    const msgCount = profile?.msg_count || 0;
-    const shouldAsk = (msgCount % 3 === 0) || missing.length <= 2;
+    // === GENEL MESAJ - AI İLE CEVAPLA ===
+    if (this.aiChat && message.length > 5) {
+      // Uzun mesajsa konu olarak kaydet
+      if (!profile?.subject && message.length > 20) {
+        await this.db.updateProfile(chatId, clientId, { subject: message });
+        if (profile) profile.subject = message;
+      }
 
-    if (missing.length > 0 && shouldAsk) {
+      const aiReply = await this._generateNaturalReply(message, profile, missing, warmName);
+      if (aiReply) return { reply: aiReply, action: "ai_response" };
+    }
+
+    // === EKSİK BİLGİ SOR ===
+    if (missing.length > 0) {
       const nextField = missing[0];
 
-      // Son 2 dakikada aynı soruyu sorma
+      // Aynı soruyu 2 dk içinde sorma
       const lastAt = profile?.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
       if (profile?.last_question_key === nextField.key && Date.now() - lastAt < 120000) {
-        // AI ile devam et
-        if (this.aiChat) {
-          const aiReply = await this._generateNaturalReply(message, profile, missing);
-          if (aiReply) return { reply: aiReply, action: "ai_continue" };
-        }
-        return { reply: null, action: "skip_repeat" };
+        return {
+          reply: `Seni dinliyorum ${warmName}.`,
+          action: "waiting"
+        };
       }
 
       await this.db.updateProfile(chatId, clientId, {
@@ -307,68 +357,102 @@ class ConversationFlow {
       };
     }
 
-    // === VARSAYILAN: AI İLE CEVAP VER ===
-    if (this.aiChat) {
-      const aiReply = await this._generateNaturalReply(message, profile, missing);
-      if (aiReply) return { reply: aiReply, action: "ai_default" };
-    }
-
     return {
       reply: `Seni dinliyorum ${warmName}.`,
       action: "default"
     };
   }
 
-  // === AI İLE DOĞAL CEVAP ===
-  async _generateNaturalReply(message, profile, missing) {
+  // === MANEVİ KONULAR İÇİN AI CEVABI ===
+  async _generateSpiritualReply(message, profile, missing, warmName) {
     if (!this.aiChat?.openai) return null;
 
     try {
-      const warmName = profile?.full_name?.split(" ")[0] || "kardeşim";
-      const missingInfo = missing.slice(0, 2).map(f => f.label).join(", ");
-
-      const systemPrompt = `Sen bir hocanın yardımcısısın. WhatsApp'ta insanlarla sohbet ediyorsun.
+      const prompt = `Sen bir hocanın yardımcısısın. Biri sana manevi bir konu hakkında danışıyor.
 
 KONUŞMA TARZI:
-- Kısa ve doğal cevaplar ver (1-3 cümle max)
-- "Hocam", "efendim" gibi resmi kalıplar kullanma
-- Samimi ol ama saygılı: "kardeşim", "${warmName}" diye hitap et
-- Emoji kullanma
-- Her cümlenin sonuna "inşallah" veya dini terim ekleme, sadece uygun yerde kullan
+- Samimi ve anlayışlı ol
+- EMPATİ göster - "Anlıyorum", "Zor bir durum" gibi
+- Hocaya güven ver - "Hocamız bu konularda çok deneyimli"
+- Kısa cevap ver (2-3 cümle)
+- Tavsiye verme, sadece dinle ve hocaya yönlendir
 
-GÖREV:
-- Kullanıcının mesajına doğal cevap ver
-- Eğer uygunsa laf arasında şu bilgiyi sor: ${missingInfo || "yok"}
-- Ama zorlama, doğal akışta sor
+ÖRNEK:
+Kullanıcı: "Eşime büyü yapmışlar mı acaba?"
+Sen: "Anlıyorum ${warmName}, bu tür şeyler insanı tedirgin eder. Hocamız bu konularda çok tecrübeli, onunla konuşalım. Biraz daha anlat, neler oluyor?"
 
-KULLANICI BİLGİLERİ:
-- İsim: ${profile?.full_name || "bilinmiyor"}
-- Şehir: ${profile?.city || "bilinmiyor"}
-- Konu: ${profile?.subject || "henüz belirtmedi"}
+Kullanıcı: "${message}"
 
-ÖNEMLİ: Robot gibi değil, gerçek bir insan gibi yaz.`;
+Kısa ve samimi cevap ver:`;
 
       const completion = await this.aiChat.openai.chat.completions.create({
         model: this.aiChat.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
+        messages: [{ role: "user", content: prompt }],
         temperature: 0.8,
-        max_tokens: 120
+        max_tokens: 100
       });
 
-      let reply = completion.choices[0]?.message?.content || "";
-
-      // Çok uzunsa kısalt
-      if (reply.length > 200) {
-        const sentences = reply.split(/[.!?]+/).filter(s => s.trim());
-        reply = sentences.slice(0, 2).join(". ") + ".";
-      }
-
-      return reply.trim();
+      return completion.choices[0]?.message?.content?.trim() || null;
     } catch (e) {
-      console.error("AI cevap hatası:", e.message);
+      console.error("AI spiritual hatası:", e.message);
+      return null;
+    }
+  }
+
+  // === NASIL SORULARI İÇİN AI CEVABI ===
+  async _generateHelpfulReply(message, profile, warmName) {
+    if (!this.aiChat?.openai) return null;
+
+    try {
+      const prompt = `Sen bir hocanın yardımcısısın. Biri sana "nasıl yapmalıyım" tarzı bir soru soruyor.
+
+KURAL: Direkt tavsiye verme, dinle ve hocaya yönlendir.
+
+Kullanıcı: "${message}"
+
+Kısa cevap ver (1-2 cümle). Örnek: "Anlıyorum ${warmName}. Bu konuda hocamızla konuşalım, sana daha iyi yol gösterir. Biraz daha anlat?"`;
+
+      const completion = await this.aiChat.openai.chat.completions.create({
+        model: this.aiChat.model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 80
+      });
+
+      return completion.choices[0]?.message?.content?.trim() || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // === GENEL AI CEVABI ===
+  async _generateNaturalReply(message, profile, missing, warmName) {
+    if (!this.aiChat?.openai) return null;
+
+    try {
+      const missingInfo = missing.slice(0, 1).map(f => f.label).join(", ");
+
+      const prompt = `Sen bir hocanın yardımcısısın. WhatsApp'ta sohbet ediyorsun.
+
+KURAL:
+- Kısa cevap (1-2 cümle)
+- Samimi ol, "${warmName}" diye hitap et
+- Robot gibi olma
+- Eğer uygunsa laf arasında şunu sor: ${missingInfo || "bir şey sorma"}
+
+Kullanıcı: "${message}"
+
+Kısa ve doğal cevap:`;
+
+      const completion = await this.aiChat.openai.chat.completions.create({
+        model: this.aiChat.model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.8,
+        max_tokens: 80
+      });
+
+      return completion.choices[0]?.message?.content?.trim() || null;
+    } catch (e) {
       return null;
     }
   }
@@ -377,10 +461,10 @@ KULLANICI BİLGİLERİ:
   _naturalQuestion(fieldKey, warmName) {
     const questions = {
       full_name: `İsmin ne ${warmName}?`,
-      city: `Nerelisin kardeşim?`,
-      phone: `Hocamız seni arasın mı? Numara bırak istersen.`,
+      city: `Nerelisin?`,
+      phone: `Hocamız seni arasın mı? Numara bırakır mısın?`,
       birth_date: `Kaç yaşındasın?`,
-      mother_name: `Anne adın ne kardeşim? (Bakım için lazım)`,
+      mother_name: `Anne adın ne? (Hocamızın bakımı için lazım)`,
       subject: `Anlat bakalım, derdin ne?`
     };
     return questions[fieldKey] || "Nasıl yardımcı olabilirim?";
@@ -389,11 +473,6 @@ KULLANICI BİLGİLERİ:
   // === YARDIMCI METODLAR ===
   normalizeTR(str) {
     return String(str || "").replace(/İ/g, "i").replace(/I/g, "ı").toLowerCase().trim();
-  }
-
-  isGreeting(message) {
-    const lower = this.normalizeTR(message);
-    return this.intentPatterns.greeting.some(g => lower.includes(g));
   }
 
   _capitalizeWords(str) {
