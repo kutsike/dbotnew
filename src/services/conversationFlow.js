@@ -7,6 +7,7 @@
  * - Soruları sohbetin içine, tavsiyelerin arasına gizleme.
  * - Hocayı ve tekniklerini övme.
  * - Kullanıcının derdine ortak olma.
+ * - KISA CEVAP ALGILAMA: Tek kelimelik cevapları (isim, şehir, yaş) son sorulan soruyla ilişkilendirir.
  */
 
 class ConversationFlow {
@@ -24,6 +25,16 @@ class ConversationFlow {
       { key: "subject", label: "Derdi/Sıkıntısı", priority: 6 }
     ];
 
+    // Türk isimleri (yaygın olanlar - kısa cevap algılama için)
+    this.commonNames = new Set([
+      "ahmet", "mehmet", "mustafa", "ali", "hasan", "hüseyin", "ibrahim", "ismail", "osman", "yusuf",
+      "fatma", "ayşe", "emine", "hatice", "zeynep", "elif", "meryem", "sultan", "hacer", "hanife",
+      "ayten", "aysel", "gülşen", "sevim", "nurten", "nuriye", "naime", "naciye", "halime", "havva",
+      "ömer", "recep", "ramazan", "süleyman", "abdullah", "abdulkadir", "murat", "burak", "emre", "can",
+      "derya", "deniz", "ceren", "selin", "ece", "buse", "merve", "büşra", "seda", "gamze",
+      "kemal", "cemal", "celal", "kadir", "yaşar", "şükrü", "rıza", "necati", "veli", "sami"
+    ]);
+
     // Regex Desenleri (Değişmedi - Veri yakalama için gerekli)
     this.cities = [
       "istanbul", "ankara", "izmir", "bursa", "antalya", "konya", "adana", "gaziantep", "mersin", "diyarbakır",
@@ -36,6 +47,107 @@ class ConversationFlow {
     ];
 
     this.greetingPatterns = ["selam", "merhaba", "mrb", "slm", "günaydın", "iyi günler", "iyi akşamlar", "hayırlı", "sa", "as"];
+  }
+
+  /**
+   * KISA CEVAP ALGILAMA SİSTEMİ
+   * Bot "Anne adın?" diye sorduğunda kullanıcı sadece "Ayten" yazarsa,
+   * bu metot son sorulan soruyu (last_question_key) kontrol eder ve
+   * kısa cevabı ilgili alana yerleştirir.
+   */
+  detectShortAnswer(message, profile) {
+    const raw = String(message || "").trim();
+    const lower = this.normalizeTR(raw);
+    const words = raw.split(/\s+/);
+
+    // Çok uzun mesajlar kısa cevap değildir
+    if (words.length > 4 || raw.length > 50) return null;
+
+    // Selamlama ise kısa cevap değil
+    if (this.isGreeting(raw)) return null;
+
+    // Son sorulan soru ne?
+    const lastQ = profile?.last_question_key;
+    if (!lastQ) return null;
+
+    // Son soruyu sorma süresini kontrol et (10 dakika içinde cevaplanmalı)
+    const lastAt = profile?.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
+    const now = Date.now();
+    if (now - lastAt > 600000) return null; // 10 dakikadan eski
+
+    // Her alan için kısa cevap algılama
+    switch (lastQ) {
+      case "full_name":
+        // 1-3 kelime arası ve isim gibi görünüyor (harf ile başlıyor)
+        if (words.length <= 3 && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(raw)) {
+          return { full_name: this._capitalizeWords(raw) };
+        }
+        break;
+
+      case "mother_name":
+        // Tek kelime veya 2 kelime (anne ismi genellikle tek kelime)
+        if (words.length <= 2 && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(raw)) {
+          // Yaygın isimlerden biri mi veya isim formatında mı?
+          const firstName = words[0];
+          if (this.commonNames.has(this.normalizeTR(firstName)) || /^[A-ZÇĞİÖŞÜ]/.test(firstName)) {
+            return { mother_name: this._capitalizeWords(raw) };
+          }
+          // Küçük harfle yazılmış olsa bile kabul et
+          return { mother_name: this._capitalizeWords(raw) };
+        }
+        break;
+
+      case "city":
+        // Şehir listesinde var mı veya tek/iki kelime mi?
+        for (const city of this.cities) {
+          if (lower.includes(this.normalizeTR(city))) {
+            return { city: city.charAt(0).toUpperCase() + city.slice(1).toLowerCase() };
+          }
+        }
+        // Şehir listesinde yoksa ama tek kelime ise kabul et
+        if (words.length === 1 && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(raw)) {
+          return { city: this._capitalizeWords(raw) };
+        }
+        break;
+
+      case "birth_date":
+        // Yaş (sayı) veya yıl (4 haneli)
+        const ageMatch = raw.match(/^(\d{1,2})$/);
+        if (ageMatch) {
+          const age = parseInt(ageMatch[1]);
+          if (age >= 10 && age <= 100) {
+            return { birth_date: String(new Date().getFullYear() - age) };
+          }
+        }
+        const yearMatch = raw.match(/^(19\d{2}|20[0-2]\d)$/);
+        if (yearMatch) {
+          return { birth_date: yearMatch[1] };
+        }
+        // "35 yaşındayım", "1988 doğumluyum" gibi
+        const ageInText = lower.match(/(\d{1,2})\s*yaş/);
+        if (ageInText) {
+          return { birth_date: String(new Date().getFullYear() - parseInt(ageInText[1])) };
+        }
+        break;
+
+      case "phone":
+        // Telefon numarası (5xx ile başlayan)
+        const phoneMatch = raw.replace(/\s+/g, "").match(/(\+?90)?0?5\d{9}/);
+        if (phoneMatch) {
+          return { phone: phoneMatch[0] };
+        }
+        break;
+    }
+
+    return null;
+  }
+
+  // Kelimelerin baş harflerini büyük yap
+  _capitalizeWords(str) {
+    return String(str || "")
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
   }
 
   // --- YARDIMCI METODLAR ---
@@ -159,25 +271,37 @@ class ConversationFlow {
     const { name, profile } = context;
     const warmName = this._pickWarmName(name, profile);
 
-    // 1. Veri Yakalama
+    // 1. ÖNCE KISA CEVAP ALGILAMA (SON SORULAN SORUYA GÖRE)
+    const shortAnswer = this.detectShortAnswer(message, profile);
+    if (shortAnswer && profile) {
+      // Kısa cevabı doğrudan profil alanına kaydet
+      await this.db.updateProfile(chatId, clientId, shortAnswer);
+      Object.assign(profile, shortAnswer);
+      console.log(`[ConversationFlow] Kısa cevap algılandı:`, shortAnswer);
+
+      // Son soru key'ini temizle (tekrar sormasın)
+      await this.db.updateProfile(chatId, clientId, { last_question_key: null });
+    }
+
+    // 2. Normal Veri Yakalama (Regex ile)
     const extracted = this.extractInfo(message, profile);
 
-    // 2. Profili Güncelle
+    // 3. Profili Güncelle (kısa cevap veya regex ile yakalananlar)
     if (profile && Object.keys(extracted).length > 0) {
       await this.db.updateProfile(chatId, clientId, extracted);
       Object.assign(profile, extracted);
     }
 
-    // 3. Selamlama (Eğer yeni ise)
+    // 4. Selamlama (Eğer yeni ise)
     const isGreeting = this.isGreeting(message);
     if (isGreeting && (!profile?.full_name || profile?.status === "new")) {
-      return { 
-        reply: `Ve Aleyküm Selam ve Rahmetullahi ve Berekatuhu ${warmName} kardeşim, hoş geldin, safalar getirdin inşallah. Gönül dergahımıza adım attın, Rabbim hayırlara vesile kılsın maşallah. Hocamızın manevi desteğiyle nice gönüller ferahladı, inşallah senin de derdine derman olacağız biiznillah. Öncelikle seni daha yakından tanımak, ismen dua etmek isteriz. İsmini bağışlar mısın güzel kardeşim?`, 
-        action: "greeting" 
+      return {
+        reply: `Ve Aleyküm Selam ${warmName} kardeşim, hoş geldin. Seni dinliyorum, ismini öğrenebilir miyim?`,
+        action: "greeting"
       };
     }
 
-    // 4. Eksik Alan Kontrolü
+    // 5. Eksik Alan Kontrolü
     const missing = this.getMissingFields(profile || {});
 
     // --- DURUM A: TÜM BİLGİLER TAMAM (FİNAL) ---
@@ -185,46 +309,63 @@ class ConversationFlow {
       if (profile.status !== "waiting") {
         try { await this.db.createAppointment(profile.id, clientId, profile.subject || ""); } catch {}
         await this.db.updateProfileStatus(chatId, clientId, "waiting");
-        
-        // İSTENİLEN ÖZEL FİNAL MESAJI
-        const finalReply = "Hocama durumunuzu ilettim kendisi sizinle iletişime geçecek ve inşallah yaralarınıza derman olacaktır.";
 
-        return { reply: finalReply, action: "profile_complete" };
+        return {
+          reply: "Hocama durumunuzu ilettim, kendisi sizinle iletişime geçecek inşallah.",
+          action: "profile_complete"
+        };
       }
+      // Zaten waiting ise teşekkür et
+      return {
+        reply: "Bilgileriniz kayıtlı kardeşim, Hocamız en kısa sürede sizinle iletişime geçecek inşallah.",
+        action: "already_complete"
+      };
     }
 
     // --- DURUM B: BİLGİ EKSİK -> SOHBETLE İSTE ---
     if (missing.length > 0) {
       const nextField = missing[0];
-      
-      // Tekrar sorma kontrolü (spam önleme)
+
+      // Tekrar sorma kontrolü - AYNI SORUYU TEKRAR SORMA
+      // Eğer zaten bu soru sorulmuşsa VE kısa cevap gelmediyse biraz bekle
       const now = Date.now();
-      const lastAt = profile.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
-      if (profile.last_question_key === nextField.key && (now - lastAt < 40000)) {
-        return { reply: null, action: "skip_repeat" }; // Çok sık sorma
+      const lastAt = profile?.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
+
+      // Eğer son 2 dakika içinde aynı soruyu sorduysan ve cevap alamadıysan
+      if (profile?.last_question_key === nextField.key && (now - lastAt < 120000)) {
+        // Kısa cevap geldiyse (shortAnswer) sıradaki soruya geç
+        if (!shortAnswer) {
+          return { reply: null, action: "skip_repeat" };
+        }
       }
 
-      await this.db.updateProfile(chatId, clientId, { 
+      // Yeni soru sor
+      await this.db.updateProfile(chatId, clientId, {
         last_question_key: nextField.key,
         last_question_at: new Date()
       });
 
-      // AI VARSA: Hoca Modunda Sor
-      if (this.aiChat) {
-        const aiResponse = await this._generateReligousConversation(profile, nextField, message);
-        if (aiResponse) {
-          return { reply: aiResponse, action: "collecting_" + nextField.key };
-        }
-      }
-
-      // AI YOKSA: Manuel Hoca Modu Soruları
-      return { 
-        reply: this._manualReligiousQuestion(nextField.key, warmName), 
-        action: "collecting_" + nextField.key 
+      // KISA VE DOĞAL SORULAR (Abartısız)
+      return {
+        reply: this._shortQuestion(nextField.key, warmName),
+        action: "collecting_" + nextField.key
       };
     }
 
-    return { reply: "Mesajınızı aldık kardeşim, sabret, inşallah dönüş yapacağız.", action: "default" };
+    return { reply: "Teşekkürler kardeşim, notlarımıza aldık.", action: "default" };
+  }
+
+  // --- KISA VE DOĞAL SORULAR (Abartısız) ---
+  _shortQuestion(fieldKey, warmName) {
+    const questions = {
+      full_name: `İsmini öğrenebilir miyim ${warmName}?`,
+      city: `Hangi şehirdesin kardeşim?`,
+      phone: `Hocamız seni arasın diye bir numara alabilir miyim?`,
+      birth_date: `Kaç yaşındasın kardeşim?`,
+      mother_name: `Anne ismini alabilir miyim? (Bakım için gerekli)`,
+      subject: `Anlat bakalım kardeşim, derdin nedir?`
+    };
+    return questions[fieldKey] || "Nasıl yardımcı olabilirim?";
   }
 }
 

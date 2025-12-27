@@ -217,15 +217,24 @@ function startPanel({ manager, port, host }) {
   app.get("/humanization", async (req, res) => {
     const configStr = await manager.db.getSetting("humanization_config");
     let config = {
-      enabled: true, min_response_delay: 60, max_response_delay: 600,
-      wpm_reading: 200, cpm_typing: 300, long_message_threshold: 150,
-      long_message_extra_delay: 60, typing_variance: 20
+      enabled: true,
+      show_typing_indicator: true,
+      split_messages: true,
+      split_threshold: 240,
+      chunk_delay: 800,
+      min_response_delay: 60,
+      max_response_delay: 600,
+      wpm_reading: 200,
+      cpm_typing: 300,
+      long_message_threshold: 150,
+      long_message_extra_delay: 60,
+      typing_variance: 20
     };
     try { if(configStr) Object.assign(config, JSON.parse(configStr)); } catch(e){}
-    
-    res.render("humanization", { 
+
+    res.render("humanization", {
       title: "İnsanlaştırma Ayarları",
-      page: "humanization", 
+      page: "humanization",
       config,
       saved: req.query.saved === 'true'
     });
@@ -235,6 +244,10 @@ function startPanel({ manager, port, host }) {
   app.post("/humanization", async (req, res) => {
     const newConfig = {
       enabled: req.body.enabled === "on",
+      show_typing_indicator: req.body.show_typing_indicator === "on",
+      split_messages: req.body.split_messages === "on",
+      split_threshold: parseInt(req.body.split_threshold) || 240,
+      chunk_delay: parseInt(req.body.chunk_delay) || 800,
       min_response_delay: parseInt(req.body.min_response_delay) || 60,
       max_response_delay: parseInt(req.body.max_response_delay) || 600,
       wpm_reading: parseInt(req.body.wpm_reading) || 200,
