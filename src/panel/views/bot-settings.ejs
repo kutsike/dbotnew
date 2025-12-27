@@ -1,0 +1,770 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2>
+    <a href="/bots" class="back-link"><i class="fas fa-arrow-left me-2"></i></a>
+    <i class="fas fa-cog"></i> Bot Ayarlari - <%= client.name || client.id %>
+  </h2>
+</div>
+
+<!-- Bot Durum Karti -->
+<div class="bot-status-card">
+  <div class="bot-avatar">
+    <i class="fas fa-robot"></i>
+  </div>
+  <div class="bot-info">
+    <h3><%= client.name || client.id %></h3>
+    <span class="bot-phone"><%= client.phone || 'Telefon bekleniyor...' %></span>
+  </div>
+  <div class="bot-status">
+    <% if (client.status === 'ready') { %>
+      <span class="status-badge status-active"><i class="fas fa-check-circle"></i> Aktif</span>
+    <% } else if (client.status === 'qr_pending') { %>
+      <span class="status-badge status-pending"><i class="fas fa-qrcode"></i> QR Bekliyor</span>
+    <% } else { %>
+      <span class="status-badge status-offline"><%= client.status %></span>
+    <% } %>
+  </div>
+  <div class="bot-actions">
+    <% if (client.frozen) { %>
+      <button class="btn btn-success btn-sm" onclick="unfreezeBot()"><i class="fas fa-play"></i> Aktif Et</button>
+    <% } else { %>
+      <button class="btn btn-warning btn-sm" onclick="freezeBot()"><i class="fas fa-pause"></i> Dondur</button>
+    <% } %>
+  </div>
+</div>
+
+<% if (client.qrCode || client.qr) { %>
+<div class="qr-section">
+  <img src="<%= client.qrCode || client.qr %>" alt="QR Code">
+  <p>WhatsApp ile QR kodu tarayin</p>
+</div>
+<% } %>
+
+<!-- Tab Navigation -->
+<div class="settings-tabs">
+  <button class="tab-btn active" data-tab="character" onclick="switchTab('character')">
+    <i class="fas fa-theater-masks"></i> Karakter
+  </button>
+  <button class="tab-btn" data-tab="humanization" onclick="switchTab('humanization')">
+    <i class="fas fa-user-clock"></i> Insanlastirma
+  </button>
+  <button class="tab-btn" data-tab="keywords" onclick="switchTab('keywords')">
+    <i class="fas fa-key"></i> Anahtar Kelimeler
+  </button>
+  <button class="tab-btn" data-tab="triggers" onclick="switchTab('triggers')">
+    <i class="fas fa-bolt"></i> Tetikleyiciler
+  </button>
+  <button class="tab-btn" data-tab="test" onclick="switchTab('test')">
+    <i class="fas fa-flask"></i> Test
+  </button>
+</div>
+
+<!-- Tab: Karakter -->
+<div class="tab-content active" id="tab-character">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-theater-masks"></i> Karakter Secimi</h3>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">Botun konusma tarzini belirleyen karakteri secin. AI acikken bu karakter uslup ve akis katar.</p>
+
+      <div class="character-grid">
+        <% characters.forEach(function(char) { %>
+        <div class="character-card <%= botSettings.character_id === char.char_id ? 'selected' : '' %>"
+             data-id="<%= char.char_id %>" onclick="selectCharacter('<%= char.char_id %>')">
+          <div class="char-icon"><i class="fas fa-user-tie"></i></div>
+          <div class="char-name"><%= char.name %></div>
+          <div class="char-preview"><%= (char.prompt || '').substring(0, 80) %>...</div>
+        </div>
+        <% }); %>
+
+        <div class="character-card add-new" onclick="openCharacterModal()">
+          <div class="char-icon"><i class="fas fa-plus"></i></div>
+          <div class="char-name">Yeni Karakter</div>
+        </div>
+      </div>
+
+      <div class="form-group mt-4">
+        <label class="form-label">Secili Karakter Promptu</label>
+        <textarea class="form-control" id="characterPrompt" rows="6"><%= botSettings.character_prompt || '' %></textarea>
+        <small class="text-muted">Degiskenler: {bot_name}, {full_name}, {city}, {phone}, {subject}</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Insanlastirma -->
+<div class="tab-content" id="tab-humanization">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-user-clock"></i> Insanlastirma Ayarlari</h3>
+    </div>
+    <div class="card-body">
+      <div class="switch-grid">
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">Insanlastirma Modu</div>
+            <div class="switch-desc">Kapali iken bot aninda cevap verir</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="humanEnabled" <%= botSettings.humanization_enabled ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">"Yaziyor..." Gostergesi</div>
+            <div class="switch-desc">WhatsApp'ta yaziyor durumu gosterilsin mi?</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showTyping" <%= botSettings.show_typing_indicator ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">Mesaj Bolme</div>
+            <div class="switch-desc">Uzun cevaplari ayri mesajlar halinde gonder</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="splitMessages" <%= botSettings.split_messages ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4><i class="fas fa-hourglass-half"></i> Tepki Suresi</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Minimum Bekleme <span class="badge" id="minDelayVal"><%= botSettings.min_response_delay %> sn</span></label>
+            <input type="range" class="form-range" id="minDelay" min="0" max="1800" step="10"
+                   value="<%= botSettings.min_response_delay %>"
+                   oninput="document.getElementById('minDelayVal').innerText = this.value + ' sn'">
+          </div>
+          <div class="form-group">
+            <label>Maksimum Bekleme <span class="badge" id="maxDelayVal"><%= botSettings.max_response_delay %> sn</span></label>
+            <input type="range" class="form-range" id="maxDelay" min="60" max="3600" step="30"
+                   value="<%= botSettings.max_response_delay %>"
+                   oninput="document.getElementById('maxDelayVal').innerText = this.value + ' sn'">
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4><i class="fas fa-keyboard"></i> Yazma Hizi</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Okuma Hizi (Kelime/dk)</label>
+            <input type="number" class="form-control" id="wpmReading" value="<%= botSettings.wpm_reading %>">
+          </div>
+          <div class="form-group">
+            <label>Yazma Hizi (Karakter/dk)</label>
+            <input type="number" class="form-control" id="cpmTyping" value="<%= botSettings.cpm_typing %>">
+          </div>
+          <div class="form-group">
+            <label>Varyasyon <span class="badge" id="varianceVal">+/- <%= botSettings.typing_variance %>%</span></label>
+            <input type="range" class="form-range" id="typingVariance" min="0" max="50"
+                   value="<%= botSettings.typing_variance %>"
+                   oninput="document.getElementById('varianceVal').innerText = '+/- ' + this.value + '%'">
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4><i class="fas fa-file-alt"></i> Mesaj Bolme Ayarlari</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Bolme Esigi (karakter)</label>
+            <input type="number" class="form-control" id="splitThreshold" value="<%= botSettings.split_threshold %>">
+          </div>
+          <div class="form-group">
+            <label>Parcalar Arasi (ms)</label>
+            <input type="number" class="form-control" id="chunkDelay" value="<%= botSettings.chunk_delay %>">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Anahtar Kelimeler -->
+<div class="tab-content" id="tab-keywords">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-key"></i> Anahtar Kelime Yanitlari</h3>
+      <button class="btn btn-primary btn-sm" onclick="openKeywordModal()">
+        <i class="fas fa-plus"></i> Yeni Ekle
+      </button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">Belirli kelimeler veya kaliplar iceren mesajlara otomatik yanitlar tanimlayin. AI'yi beklemeden aninda cevap verir.</p>
+
+      <div class="keywords-list" id="keywordsList">
+        <% if (keywords.length === 0) { %>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>Henuz anahtar kelime eklenmemis</p>
+        </div>
+        <% } else { %>
+        <% keywords.forEach(function(kw) { %>
+        <div class="keyword-item" data-id="<%= kw.id %>">
+          <div class="keyword-header">
+            <span class="keyword-badge <%= kw.is_active ? 'active' : 'inactive' %>">
+              <%= kw.match_type %>
+            </span>
+            <span class="keyword-text"><%= kw.keyword %></span>
+            <div class="keyword-actions">
+              <button class="btn-icon" onclick="editKeyword(<%= kw.id %>)"><i class="fas fa-edit"></i></button>
+              <button class="btn-icon danger" onclick="deleteKeyword(<%= kw.id %>)"><i class="fas fa-trash"></i></button>
+              <label class="switch small">
+                <input type="checkbox" <%= kw.is_active ? 'checked' : '' %> onchange="toggleKeyword(<%= kw.id %>, this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="keyword-response"><%= kw.response.substring(0, 150) %><%= kw.response.length > 150 ? '...' : '' %></div>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Tetikleyiciler -->
+<div class="tab-content" id="tab-triggers">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-bolt"></i> Olay Tetikleyicileri</h3>
+      <button class="btn btn-primary btn-sm" onclick="openTriggerModal()">
+        <i class="fas fa-plus"></i> Yeni Ekle
+      </button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">Belirli olaylar gerceklestiginde otomatik aksiyonlar tanimlayin. Ornegin ilk mesajda karsilama, profil tamamlandiginda bildirim gibi.</p>
+
+      <div class="triggers-list" id="triggersList">
+        <% if (triggers.length === 0) { %>
+        <div class="empty-state">
+          <i class="fas fa-bolt"></i>
+          <p>Henuz tetikleyici eklenmemis</p>
+        </div>
+        <% } else { %>
+        <% triggers.forEach(function(tr) { %>
+        <div class="trigger-item" data-id="<%= tr.id %>">
+          <div class="trigger-icon">
+            <% if (tr.trigger_event === 'first_message') { %>
+              <i class="fas fa-door-open"></i>
+            <% } else if (tr.trigger_event === 'profile_complete') { %>
+              <i class="fas fa-user-check"></i>
+            <% } else if (tr.trigger_event === 'appointment_scheduled') { %>
+              <i class="fas fa-calendar-check"></i>
+            <% } else if (tr.trigger_event === 'status_change') { %>
+              <i class="fas fa-exchange-alt"></i>
+            <% } else if (tr.trigger_event === 'message_count') { %>
+              <i class="fas fa-hashtag"></i>
+            <% } else { %>
+              <i class="fas fa-bolt"></i>
+            <% } %>
+          </div>
+          <div class="trigger-content">
+            <div class="trigger-event">
+              <% const eventLabels = {
+                'first_message': 'Ilk Mesaj Geldiginde',
+                'profile_complete': 'Profil Tamamlandiginda',
+                'appointment_scheduled': 'Randevu Alindiginda',
+                'status_change': 'Durum Degistiginde',
+                'keyword_match': 'Anahtar Kelime Eslesmesinde',
+                'message_count': 'Mesaj Sayisina Ulasinca'
+              }; %>
+              <%= eventLabels[tr.trigger_event] || tr.trigger_event %>
+            </div>
+            <div class="trigger-action">
+              <i class="fas fa-arrow-right"></i>
+              <% const actionLabels = {
+                'send_message': 'Mesaj Gonder',
+                'change_status': 'Durumu Degistir',
+                'notify_admin': 'Yoneticiye Bildir',
+                'call_webhook': 'Webhook Cagir'
+              }; %>
+              <%= actionLabels[tr.action_type] || tr.action_type %>
+              <% if (tr.action_data && tr.action_data.message) { %>
+                : "<%= tr.action_data.message.substring(0, 50) %>..."
+              <% } %>
+            </div>
+          </div>
+          <div class="trigger-actions">
+            <button class="btn-icon" onclick="editTrigger(<%= tr.id %>)"><i class="fas fa-edit"></i></button>
+            <button class="btn-icon danger" onclick="deleteTrigger(<%= tr.id %>)"><i class="fas fa-trash"></i></button>
+            <label class="switch small">
+              <input type="checkbox" <%= tr.is_active ? 'checked' : '' %> onchange="toggleTrigger(<%= tr.id %>, this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Test -->
+<div class="tab-content" id="tab-test">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-flask"></i> Canli Test Simulatoru</h3>
+    </div>
+    <div class="card-body">
+      <div class="test-chat" id="testMessages">
+        <div class="test-msg bot">
+          Merhaba! Test mesaji yazarak botun nasil cevap verecegini gorebilirsiniz.
+        </div>
+      </div>
+      <div class="test-input">
+        <input type="text" id="testInput" placeholder="Test mesaji yazin..." onkeypress="if(event.key==='Enter')sendTest()">
+        <button onclick="sendTest()"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Save Button -->
+<div class="save-bar">
+  <button class="btn btn-success btn-lg" onclick="saveAllSettings()" id="saveBtn">
+    <i class="fas fa-save"></i> Tum Ayarlari Kaydet
+  </button>
+</div>
+
+<!-- Keyword Modal -->
+<div class="modal-overlay" id="keywordModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-key"></i> <span id="keywordModalTitle">Yeni Anahtar Kelime</span></h3>
+      <button class="modal-close" onclick="closeKeywordModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="keywordId">
+      <div class="form-group">
+        <label>Anahtar Kelime / Kalip</label>
+        <input type="text" class="form-control" id="keywordText" placeholder="ornek: fiyat, ne kadar, ucret">
+      </div>
+      <div class="form-group">
+        <label>Eslesme Tipi</label>
+        <select class="form-control" id="keywordMatchType">
+          <option value="contains">Icerir (varsayilan)</option>
+          <option value="exact">Tam Eslesme</option>
+          <option value="starts_with">Ile Baslar</option>
+          <option value="ends_with">Ile Biter</option>
+          <option value="regex">Regex (ileri duzey)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Yanit Metni</label>
+        <textarea class="form-control" id="keywordResponse" rows="4" placeholder="Bu anahtar kelime tespit edildiginde gonderilecek mesaj..."></textarea>
+        <small class="text-muted">Degiskenler: {full_name}, {city}, {phone}</small>
+      </div>
+      <div class="form-group">
+        <label>Oncelik (yuksek = once kontrol edilir)</label>
+        <input type="number" class="form-control" id="keywordPriority" value="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeKeywordModal()">Iptal</button>
+      <button class="btn btn-primary" onclick="saveKeyword()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trigger Modal -->
+<div class="modal-overlay" id="triggerModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-bolt"></i> <span id="triggerModalTitle">Yeni Tetikleyici</span></h3>
+      <button class="modal-close" onclick="closeTriggerModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="triggerId">
+      <div class="form-group">
+        <label>Tetikleme Olayi</label>
+        <select class="form-control" id="triggerEvent" onchange="updateTriggerConditions()">
+          <option value="first_message">Ilk Mesaj Geldiginde</option>
+          <option value="profile_complete">Profil Tamamlandiginda</option>
+          <option value="appointment_scheduled">Randevu Alindiginda</option>
+          <option value="status_change">Durum Degistiginde</option>
+          <option value="message_count">Mesaj Sayisina Ulasinca</option>
+        </select>
+      </div>
+      <div class="form-group" id="triggerConditionGroup" style="display:none;">
+        <label>Kosul</label>
+        <div id="triggerConditionFields"></div>
+      </div>
+      <div class="form-group">
+        <label>Yapilacak Islem</label>
+        <select class="form-control" id="triggerAction" onchange="updateActionFields()">
+          <option value="send_message">Mesaj Gonder</option>
+          <option value="change_status">Durumu Degistir</option>
+          <option value="notify_admin">Yoneticiye Bildir</option>
+        </select>
+      </div>
+      <div id="actionDataFields">
+        <div class="form-group">
+          <label>Mesaj Metni</label>
+          <textarea class="form-control" id="actionMessage" rows="3" placeholder="Gonderilecek mesaj..."></textarea>
+          <small class="text-muted">Degiskenler: {full_name}, {city}, {phone}, {subject}</small>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Oncelik</label>
+        <input type="number" class="form-control" id="triggerPriority" value="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeTriggerModal()">Iptal</button>
+      <button class="btn btn-primary" onclick="saveTrigger()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Character Modal -->
+<div class="modal-overlay" id="characterModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-theater-masks"></i> Yeni Karakter</h3>
+      <button class="modal-close" onclick="closeCharacterModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Karakter Adi</label>
+        <input type="text" class="form-control" id="newCharName" placeholder="ornek: Resmi ve Ciddi">
+      </div>
+      <div class="form-group">
+        <label>Karakter ID (benzersiz)</label>
+        <input type="text" class="form-control" id="newCharId" placeholder="ornek: formal">
+      </div>
+      <div class="form-group">
+        <label>Prompt / Uslup Metni</label>
+        <textarea class="form-control" id="newCharPrompt" rows="6" placeholder="Bu karakterin nasil konusacagini tanimlayan prompt..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCharacterModal()">Iptal</button>
+      <button class="btn btn-primary" onclick="saveNewCharacter()">Olustur</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var clientId = '<%= client.id %>';
+var selectedCharacterId = '<%= botSettings.character_id %>';
+var keywordsData = <%- JSON.stringify(keywords) %>;
+var triggersData = <%- JSON.stringify(triggers) %>;
+
+// Tab Switching
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.toggle('active', tab.id === 'tab-' + tabName);
+  });
+}
+
+// Character Selection
+function selectCharacter(charId) {
+  selectedCharacterId = charId;
+  document.querySelectorAll('.character-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.id === charId);
+  });
+
+  // Load character prompt
+  var chars = <%- JSON.stringify(characters) %>;
+  var char = chars.find(c => c.char_id === charId);
+  if (char) {
+    document.getElementById('characterPrompt').value = char.prompt || '';
+  }
+}
+
+// Save All Settings
+async function saveAllSettings() {
+  var btn = document.getElementById('saveBtn');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kaydediliyor...';
+  btn.disabled = true;
+
+  var settings = {
+    character_id: selectedCharacterId,
+    character_prompt: document.getElementById('characterPrompt').value,
+    humanization_enabled: document.getElementById('humanEnabled').checked ? 1 : 0,
+    show_typing_indicator: document.getElementById('showTyping').checked ? 1 : 0,
+    split_messages: document.getElementById('splitMessages').checked ? 1 : 0,
+    min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+    max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+    wpm_reading: parseInt(document.getElementById('wpmReading').value) || 200,
+    cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+    typing_variance: parseInt(document.getElementById('typingVariance').value) || 20,
+    split_threshold: parseInt(document.getElementById('splitThreshold').value) || 240,
+    chunk_delay: parseInt(document.getElementById('chunkDelay').value) || 800
+  };
+
+  try {
+    await fetch('/api/bots/' + clientId + '/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(settings)
+    });
+    btn.innerHTML = '<i class="fas fa-check"></i> Kaydedildi!';
+    setTimeout(() => {
+      btn.innerHTML = '<i class="fas fa-save"></i> Tum Ayarlari Kaydet';
+      btn.disabled = false;
+    }, 2000);
+  } catch(e) {
+    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Hata!';
+    btn.disabled = false;
+  }
+}
+
+// Keyword Functions
+function openKeywordModal(id) {
+  document.getElementById('keywordId').value = '';
+  document.getElementById('keywordText').value = '';
+  document.getElementById('keywordMatchType').value = 'contains';
+  document.getElementById('keywordResponse').value = '';
+  document.getElementById('keywordPriority').value = '0';
+  document.getElementById('keywordModalTitle').innerText = 'Yeni Anahtar Kelime';
+  document.getElementById('keywordModal').classList.add('active');
+}
+
+function closeKeywordModal() {
+  document.getElementById('keywordModal').classList.remove('active');
+}
+
+function editKeyword(id) {
+  var kw = keywordsData.find(k => k.id === id);
+  if (!kw) return;
+
+  document.getElementById('keywordId').value = kw.id;
+  document.getElementById('keywordText').value = kw.keyword;
+  document.getElementById('keywordMatchType').value = kw.match_type;
+  document.getElementById('keywordResponse').value = kw.response;
+  document.getElementById('keywordPriority').value = kw.priority || 0;
+  document.getElementById('keywordModalTitle').innerText = 'Anahtar Kelime Duzenle';
+  document.getElementById('keywordModal').classList.add('active');
+}
+
+async function saveKeyword() {
+  var id = document.getElementById('keywordId').value;
+  var data = {
+    keyword: document.getElementById('keywordText').value,
+    match_type: document.getElementById('keywordMatchType').value,
+    response: document.getElementById('keywordResponse').value,
+    priority: parseInt(document.getElementById('keywordPriority').value) || 0
+  };
+
+  var url = id ? '/api/bots/' + clientId + '/keywords/' + id : '/api/bots/' + clientId + '/keywords';
+  var method = id ? 'PUT' : 'POST';
+
+  await fetch(url, {
+    method: method,
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+
+  location.reload();
+}
+
+async function deleteKeyword(id) {
+  if (!confirm('Bu anahtar kelimeyi silmek istediginize emin misiniz?')) return;
+  await fetch('/api/bots/' + clientId + '/keywords/' + id, { method: 'DELETE' });
+  location.reload();
+}
+
+async function toggleKeyword(id, active) {
+  await fetch('/api/bots/' + clientId + '/keywords/' + id, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ is_active: active ? 1 : 0 })
+  });
+}
+
+// Trigger Functions
+function openTriggerModal() {
+  document.getElementById('triggerId').value = '';
+  document.getElementById('triggerEvent').value = 'first_message';
+  document.getElementById('triggerAction').value = 'send_message';
+  document.getElementById('actionMessage').value = '';
+  document.getElementById('triggerPriority').value = '0';
+  document.getElementById('triggerModalTitle').innerText = 'Yeni Tetikleyici';
+  updateTriggerConditions();
+  updateActionFields();
+  document.getElementById('triggerModal').classList.add('active');
+}
+
+function closeTriggerModal() {
+  document.getElementById('triggerModal').classList.remove('active');
+}
+
+function editTrigger(id) {
+  var tr = triggersData.find(t => t.id === id);
+  if (!tr) return;
+
+  document.getElementById('triggerId').value = tr.id;
+  document.getElementById('triggerEvent').value = tr.trigger_event;
+  document.getElementById('triggerAction').value = tr.action_type;
+  document.getElementById('triggerPriority').value = tr.priority || 0;
+
+  updateTriggerConditions();
+  updateActionFields();
+
+  if (tr.action_data && tr.action_data.message) {
+    document.getElementById('actionMessage').value = tr.action_data.message;
+  }
+
+  document.getElementById('triggerModalTitle').innerText = 'Tetikleyici Duzenle';
+  document.getElementById('triggerModal').classList.add('active');
+}
+
+function updateTriggerConditions() {
+  var event = document.getElementById('triggerEvent').value;
+  var group = document.getElementById('triggerConditionGroup');
+  var fields = document.getElementById('triggerConditionFields');
+
+  if (event === 'message_count') {
+    group.style.display = 'block';
+    fields.innerHTML = '<input type="number" class="form-control" id="conditionValue" placeholder="Mesaj sayisi (ornek: 5)">';
+  } else if (event === 'status_change') {
+    group.style.display = 'block';
+    fields.innerHTML = '<select class="form-control" id="conditionValue"><option value="waiting">Beklemede</option><option value="collecting">Bilgi Toplama</option><option value="appointment_scheduled">Randevu Alindi</option></select>';
+  } else {
+    group.style.display = 'none';
+  }
+}
+
+function updateActionFields() {
+  var action = document.getElementById('triggerAction').value;
+  var fields = document.getElementById('actionDataFields');
+
+  if (action === 'send_message') {
+    fields.innerHTML = '<div class="form-group"><label>Mesaj Metni</label><textarea class="form-control" id="actionMessage" rows="3"></textarea><small class="text-muted">Degiskenler: {full_name}, {city}, {phone}, {subject}</small></div>';
+  } else if (action === 'change_status') {
+    fields.innerHTML = '<div class="form-group"><label>Yeni Durum</label><select class="form-control" id="actionStatus"><option value="waiting">Beklemede</option><option value="collecting">Bilgi Toplama</option><option value="admin">Admin Devraldi</option></select></div>';
+  } else if (action === 'notify_admin') {
+    fields.innerHTML = '<div class="form-group"><label>Bildirim Mesaji</label><textarea class="form-control" id="actionMessage" rows="2"></textarea></div>';
+  }
+}
+
+async function saveTrigger() {
+  var id = document.getElementById('triggerId').value;
+  var event = document.getElementById('triggerEvent').value;
+  var action = document.getElementById('triggerAction').value;
+
+  var condition = {};
+  var conditionEl = document.getElementById('conditionValue');
+  if (conditionEl) {
+    condition.value = conditionEl.value;
+  }
+
+  var actionData = {};
+  var msgEl = document.getElementById('actionMessage');
+  var statusEl = document.getElementById('actionStatus');
+  if (msgEl) actionData.message = msgEl.value;
+  if (statusEl) actionData.status = statusEl.value;
+
+  var data = {
+    trigger_event: event,
+    trigger_condition: condition,
+    action_type: action,
+    action_data: actionData,
+    priority: parseInt(document.getElementById('triggerPriority').value) || 0
+  };
+
+  var url = id ? '/api/bots/' + clientId + '/triggers/' + id : '/api/bots/' + clientId + '/triggers';
+  var method = id ? 'PUT' : 'POST';
+
+  await fetch(url, {
+    method: method,
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+
+  location.reload();
+}
+
+async function deleteTrigger(id) {
+  if (!confirm('Bu tetikleyiciyi silmek istediginize emin misiniz?')) return;
+  await fetch('/api/bots/' + clientId + '/triggers/' + id, { method: 'DELETE' });
+  location.reload();
+}
+
+async function toggleTrigger(id, active) {
+  await fetch('/api/bots/' + clientId + '/triggers/' + id, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ is_active: active ? 1 : 0 })
+  });
+}
+
+// Character Modal
+function openCharacterModal() {
+  document.getElementById('characterModal').classList.add('active');
+}
+
+function closeCharacterModal() {
+  document.getElementById('characterModal').classList.remove('active');
+}
+
+async function saveNewCharacter() {
+  var data = {
+    char_id: document.getElementById('newCharId').value,
+    name: document.getElementById('newCharName').value,
+    prompt: document.getElementById('newCharPrompt').value
+  };
+
+  await fetch('/api/characters', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+
+  location.reload();
+}
+
+// Bot Actions
+function freezeBot() {
+  var msg = prompt('Dondurma mesaji (bos birakilabilir):');
+  fetch('/api/clients/' + clientId + '/freeze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: msg || ''})
+  }).then(() => location.reload());
+}
+
+function unfreezeBot() {
+  fetch('/api/clients/' + clientId + '/unfreeze', {method: 'POST'}).then(() => location.reload());
+}
+
+// Test
+function sendTest() {
+  var input = document.getElementById('testInput');
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  var box = document.getElementById('testMessages');
+  box.innerHTML += '<div class="test-msg user">' + text + '</div>';
+
+  fetch('/api/test-personality', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: text, clientId: clientId})
+  }).then(r => r.json()).then(data => {
+    box.innerHTML += '<div class="test-msg bot">' + (data.response || 'Hata') + '</div>';
+    box.scrollTop = box.scrollHeight;
+  });
+}
+</script>
+
+<%- include('partials/footer') %>
