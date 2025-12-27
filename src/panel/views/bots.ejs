@@ -24,7 +24,7 @@
         </thead>
         <tbody>
           <% clients.forEach(client => { %>
-            <tr>
+            <tr style="cursor: pointer;" onclick="window.location='/bots/<%= client.id %>'">
               <td>
                 <strong><%= client.name || client.id %></strong>
                 <div class="text-muted" style="font-size: 0.8rem;"><%= client.id %></div>

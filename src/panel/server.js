@@ -128,6 +128,69 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Bot Detay Sayfası
+  app.get("/bots/:id", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const client = await manager.db.getClient(clientId);
+      if (!client) {
+        return res.redirect("/bots");
+      }
+
+      const settings = await manager.db.getSettings();
+      const settingsMap = {};
+      asList(settings).forEach((s) => (settingsMap[s.key] = s.value));
+
+      // Characters
+      const defaultCharacters = manager.getDefaultCharacters();
+      let characters = [];
+      try {
+        characters = settingsMap.characters_json ? JSON.parse(settingsMap.characters_json) : [];
+      } catch (e) {
+        characters = [];
+      }
+      if (!Array.isArray(characters) || characters.length === 0) characters = defaultCharacters;
+      const activeCharacterId = settingsMap.active_character_id || characters[0]?.id || "warm";
+
+      // Humanization config
+      let humanConfig = {
+        enabled: true,
+        show_typing_indicator: true,
+        split_messages: true,
+        split_threshold: 240,
+        chunk_delay: 800,
+        min_response_delay: 60,
+        max_response_delay: 600,
+        wpm_reading: 200,
+        cpm_typing: 300,
+        long_message_threshold: 150,
+        long_message_extra_delay: 60,
+        typing_variance: 20
+      };
+      try {
+        if (settingsMap.humanization_config) {
+          Object.assign(humanConfig, JSON.parse(settingsMap.humanization_config));
+        }
+      } catch (e) {}
+
+      res.render("bot-detail", {
+        title: `Bot: ${client.name || client.id}`,
+        page: "bots",
+        client: {
+          ...client,
+          qrCode: manager.getQRCode(clientId)
+        },
+        characters,
+        activeCharacterId,
+        humanConfig,
+        settings: settingsMap
+      });
+    } catch (err) {
+      console.error("Bot detay hatası:", err);
+      res.redirect("/bots");
+    }
+  });
+
   // Profiller
   app.get("/profiles", async (req, res) => {
     try {

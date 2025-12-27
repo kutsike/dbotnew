@@ -1,0 +1,839 @@
+<%- include('partials/header', { title, page }) %>
+
+<style>
+  :root {
+    --bot-primary: #00a884;
+    --bot-secondary: #667781;
+    --bot-bg: #f0f2f5;
+    --bot-card: #ffffff;
+    --bot-border: #e9edef;
+    --bot-success: #25d366;
+    --bot-danger: #ea4c62;
+  }
+
+  .bot-detail-container {
+    display: flex;
+    gap: 24px;
+    min-height: calc(100vh - 140px);
+  }
+
+  /* Sol Panel - Ayarlar */
+  .settings-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .settings-card {
+    background: var(--bot-card);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+
+  .settings-card-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid var(--bot-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .settings-card-header h5 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 15px;
+    color: #111b21;
+  }
+
+  .settings-card-header .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .icon-green { background: #e8f5e9; color: #2e7d32; }
+  .icon-blue { background: #e3f2fd; color: #1976d2; }
+  .icon-purple { background: #f3e5f5; color: #7b1fa2; }
+  .icon-orange { background: #fff3e0; color: #ef6c00; }
+
+  .settings-card-body {
+    padding: 20px;
+  }
+
+  /* Bot Status Card */
+  .bot-status-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--bot-primary) 0%, #00796b 100%);
+    color: white;
+  }
+
+  .bot-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+  }
+
+  .bot-info h3 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+  }
+
+  .bot-info small {
+    opacity: 0.85;
+    font-size: 13px;
+  }
+
+  .bot-status-badge {
+    margin-left: auto;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .badge-online { background: rgba(255,255,255,0.2); color: white; }
+  .badge-offline { background: rgba(255,0,0,0.2); color: #ffcdd2; }
+
+  .bot-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--bot-border);
+    background: #fafafa;
+  }
+
+  .bot-action-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .bot-action-btn.primary {
+    background: var(--bot-primary);
+    color: white;
+  }
+
+  .bot-action-btn.danger {
+    background: white;
+    color: var(--bot-danger);
+    border: 1px solid var(--bot-danger);
+  }
+
+  .bot-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  /* Form Elements */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #111b21;
+    margin-bottom: 6px;
+  }
+
+  .form-group small {
+    display: block;
+    font-size: 11px;
+    color: #667781;
+    margin-top: 4px;
+  }
+
+  .form-control {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--bot-border);
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .form-control:focus {
+    outline: none;
+    border-color: var(--bot-primary);
+    box-shadow: 0 0 0 3px rgba(0, 168, 132, 0.1);
+  }
+
+  .form-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  .form-row .form-group {
+    flex: 1;
+  }
+
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--bot-border);
+  }
+
+  .toggle-switch:last-child {
+    border-bottom: none;
+  }
+
+  .toggle-label {
+    font-size: 14px;
+    color: #111b21;
+  }
+
+  .toggle-label small {
+    display: block;
+    font-size: 12px;
+    color: #667781;
+    margin-top: 2px;
+  }
+
+  .switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider {
+    background-color: var(--bot-primary);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(20px);
+  }
+
+  /* Character Cards */
+  .character-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .character-card {
+    padding: 14px;
+    border: 2px solid var(--bot-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .character-card:hover {
+    border-color: #b0bec5;
+  }
+
+  .character-card.active {
+    border-color: var(--bot-primary);
+    background: #e8f5e9;
+  }
+
+  .character-card h6 {
+    margin: 0 0 6px 0;
+    font-size: 14px;
+    color: #111b21;
+  }
+
+  .character-card p {
+    margin: 0;
+    font-size: 12px;
+    color: #667781;
+    line-height: 1.4;
+  }
+
+  /* Sag Panel - Telefon Simulator */
+  .phone-simulator-panel {
+    width: 380px;
+    flex-shrink: 0;
+  }
+
+  .phone-frame {
+    background: #1a1a1a;
+    border-radius: 40px;
+    padding: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    position: sticky;
+    top: 20px;
+  }
+
+  .phone-screen {
+    background: var(--bot-bg);
+    border-radius: 30px;
+    overflow: hidden;
+    height: 600px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .phone-header {
+    background: var(--bot-primary);
+    color: white;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .phone-header .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .phone-header .name {
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .phone-header .status {
+    font-size: 12px;
+    opacity: 0.85;
+  }
+
+  .phone-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
+    background-size: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .phone-msg {
+    max-width: 80%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+
+  .phone-msg.user {
+    background: white;
+    align-self: flex-start;
+    border-top-left-radius: 0;
+  }
+
+  .phone-msg.bot {
+    background: #d9fdd3;
+    align-self: flex-end;
+    border-top-right-radius: 0;
+  }
+
+  .phone-msg .time {
+    font-size: 10px;
+    color: rgba(0,0,0,0.4);
+    float: right;
+    margin-left: 8px;
+    margin-top: 4px;
+  }
+
+  .typing-indicator {
+    display: none;
+    padding: 12px 16px;
+    background: white;
+    border-radius: 8px;
+    align-self: flex-start;
+    border-top-left-radius: 0;
+  }
+
+  .typing-indicator.show {
+    display: flex;
+    gap: 4px;
+  }
+
+  .typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #90a4ae;
+    border-radius: 50%;
+    animation: typing 1.4s infinite ease-in-out;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  .phone-footer {
+    padding: 10px 12px;
+    background: #f0f2f5;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .phone-input {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 20px;
+    background: white;
+    font-size: 14px;
+    outline: none;
+  }
+
+  .phone-send-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bot-primary);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+  }
+
+  .phone-send-btn:hover {
+    transform: scale(1.05);
+  }
+
+  .simulator-label {
+    text-align: center;
+    padding: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: -8px;
+  }
+
+  .save-btn-container {
+    padding: 16px 20px;
+    background: #f8f9fa;
+    border-top: 1px solid var(--bot-border);
+  }
+
+  .save-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--bot-primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .save-btn:hover {
+    background: #008f72;
+  }
+
+  .save-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+</style>
+
+<div class="content-header">
+  <h2>
+    <a href="/bots" style="color: inherit; text-decoration: none;"><i class="fas fa-arrow-left me-2"></i></a>
+    <i class="fas fa-robot"></i> Bot Ayarlari
+  </h2>
+</div>
+
+<div class="bot-detail-container">
+  <!-- Sol Panel - Ayarlar -->
+  <div class="settings-panel">
+    <!-- Bot Durum Karti -->
+    <div class="settings-card">
+      <div class="bot-status-header">
+        <div class="bot-avatar">
+          <i class="fas fa-robot"></i>
+        </div>
+        <div class="bot-info">
+          <h3><%= client.name || client.id %></h3>
+          <small><%= client.phone || 'Telefon bekleniyor...' %></small>
+        </div>
+        <div class="bot-status-badge <%= client.status === 'ready' ? 'badge-online' : 'badge-offline' %>">
+          <% if (client.status === 'ready') { %>
+            <i class="fas fa-circle" style="font-size: 8px;"></i> Aktif
+          <% } else if (client.status === 'qr_pending') { %>
+            <i class="fas fa-qrcode"></i> QR Bekliyor
+          <% } else { %>
+            <i class="fas fa-circle" style="font-size: 8px;"></i> Bagli Degil
+          <% } %>
+        </div>
+      </div>
+
+      <% if (client.qrCode || client.qr) { %>
+      <div style="text-align: center; padding: 20px; background: #fff;">
+        <img src="<%= client.qrCode || client.qr %>" alt="QR Code" style="max-width: 200px; border-radius: 8px;">
+        <p style="margin: 10px 0 0; font-size: 13px; color: #667781;">WhatsApp'tan QR kodu okutun</p>
+      </div>
+      <% } %>
+
+      <div class="bot-actions">
+        <% if (client.frozen) { %>
+          <button class="bot-action-btn primary" onclick="unfreezeBot()">
+            <i class="fas fa-fire"></i> Aktif Et
+          </button>
+        <% } else { %>
+          <button class="bot-action-btn danger" onclick="freezeBot()">
+            <i class="fas fa-snowflake"></i> Dondur
+          </button>
+        <% } %>
+        <button class="bot-action-btn danger" onclick="deleteBot()">
+          <i class="fas fa-trash"></i> Sil
+        </button>
+      </div>
+    </div>
+
+    <!-- Karakter Ayarlari -->
+    <div class="settings-card">
+      <div class="settings-card-header">
+        <div class="icon icon-purple"><i class="fas fa-theater-masks"></i></div>
+        <h5>Karakter / Uslup</h5>
+      </div>
+      <div class="settings-card-body">
+        <div class="character-grid" id="characterGrid">
+          <% characters.forEach(char => { %>
+          <div class="character-card <%= activeCharacterId === char.id ? 'active' : '' %>" data-id="<%= char.id %>" onclick="selectCharacter('<%= char.id %>')">
+            <h6><%= char.name %></h6>
+            <p><%= char.prompt?.substring(0, 60) %>...</p>
+          </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insanlastirma Ayarlari -->
+    <div class="settings-card">
+      <div class="settings-card-header">
+        <div class="icon icon-orange"><i class="fas fa-user-clock"></i></div>
+        <h5>Insanlastirma Ayarlari</h5>
+      </div>
+      <div class="settings-card-body">
+        <div class="toggle-switch">
+          <div class="toggle-label">
+            Insanlastirma Aktif
+            <small>Dogal cevap suresi ve yazma efekti</small>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="humanEnabled" <%= humanConfig.enabled ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-switch">
+          <div class="toggle-label">
+            "Yaziyor..." Goster
+            <small>WhatsApp yazma gostergesi</small>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showTyping" <%= humanConfig.show_typing_indicator ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-switch">
+          <div class="toggle-label">
+            Mesajlari Bol
+            <small>Uzun mesajlari parcalara ayir</small>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="splitMessages" <%= humanConfig.split_messages ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="form-row" style="margin-top: 16px;">
+          <div class="form-group">
+            <label>Min Bekleme (sn)</label>
+            <input type="number" class="form-control" id="minDelay" value="<%= humanConfig.min_response_delay %>" min="0" max="600">
+            <small>En az bekleme suresi</small>
+          </div>
+          <div class="form-group">
+            <label>Max Bekleme (sn)</label>
+            <input type="number" class="form-control" id="maxDelay" value="<%= humanConfig.max_response_delay %>" min="0" max="1800">
+            <small>En fazla bekleme suresi</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Yazma Hizi (KPM)</label>
+            <input type="number" class="form-control" id="cpmTyping" value="<%= humanConfig.cpm_typing %>" min="50" max="1000">
+            <small>Karakter/Dakika</small>
+          </div>
+          <div class="form-group">
+            <label>Parca Arasi (ms)</label>
+            <input type="number" class="form-control" id="chunkDelay" value="<%= humanConfig.chunk_delay %>" min="100" max="5000">
+            <small>Mesaj parcalari arasi bekleme</small>
+          </div>
+        </div>
+      </div>
+      <div class="save-btn-container">
+        <button class="save-btn" onclick="saveSettings()" id="saveBtn">
+          <i class="fas fa-save"></i> Tum Ayarlari Kaydet
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sag Panel - Telefon Simulator -->
+  <div class="phone-simulator-panel">
+    <div class="simulator-label">
+      <i class="fas fa-flask me-2"></i> Canli Test Simulatoru
+    </div>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-header">
+          <div class="avatar"><i class="fas fa-robot"></i></div>
+          <div>
+            <div class="name"><%= client.name || 'Bot' %></div>
+            <div class="status">cevrimici</div>
+          </div>
+        </div>
+        <div class="phone-messages" id="phoneMessages">
+          <div class="phone-msg bot">
+            Merhaba! Ben <%= client.name || 'Bot' %>, size nasil yardimci olabilirim?
+            <span class="time">12:00</span>
+          </div>
+        </div>
+        <div class="typing-indicator" id="typingIndicator">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+        <div class="phone-footer">
+          <input type="text" class="phone-input" id="testInput" placeholder="Test mesaji yazin..." onkeypress="if(event.key==='Enter')sendTestMessage()">
+          <button class="phone-send-btn" onclick="sendTestMessage()">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const clientId = '<%= client.id %>';
+  let selectedCharacterId = '<%= activeCharacterId %>';
+
+  function selectCharacter(id) {
+    selectedCharacterId = id;
+    document.querySelectorAll('.character-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.id === id);
+    });
+  }
+
+  async function saveSettings() {
+    const btn = document.getElementById('saveBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kaydediliyor...';
+    btn.disabled = true;
+
+    try {
+      // Karakter kaydet
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          active_character_id: selectedCharacterId
+        })
+      });
+
+      // Humanization kaydet
+      const humanConfig = {
+        enabled: document.getElementById('humanEnabled').checked,
+        show_typing_indicator: document.getElementById('showTyping').checked,
+        split_messages: document.getElementById('splitMessages').checked,
+        min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+        max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+        cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+        chunk_delay: parseInt(document.getElementById('chunkDelay').value) || 800
+      };
+
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          humanization_config: JSON.stringify(humanConfig)
+        })
+      });
+
+      btn.innerHTML = '<i class="fas fa-check"></i> Kaydedildi!';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="fas fa-save"></i> Tum Ayarlari Kaydet';
+        btn.disabled = false;
+      }, 2000);
+    } catch (e) {
+      btn.innerHTML = '<i class="fas fa-times"></i> Hata!';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="fas fa-save"></i> Tum Ayarlari Kaydet';
+        btn.disabled = false;
+      }, 2000);
+    }
+  }
+
+  async function freezeBot() {
+    const msg = prompt('Dondurma mesaji (bos birakilabilir):');
+    try {
+      await fetch(`/api/clients/${clientId}/freeze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg })
+      });
+      location.reload();
+    } catch (e) {
+      alert('Islem basarisiz');
+    }
+  }
+
+  async function unfreezeBot() {
+    try {
+      await fetch(`/api/clients/${clientId}/unfreeze`, { method: 'POST' });
+      location.reload();
+    } catch (e) {
+      alert('Islem basarisiz');
+    }
+  }
+
+  async function deleteBot() {
+    if (!confirm('Bu botu silmek istediginizden emin misiniz?')) return;
+    try {
+      await fetch(`/api/clients/${clientId}`, { method: 'DELETE' });
+      window.location.href = '/bots';
+    } catch (e) {
+      alert('Silme basarisiz');
+    }
+  }
+
+  // Test Simulator
+  async function sendTestMessage() {
+    const input = document.getElementById('testInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    const messages = document.getElementById('phoneMessages');
+    const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    // Kullanici mesaji
+    messages.innerHTML += `
+      <div class="phone-msg user">
+        ${text}
+        <span class="time">${time}</span>
+      </div>
+    `;
+    messages.scrollTop = messages.scrollHeight;
+
+    // Typing indicator
+    const typing = document.getElementById('typingIndicator');
+    typing.classList.add('show');
+    messages.scrollTop = messages.scrollHeight;
+
+    try {
+      const res = await fetch('/api/test-personality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+
+      // Bekleme efekti
+      await new Promise(r => setTimeout(r, 1500));
+
+      typing.classList.remove('show');
+
+      const reply = data.response || 'Yanit alinamadi';
+      const replyTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+      messages.innerHTML += `
+        <div class="phone-msg bot">
+          ${reply}
+          <span class="time">${replyTime}</span>
+        </div>
+      `;
+      messages.scrollTop = messages.scrollHeight;
+    } catch (e) {
+      typing.classList.remove('show');
+      messages.innerHTML += `
+        <div class="phone-msg bot" style="background: #ffcdd2;">
+          Test yaniti alinamadi
+          <span class="time">${time}</span>
+        </div>
+      `;
+    }
+  }
+</script>
+
+<%- include('partials/footer') %>

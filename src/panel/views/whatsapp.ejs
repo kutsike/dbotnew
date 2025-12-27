@@ -531,10 +531,11 @@
     function renderMessages(messages) {
         const area = document.getElementById('messagesArea');
         area.innerHTML = '';
-        
+
         let lastDate = '';
 
-        messages.reverse().forEach(msg => {
+        // Mesajlar zaten eski→yeni sıralı geliyor (db.getChatMessages'da reverse edildi)
+        messages.forEach(msg => {
             const date = new Date(msg.created_at);
             const dateStr = date.toLocaleDateString('tr-TR');
             const timeStr = date.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
