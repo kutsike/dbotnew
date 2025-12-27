@@ -1,9 +1,9 @@
-<%- include('partials/header', { title, page }) %>
+<%- include('partials/header') %>
 
 <style>
   :root {
     --bot-primary: #00a884;
-    --bot-secondary: #667781;
+    --bot-secondary: #333333;
     --bot-bg: #f0f2f5;
     --bot-card: #ffffff;
     --bot-border: #e9edef;
@@ -17,7 +17,6 @@
     min-height: calc(100vh - 140px);
   }
 
-  /* Sol Panel - Ayarlar */
   .settings-panel {
     flex: 1;
     display: flex;
@@ -45,7 +44,7 @@
     margin: 0;
     font-weight: 600;
     font-size: 15px;
-    color: #111b21;
+    color: #000000;
   }
 
   .settings-card-header .icon {
@@ -67,7 +66,6 @@
     padding: 20px;
   }
 
-  /* Bot Status Card */
   .bot-status-header {
     display: flex;
     align-items: center;
@@ -151,7 +149,6 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   }
 
-  /* Form Elements */
   .form-group {
     margin-bottom: 16px;
   }
@@ -160,14 +157,14 @@
     display: block;
     font-size: 13px;
     font-weight: 500;
-    color: #111b21;
+    color: #000000;
     margin-bottom: 6px;
   }
 
   .form-group small {
     display: block;
     font-size: 11px;
-    color: #667781;
+    color: #666666;
     margin-top: 4px;
   }
 
@@ -177,6 +174,7 @@
     border: 1px solid var(--bot-border);
     border-radius: 8px;
     font-size: 14px;
+    color: #000000;
     transition: border-color 0.2s;
   }
 
@@ -209,13 +207,13 @@
 
   .toggle-label {
     font-size: 14px;
-    color: #111b21;
+    color: #000000;
   }
 
   .toggle-label small {
     display: block;
     font-size: 12px;
-    color: #667781;
+    color: #666666;
     margin-top: 2px;
   }
 
@@ -263,7 +261,6 @@
     transform: translateX(20px);
   }
 
-  /* Character Cards */
   .character-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -290,17 +287,16 @@
   .character-card h6 {
     margin: 0 0 6px 0;
     font-size: 14px;
-    color: #111b21;
+    color: #000000;
   }
 
   .character-card p {
     margin: 0;
     font-size: 12px;
-    color: #667781;
+    color: #666666;
     line-height: 1.4;
   }
 
-  /* Sag Panel - Telefon Simulator */
   .phone-simulator-panel {
     width: 380px;
     flex-shrink: 0;
@@ -371,6 +367,7 @@
     font-size: 14px;
     line-height: 1.4;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    color: #000000;
   }
 
   .phone-msg.user {
@@ -439,6 +436,7 @@
     background: white;
     font-size: 14px;
     outline: none;
+    color: #000000;
   }
 
   .phone-send-btn {
@@ -511,9 +509,7 @@
 </div>
 
 <div class="bot-detail-container">
-  <!-- Sol Panel - Ayarlar -->
   <div class="settings-panel">
-    <!-- Bot Durum Karti -->
     <div class="settings-card">
       <div class="bot-status-header">
         <div class="bot-avatar">
@@ -537,7 +533,7 @@
       <% if (client.qrCode || client.qr) { %>
       <div style="text-align: center; padding: 20px; background: #fff;">
         <img src="<%= client.qrCode || client.qr %>" alt="QR Code" style="max-width: 200px; border-radius: 8px;">
-        <p style="margin: 10px 0 0; font-size: 13px; color: #667781;">WhatsApp'tan QR kodu okutun</p>
+        <p style="margin: 10px 0 0; font-size: 13px; color: #666;">WhatsApp ile QR kodu okutun</p>
       </div>
       <% } %>
 
@@ -557,7 +553,6 @@
       </div>
     </div>
 
-    <!-- Karakter Ayarlari -->
     <div class="settings-card">
       <div class="settings-card-header">
         <div class="icon icon-purple"><i class="fas fa-theater-masks"></i></div>
@@ -565,17 +560,16 @@
       </div>
       <div class="settings-card-body">
         <div class="character-grid" id="characterGrid">
-          <% characters.forEach(char => { %>
+          <% characters.forEach(function(char) { %>
           <div class="character-card <%= activeCharacterId === char.id ? 'active' : '' %>" data-id="<%= char.id %>" onclick="selectCharacter('<%= char.id %>')">
             <h6><%= char.name %></h6>
-            <p><%= char.prompt?.substring(0, 60) %>...</p>
+            <p><%= (char.prompt || '').substring(0, 60) %>...</p>
           </div>
-          <% }) %>
+          <% }); %>
         </div>
       </div>
     </div>
 
-    <!-- Insanlastirma Ayarlari -->
     <div class="settings-card">
       <div class="settings-card-header">
         <div class="icon icon-orange"><i class="fas fa-user-clock"></i></div>
@@ -649,7 +643,6 @@
     </div>
   </div>
 
-  <!-- Sag Panel - Telefon Simulator -->
   <div class="phone-simulator-panel">
     <div class="simulator-label">
       <i class="fas fa-flask me-2"></i> Canli Test Simulatoru
@@ -686,153 +679,118 @@
 </div>
 
 <script>
-  const clientId = '<%= client.id %>';
-  let selectedCharacterId = '<%= activeCharacterId %>';
+  var clientId = '<%= client.id %>';
+  var selectedCharacterId = '<%= activeCharacterId %>';
 
   function selectCharacter(id) {
     selectedCharacterId = id;
-    document.querySelectorAll('.character-card').forEach(card => {
+    document.querySelectorAll('.character-card').forEach(function(card) {
       card.classList.toggle('active', card.dataset.id === id);
     });
   }
 
-  async function saveSettings() {
-    const btn = document.getElementById('saveBtn');
+  function saveSettings() {
+    var btn = document.getElementById('saveBtn');
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kaydediliyor...';
     btn.disabled = true;
 
-    try {
-      // Karakter kaydet
-      await fetch('/api/settings', {
+    var humanConfig = {
+      enabled: document.getElementById('humanEnabled').checked,
+      show_typing_indicator: document.getElementById('showTyping').checked,
+      split_messages: document.getElementById('splitMessages').checked,
+      min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+      max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+      cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+      chunk_delay: parseInt(document.getElementById('chunkDelay').value) || 800
+    };
+
+    Promise.all([
+      fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          active_character_id: selectedCharacterId
-        })
-      });
-
-      // Humanization kaydet
-      const humanConfig = {
-        enabled: document.getElementById('humanEnabled').checked,
-        show_typing_indicator: document.getElementById('showTyping').checked,
-        split_messages: document.getElementById('splitMessages').checked,
-        min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
-        max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
-        cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
-        chunk_delay: parseInt(document.getElementById('chunkDelay').value) || 800
-      };
-
-      await fetch('/api/settings', {
+        body: JSON.stringify({ active_character_id: selectedCharacterId })
+      }),
+      fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          humanization_config: JSON.stringify(humanConfig)
-        })
-      });
-
+        body: JSON.stringify({ humanization_config: JSON.stringify(humanConfig) })
+      })
+    ]).then(function() {
       btn.innerHTML = '<i class="fas fa-check"></i> Kaydedildi!';
-      setTimeout(() => {
+      setTimeout(function() {
         btn.innerHTML = '<i class="fas fa-save"></i> Tum Ayarlari Kaydet';
         btn.disabled = false;
       }, 2000);
-    } catch (e) {
+    }).catch(function() {
       btn.innerHTML = '<i class="fas fa-times"></i> Hata!';
-      setTimeout(() => {
+      setTimeout(function() {
         btn.innerHTML = '<i class="fas fa-save"></i> Tum Ayarlari Kaydet';
         btn.disabled = false;
       }, 2000);
-    }
+    });
   }
 
-  async function freezeBot() {
-    const msg = prompt('Dondurma mesaji (bos birakilabilir):');
-    try {
-      await fetch(`/api/clients/${clientId}/freeze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg })
-      });
+  function freezeBot() {
+    var msg = prompt('Dondurma mesaji (bos birakilabilir):');
+    fetch('/api/clients/' + clientId + '/freeze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg })
+    }).then(function() {
       location.reload();
-    } catch (e) {
+    }).catch(function() {
       alert('Islem basarisiz');
-    }
+    });
   }
 
-  async function unfreezeBot() {
-    try {
-      await fetch(`/api/clients/${clientId}/unfreeze`, { method: 'POST' });
-      location.reload();
-    } catch (e) {
-      alert('Islem basarisiz');
-    }
+  function unfreezeBot() {
+    fetch('/api/clients/' + clientId + '/unfreeze', { method: 'POST' })
+      .then(function() { location.reload(); })
+      .catch(function() { alert('Islem basarisiz'); });
   }
 
-  async function deleteBot() {
+  function deleteBot() {
     if (!confirm('Bu botu silmek istediginizden emin misiniz?')) return;
-    try {
-      await fetch(`/api/clients/${clientId}`, { method: 'DELETE' });
-      window.location.href = '/bots';
-    } catch (e) {
-      alert('Silme basarisiz');
-    }
+    fetch('/api/clients/' + clientId, { method: 'DELETE' })
+      .then(function() { window.location.href = '/bots'; })
+      .catch(function() { alert('Silme basarisiz'); });
   }
 
-  // Test Simulator
-  async function sendTestMessage() {
-    const input = document.getElementById('testInput');
-    const text = input.value.trim();
+  function sendTestMessage() {
+    var input = document.getElementById('testInput');
+    var text = input.value.trim();
     if (!text) return;
 
     input.value = '';
-    const messages = document.getElementById('phoneMessages');
-    const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    var messages = document.getElementById('phoneMessages');
+    var time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
-    // Kullanici mesaji
-    messages.innerHTML += `
-      <div class="phone-msg user">
-        ${text}
-        <span class="time">${time}</span>
-      </div>
-    `;
+    messages.innerHTML += '<div class="phone-msg user">' + text + '<span class="time">' + time + '</span></div>';
     messages.scrollTop = messages.scrollHeight;
 
-    // Typing indicator
-    const typing = document.getElementById('typingIndicator');
+    var typing = document.getElementById('typingIndicator');
     typing.classList.add('show');
     messages.scrollTop = messages.scrollHeight;
 
-    try {
-      const res = await fetch('/api/test-personality', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text })
-      });
-      const data = await res.json();
-
-      // Bekleme efekti
-      await new Promise(r => setTimeout(r, 1500));
-
+    fetch('/api/test-personality', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      setTimeout(function() {
+        typing.classList.remove('show');
+        var reply = data.response || 'Yanit alinamadi';
+        var replyTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        messages.innerHTML += '<div class="phone-msg bot">' + reply + '<span class="time">' + replyTime + '</span></div>';
+        messages.scrollTop = messages.scrollHeight;
+      }, 1500);
+    })
+    .catch(function() {
       typing.classList.remove('show');
-
-      const reply = data.response || 'Yanit alinamadi';
-      const replyTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-
-      messages.innerHTML += `
-        <div class="phone-msg bot">
-          ${reply}
-          <span class="time">${replyTime}</span>
-        </div>
-      `;
-      messages.scrollTop = messages.scrollHeight;
-    } catch (e) {
-      typing.classList.remove('show');
-      messages.innerHTML += `
-        <div class="phone-msg bot" style="background: #ffcdd2;">
-          Test yaniti alinamadi
-          <span class="time">${time}</span>
-        </div>
-      `;
-    }
+      messages.innerHTML += '<div class="phone-msg bot" style="background: #ffcdd2;">Test yaniti alinamadi<span class="time">' + time + '</span></div>';
+    });
   }
 </script>
 

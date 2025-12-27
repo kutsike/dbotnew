@@ -6,8 +6,8 @@
     --profile-danger: #ea4c62;
     --profile-bg: #f0f2f5;
     --profile-card-bg: #ffffff;
-    --profile-text: #111b21;
-    --profile-text-muted: #667781;
+    --profile-text: #000000;
+    --profile-text-muted: #333333;
     --profile-border: #e9edef;
   }
 
@@ -320,14 +320,15 @@
   .info-value {
     font-size: 13px;
     font-weight: 500;
-    color: var(--profile-text);
+    color: #000000;
     text-align: right;
     max-width: 60%;
     word-break: break-word;
   }
 
   .info-value.highlight {
-    color: var(--profile-danger);
+    color: #c62828;
+    font-weight: 600;
   }
 
   .status-select {
@@ -392,18 +393,21 @@
     line-height: 1.4;
     position: relative;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    color: #000000;
   }
 
   .msg-bubble.incoming {
     background: white;
     align-self: flex-start;
     border-top-left-radius: 0;
+    color: #000000;
   }
 
   .msg-bubble.outgoing {
     background: #d9fdd3;
     align-self: flex-end;
     border-top-right-radius: 0;
+    color: #000000;
   }
 
   .msg-time {
