@@ -521,8 +521,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
     loadDashboardStats();
   }
-});
-
 
   // Karakter sayfası
   const saveCharactersBtn = document.getElementById('saveCharactersBtn');
@@ -623,3 +621,4 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   }
+});
