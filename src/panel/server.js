@@ -128,6 +128,56 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Bot Detay/Ayarlar Sayfası
+  app.get("/bots/:id", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const client = await manager.db.getClient(clientId);
+      if (!client) {
+        return res.redirect("/bots");
+      }
+
+      // Bot Settings
+      const botSettings = await manager.db.getBotSettings(clientId);
+
+      // Characters from database
+      let characters = await manager.db.getCharacters();
+      if (!characters || characters.length === 0) {
+        // Varsayilan karakterleri ekle
+        const defaultChars = manager.getDefaultCharacters();
+        for (const char of defaultChars) {
+          await manager.db.addCharacter({
+            char_id: char.id,
+            name: char.name,
+            prompt: char.prompt,
+            is_default: true
+          });
+        }
+        characters = await manager.db.getCharacters();
+      }
+
+      // Keywords and Triggers
+      const keywords = await manager.db.getKeywordResponses(clientId);
+      const triggers = await manager.db.getBotTriggers(clientId);
+
+      res.render("bot-settings", {
+        title: `Bot Ayarlari: ${client.name || client.id}`,
+        page: "bots",
+        client: {
+          ...client,
+          qrCode: manager.getQRCode(clientId)
+        },
+        botSettings,
+        characters,
+        keywords,
+        triggers
+      });
+    } catch (err) {
+      console.error("Bot ayarlar hatası:", err);
+      res.redirect("/bots");
+    }
+  });
+
   // Profiller
   app.get("/profiles", async (req, res) => {
     try {
@@ -217,15 +267,24 @@ function startPanel({ manager, port, host }) {
   app.get("/humanization", async (req, res) => {
     const configStr = await manager.db.getSetting("humanization_config");
     let config = {
-      enabled: true, min_response_delay: 60, max_response_delay: 600,
-      wpm_reading: 200, cpm_typing: 300, long_message_threshold: 150,
-      long_message_extra_delay: 60, typing_variance: 20
+      enabled: true,
+      show_typing_indicator: true,
+      split_messages: true,
+      split_threshold: 240,
+      chunk_delay: 800,
+      min_response_delay: 60,
+      max_response_delay: 600,
+      wpm_reading: 200,
+      cpm_typing: 300,
+      long_message_threshold: 150,
+      long_message_extra_delay: 60,
+      typing_variance: 20
     };
     try { if(configStr) Object.assign(config, JSON.parse(configStr)); } catch(e){}
-    
-    res.render("humanization", { 
+
+    res.render("humanization", {
       title: "İnsanlaştırma Ayarları",
-      page: "humanization", 
+      page: "humanization",
       config,
       saved: req.query.saved === 'true'
     });
@@ -235,6 +294,10 @@ function startPanel({ manager, port, host }) {
   app.post("/humanization", async (req, res) => {
     const newConfig = {
       enabled: req.body.enabled === "on",
+      show_typing_indicator: req.body.show_typing_indicator === "on",
+      split_messages: req.body.split_messages === "on",
+      split_threshold: parseInt(req.body.split_threshold) || 240,
+      chunk_delay: parseInt(req.body.chunk_delay) || 800,
       min_response_delay: parseInt(req.body.min_response_delay) || 60,
       max_response_delay: parseInt(req.body.max_response_delay) || 600,
       wpm_reading: parseInt(req.body.wpm_reading) || 200,
@@ -471,16 +534,161 @@ function startPanel({ manager, port, host }) {
     }
   });
 
-  // Test personality
+  // Test personality - Bot ayarlarını kullanarak test et
   app.post("/api/test-personality", async (req, res) => {
     try {
-      const { message } = req.body || {};
+      const { message, clientId } = req.body || {};
+
+      // Bot ayarlarını al
+      let botSettings = null;
+      let characterPrompt = null;
+
+      if (clientId) {
+        try {
+          botSettings = await manager.db.getBotSettings(clientId);
+          characterPrompt = botSettings?.character_prompt;
+        } catch (e) {
+          console.log("Bot settings alınamadı:", e.message);
+        }
+      }
+
       if (manager.router?.aiChat) {
-        const response = await manager.router.aiChat.testPersonality(message);
+        const response = await manager.router.aiChat.testPersonality(message, {
+          system_prompt: characterPrompt,
+          bot_settings: botSettings
+        });
         res.json({ success: true, response });
       } else {
         res.json({ success: true, response: "AI servisi aktif değil." });
       }
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= BOT SETTINGS API =========
+
+  // Get bot settings
+  app.get("/api/bots/:id/settings", async (req, res) => {
+    try {
+      const settings = await manager.db.getBotSettings(req.params.id);
+      res.json({ success: true, settings });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Update bot settings
+  app.post("/api/bots/:id/settings", async (req, res) => {
+    try {
+      await manager.db.updateBotSettings(req.params.id, req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= KEYWORD RESPONSES API =========
+
+  // Get keywords
+  app.get("/api/bots/:id/keywords", async (req, res) => {
+    try {
+      const keywords = await manager.db.getKeywordResponses(req.params.id);
+      res.json({ success: true, keywords });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Add keyword
+  app.post("/api/bots/:id/keywords", async (req, res) => {
+    try {
+      await manager.db.addKeywordResponse(req.params.id, req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Update keyword
+  app.put("/api/bots/:id/keywords/:kwId", async (req, res) => {
+    try {
+      await manager.db.updateKeywordResponse(req.params.kwId, req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete keyword
+  app.delete("/api/bots/:id/keywords/:kwId", async (req, res) => {
+    try {
+      await manager.db.deleteKeywordResponse(req.params.kwId);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= BOT TRIGGERS API =========
+
+  // Get triggers
+  app.get("/api/bots/:id/triggers", async (req, res) => {
+    try {
+      const triggers = await manager.db.getBotTriggers(req.params.id);
+      res.json({ success: true, triggers });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Add trigger
+  app.post("/api/bots/:id/triggers", async (req, res) => {
+    try {
+      await manager.db.addBotTrigger(req.params.id, req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Update trigger
+  app.put("/api/bots/:id/triggers/:trId", async (req, res) => {
+    try {
+      await manager.db.updateBotTrigger(req.params.trId, req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete trigger
+  app.delete("/api/bots/:id/triggers/:trId", async (req, res) => {
+    try {
+      await manager.db.deleteBotTrigger(req.params.trId);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= CHARACTERS API (Global) =========
+
+  // Add new character
+  app.post("/api/characters", async (req, res) => {
+    try {
+      await manager.db.addCharacter(req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete character
+  app.delete("/api/characters/:charId", async (req, res) => {
+    try {
+      await manager.db.deleteCharacter(req.params.charId);
+      res.json({ success: true });
     } catch (err) {
       res.json({ success: false, error: err.message });
     }

@@ -1,0 +1,557 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2>
+    <a href="/bots" class="back-link"><i class="fas fa-arrow-left me-2"></i></a>
+    <i class="fas fa-cog"></i> Bot Ayarlari - <%= client.name || client.id %>
+  </h2>
+</div>
+
+<div class="bot-status-card">
+  <div class="bot-avatar"><i class="fas fa-robot"></i></div>
+  <div class="bot-info">
+    <h3><%= client.name || client.id %></h3>
+    <span class="bot-phone"><%= client.phone || 'Telefon bekleniyor...' %></span>
+  </div>
+  <div class="bot-status">
+    <% if (client.status === 'ready') { %>
+      <span class="status-badge status-active"><i class="fas fa-check-circle"></i> Aktif</span>
+    <% } else if (client.status === 'qr_pending') { %>
+      <span class="status-badge status-pending"><i class="fas fa-qrcode"></i> QR Bekliyor</span>
+    <% } else { %>
+      <span class="status-badge status-offline"><%= client.status %></span>
+    <% } %>
+  </div>
+  <div class="bot-actions">
+    <% if (client.frozen) { %>
+      <button class="btn btn-success btn-sm" onclick="unfreezeBot()"><i class="fas fa-play"></i> Aktif Et</button>
+    <% } else { %>
+      <button class="btn btn-warning btn-sm" onclick="freezeBot()"><i class="fas fa-pause"></i> Dondur</button>
+    <% } %>
+  </div>
+</div>
+
+<% if (client.qrCode || client.qr) { %>
+<div class="qr-section">
+  <img src="<%= client.qrCode || client.qr %>" alt="QR Code">
+  <p>WhatsApp ile QR kodu tarayin</p>
+</div>
+<% } %>
+
+<div class="settings-tabs">
+  <button class="tab-btn active" data-tab="character" onclick="switchTab('character')">
+    <i class="fas fa-theater-masks"></i> Karakter
+  </button>
+  <button class="tab-btn" data-tab="humanization" onclick="switchTab('humanization')">
+    <i class="fas fa-user-clock"></i> Insanlastirma
+  </button>
+  <button class="tab-btn" data-tab="keywords" onclick="switchTab('keywords')">
+    <i class="fas fa-key"></i> Anahtar Kelimeler
+  </button>
+  <button class="tab-btn" data-tab="triggers" onclick="switchTab('triggers')">
+    <i class="fas fa-bolt"></i> Tetikleyiciler
+  </button>
+  <button class="tab-btn" data-tab="test" onclick="switchTab('test')">
+    <i class="fas fa-flask"></i> Test
+  </button>
+</div>
+
+<!-- KARAKTER TAB -->
+<div id="tab-character" class="tab-content active">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-user-astronaut"></i> Karakter Secimi</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Aktif Karakter</label>
+        <select class="form-control" id="characterSelect">
+          <% (characters || []).forEach(function(c) { %>
+            <option value="<%= c.id %>" <%= (botSettings && String(botSettings.character_id) === String(c.id)) ? 'selected' : '' %>>
+              <%= c.name %>
+            </option>
+          <% }); %>
+        </select>
+        <small class="text-muted">Bu botun kullanacagi karakter</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-list"></i> Karakter Listesi</h3>
+      <button class="btn btn-primary btn-sm" onclick="showAddCharacterModal()">
+        <i class="fas fa-plus"></i> Yeni
+      </button>
+    </div>
+    <div class="card-body">
+      <div id="characterList" class="character-grid">
+        <% (characters || []).forEach(function(c) { %>
+          <div class="character-card" data-id="<%= c.id %>">
+            <div class="character-header">
+              <span class="character-name"><%= c.name %></span>
+              <button class="btn btn-danger btn-xs" onclick="deleteCharacter(<%= c.id %>)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Isim</label>
+              <input class="form-control char-name" value="<%= c.name %>">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prompt</label>
+              <textarea class="form-control char-prompt" rows="4"><%= c.prompt || '' %></textarea>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+      <button class="btn btn-success" style="margin-top: 16px;" onclick="saveCharacters()">
+        <i class="fas fa-save"></i> Karakterleri Kaydet
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- INSANLASTIRMA TAB -->
+<div id="tab-humanization" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-power-off"></i> Temel Kontroller</h3>
+    </div>
+    <div class="card-body">
+      <div class="switch-grid">
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">Insanlastirma Modu</div>
+            <div class="switch-desc">Kapali ise bot aninda cevap verir</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="humanEnabled" <%= (botSettings && botSettings.human_enabled) ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">"Yaziyor..." Gostergesi</div>
+            <div class="switch-desc">WhatsApp'ta yaziyor durumu</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showTyping" <%= (!botSettings || botSettings.show_typing !== 0) ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="switch-card">
+          <div class="switch-info">
+            <div class="switch-title">Parca Parca Gonderme</div>
+            <div class="switch-desc">Uzun cevaplari ayri mesajlar halinde gonder</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="splitMessages" <%= (!botSettings || botSettings.split_messages !== 0) ? 'checked' : '' %>>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-hourglass-half"></i> Tepki Suresi</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">
+          Minimum Bekleme
+          <span class="badge badge-info" id="minDelayVal"><%= (botSettings && botSettings.min_delay) || 30 %> sn</span>
+        </label>
+        <input type="range" class="form-control" id="minDelay" min="0" max="1800" step="10"
+               value="<%= (botSettings && botSettings.min_delay) || 30 %>"
+               oninput="document.getElementById('minDelayVal').textContent = this.value + ' sn'">
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          Maksimum Bekleme
+          <span class="badge badge-info" id="maxDelayVal"><%= (botSettings && botSettings.max_delay) || 180 %> sn</span>
+        </label>
+        <input type="range" class="form-control" id="maxDelay" min="60" max="3600" step="30"
+               value="<%= (botSettings && botSettings.max_delay) || 180 %>"
+               oninput="document.getElementById('maxDelayVal').textContent = this.value + ' sn'">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-keyboard"></i> Okuma ve Yazma Hizi</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Okuma Hizi (Kelime/dk)</label>
+          <input type="number" class="form-control" id="wpmReading" value="<%= (botSettings && botSettings.wpm_reading) || 200 %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Yazma Hizi (Karakter/dk)</label>
+          <input type="number" class="form-control" id="cpmTyping" value="<%= (botSettings && botSettings.cpm_typing) || 250 %>">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-success btn-lg" onclick="saveHumanSettings()">
+    <i class="fas fa-save"></i> Insanlastirma Ayarlarini Kaydet
+  </button>
+</div>
+
+<!-- ANAHTAR KELIMELER TAB -->
+<div id="tab-keywords" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-key"></i> Anahtar Kelime Yanitlari</h3>
+      <button class="btn btn-primary btn-sm" onclick="showAddKeywordModal()">
+        <i class="fas fa-plus"></i> Ekle
+      </button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">Belirli kelimelere otomatik yanit tanimlayin. AI'dan bagimsiz calisir.</p>
+      <div id="keywordList">
+        <% if (!keywords || keywords.length === 0) { %>
+          <p class="text-muted text-center">Henuz anahtar kelime tanimlanmadi.</p>
+        <% } else { %>
+          <% keywords.forEach(function(kw) { %>
+            <div class="keyword-item" data-id="<%= kw.id %>">
+              <div class="keyword-info">
+                <span class="keyword-trigger"><%= kw.keyword %></span>
+                <span class="keyword-match-type"><%= kw.match_type || 'contains' %></span>
+              </div>
+              <div class="keyword-response"><%= kw.response %></div>
+              <div class="keyword-actions">
+                <button class="btn btn-sm btn-warning" onclick="editKeyword(<%= kw.id %>)"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteKeyword(<%= kw.id %>)"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TETIKLEYICILER TAB -->
+<div id="tab-triggers" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-bolt"></i> Tetikleyiciler</h3>
+      <button class="btn btn-primary btn-sm" onclick="showAddTriggerModal()">
+        <i class="fas fa-plus"></i> Ekle
+      </button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">Belirli olaylarda otomatik aksiyonlar tanimlayin.</p>
+      <div id="triggerList">
+        <% if (!triggers || triggers.length === 0) { %>
+          <p class="text-muted text-center">Henuz tetikleyici tanimlanmadi.</p>
+        <% } else { %>
+          <% triggers.forEach(function(tr) { %>
+            <div class="trigger-item" data-id="<%= tr.id %>">
+              <div class="trigger-info">
+                <span class="trigger-event"><%= tr.event_type %></span>
+                <span class="trigger-action"><%= tr.action_type %></span>
+              </div>
+              <div class="trigger-config"><%= tr.config %></div>
+              <div class="trigger-actions">
+                <button class="btn btn-sm btn-warning" onclick="editTrigger(<%= tr.id %>)"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteTrigger(<%= tr.id %>)"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TEST TAB -->
+<div id="tab-test" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-flask"></i> Yanitlari Test Et</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Test Mesaji</label>
+        <input type="text" class="form-control" id="testMessage" placeholder="Bir mesaj yazin...">
+      </div>
+      <button class="btn btn-primary" onclick="testResponse()">
+        <i class="fas fa-paper-plane"></i> Test Et
+      </button>
+      <div id="testResult" style="margin-top: 16px; display: none;">
+        <div class="card" style="background: var(--bg-secondary);">
+          <div class="card-body">
+            <strong>Sonuc:</strong>
+            <div id="testResultContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="addKeywordModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-key"></i> Anahtar Kelime Ekle</h3>
+      <button class="modal-close" onclick="closeModal('addKeywordModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Anahtar Kelime</label>
+        <input type="text" class="form-control" id="newKeyword" placeholder="ornek: merhaba">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Eslestirme Tipi</label>
+        <select class="form-control" id="newKeywordMatchType">
+          <option value="contains">Iceriyorsa</option>
+          <option value="exact">Tam Eslesme</option>
+          <option value="starts">Basliyorsa</option>
+          <option value="ends">Bitiyorsa</option>
+          <option value="regex">Regex</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Yanit</label>
+        <textarea class="form-control" id="newKeywordResponse" rows="3" placeholder="Bu kelimeyi gordugunde ne yanitlasin?"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addKeywordModal')">Iptal</button>
+      <button class="btn btn-primary" onclick="addKeyword()">Ekle</button>
+    </div>
+  </div>
+</div>
+
+<div id="addTriggerModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-bolt"></i> Tetikleyici Ekle</h3>
+      <button class="modal-close" onclick="closeModal('addTriggerModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Olay Tipi</label>
+        <select class="form-control" id="newTriggerEvent">
+          <option value="first_message">Ilk Mesaj</option>
+          <option value="keyword_match">Anahtar Kelime Eslesmesi</option>
+          <option value="no_response">Yanit Yok (Timeout)</option>
+          <option value="schedule">Zamanlanmis</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Aksiyon Tipi</label>
+        <select class="form-control" id="newTriggerAction">
+          <option value="send_message">Mesaj Gonder</option>
+          <option value="update_status">Durum Guncelle</option>
+          <option value="notify">Bildirim Gonder</option>
+          <option value="webhook">Webhook Cagir</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Konfigurasyon (JSON)</label>
+        <textarea class="form-control" id="newTriggerConfig" rows="3" placeholder='{"message": "Merhaba!"}'></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addTriggerModal')">Iptal</button>
+      <button class="btn btn-primary" onclick="addTrigger()">Ekle</button>
+    </div>
+  </div>
+</div>
+
+<div id="addCharacterModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-user-plus"></i> Yeni Karakter Ekle</h3>
+      <button class="modal-close" onclick="closeModal('addCharacterModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Karakter Adi</label>
+        <input type="text" class="form-control" id="newCharName" placeholder="ornek: Samimi Hoca">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prompt / Uslup</label>
+        <textarea class="form-control" id="newCharPrompt" rows="5" placeholder="Bu karakterin konusma tarzini tanimlayan prompt..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addCharacterModal')">Iptal</button>
+      <button class="btn btn-primary" onclick="addCharacter()">Ekle</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLIENT_ID = '<%= client.id %>';
+
+// Tab switching
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
+  document.getElementById('tab-' + tabName).classList.add('active');
+}
+
+// Modal functions
+function showAddKeywordModal() {
+  document.getElementById('addKeywordModal').style.display = 'flex';
+}
+function showAddTriggerModal() {
+  document.getElementById('addTriggerModal').style.display = 'flex';
+}
+function showAddCharacterModal() {
+  document.getElementById('addCharacterModal').style.display = 'flex';
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+// Bot freeze/unfreeze
+async function freezeBot() {
+  await fetch('/api/bots/' + CLIENT_ID + '/freeze', { method: 'POST' });
+  location.reload();
+}
+async function unfreezeBot() {
+  await fetch('/api/bots/' + CLIENT_ID + '/unfreeze', { method: 'POST' });
+  location.reload();
+}
+
+// Save humanization settings
+async function saveHumanSettings() {
+  const data = {
+    human_enabled: document.getElementById('humanEnabled').checked ? 1 : 0,
+    show_typing: document.getElementById('showTyping').checked ? 1 : 0,
+    split_messages: document.getElementById('splitMessages').checked ? 1 : 0,
+    min_delay: parseInt(document.getElementById('minDelay').value),
+    max_delay: parseInt(document.getElementById('maxDelay').value),
+    wpm_reading: parseInt(document.getElementById('wpmReading').value),
+    cpm_typing: parseInt(document.getElementById('cpmTyping').value),
+    character_id: document.getElementById('characterSelect').value
+  };
+
+  const res = await fetch('/api/bots/' + CLIENT_ID + '/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  if (res.ok) {
+    alert('Ayarlar kaydedildi!');
+  } else {
+    alert('Hata olustu!');
+  }
+}
+
+// Keywords
+async function addKeyword() {
+  const data = {
+    keyword: document.getElementById('newKeyword').value,
+    match_type: document.getElementById('newKeywordMatchType').value,
+    response: document.getElementById('newKeywordResponse').value
+  };
+
+  await fetch('/api/bots/' + CLIENT_ID + '/keywords', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  closeModal('addKeywordModal');
+  location.reload();
+}
+
+async function deleteKeyword(id) {
+  if (!confirm('Bu anahtar kelimeyi silmek istediginize emin misiniz?')) return;
+  await fetch('/api/bots/' + CLIENT_ID + '/keywords/' + id, { method: 'DELETE' });
+  location.reload();
+}
+
+// Triggers
+async function addTrigger() {
+  const data = {
+    event_type: document.getElementById('newTriggerEvent').value,
+    action_type: document.getElementById('newTriggerAction').value,
+    config: document.getElementById('newTriggerConfig').value
+  };
+
+  await fetch('/api/bots/' + CLIENT_ID + '/triggers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  closeModal('addTriggerModal');
+  location.reload();
+}
+
+async function deleteTrigger(id) {
+  if (!confirm('Bu tetikleyiciyi silmek istediginize emin misiniz?')) return;
+  await fetch('/api/bots/' + CLIENT_ID + '/triggers/' + id, { method: 'DELETE' });
+  location.reload();
+}
+
+// Characters
+async function addCharacter() {
+  const data = {
+    name: document.getElementById('newCharName').value,
+    prompt: document.getElementById('newCharPrompt').value
+  };
+
+  await fetch('/api/characters', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  closeModal('addCharacterModal');
+  location.reload();
+}
+
+async function deleteCharacter(id) {
+  if (!confirm('Bu karakteri silmek istediginize emin misiniz?')) return;
+  await fetch('/api/characters/' + id, { method: 'DELETE' });
+  location.reload();
+}
+
+async function saveCharacters() {
+  const cards = document.querySelectorAll('.character-card');
+  for (const card of cards) {
+    const id = card.dataset.id;
+    const name = card.querySelector('.char-name').value;
+    const prompt = card.querySelector('.char-prompt').value;
+
+    await fetch('/api/characters/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, prompt })
+    });
+  }
+  alert('Karakterler kaydedildi!');
+}
+
+// Test response
+async function testResponse() {
+  const message = document.getElementById('testMessage').value;
+  const res = await fetch('/api/bots/' + CLIENT_ID + '/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message })
+  });
+
+  const data = await res.json();
+  document.getElementById('testResult').style.display = 'block';
+  document.getElementById('testResultContent').textContent = data.response || data.error || 'Yanit yok';
+}
+</script>
+
+<%- include('partials/footer') %>

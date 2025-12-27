@@ -1,79 +1,387 @@
 <%- include('partials/header', { title, page }) %>
 
 <div class="content-header">
-  <h2><i class="fas fa-users"></i> Profiller</h2>
-  <div class="header-actions">
-    <a href="/profiles?tab=active" class="btn <%= (tab === 'active') ? 'btn-primary' : 'btn-secondary' %>">Aktif</a>
-    <a href="/profiles?tab=completed" class="btn <%= (tab === 'completed') ? 'btn-primary' : 'btn-secondary' %>">Tamamlanan Müşteriler</a>
-  </div>
+  <h2><i class="fas fa-users"></i> Profil Yonetimi</h2>
 </div>
 
-<%
-  const list = (tab === 'completed') ? (completedProfiles || []) : (activeProfiles || []);
-%>
-
-<div class="card">
-  <div class="card-body">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <span class="badge badge-info"><%= list.length %> Profil</span>
-      <span class="text-muted">
-        <%= (tab === 'completed') ? 'Bilgileri tamamlanmış / süreç bitmiş profiller' : 'Bilgi toplama / bekleyen profiller' %>
-      </span>
+<div class="profiles-container">
+  <!-- Sol Panel - Liste -->
+  <div class="profiles-list-panel">
+    <div class="profiles-header">
+      <h5><i class="fas fa-address-book me-2"></i> Kisiler</h5>
+      <span class="badge bg-primary" id="totalCount"><%= (activeProfiles || []).length + (completedProfiles || []).length %></span>
     </div>
 
-    <% if (list && list.length > 0) { %>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>İsim</th>
-            <th>WhatsApp</th>
-            <th>Şehir</th>
-            <th>Anne Adı</th>
-            <th>Doğum</th>
-            <th>Durum</th>
-            <th>Tarih</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% list.forEach(p => { %>
-            <tr>
-              <td><strong><%= p.full_name || 'İsimsiz' %></strong></td>
-              <td><%= p.chat_id?.split('@')[0] || '-' %></td>
-              <td><%= p.city || '-' %></td>
-              <td><%= p.mother_name || '-' %></td>
-              <td><%= p.birth_date || '-' %></td>
-              <td>
-                <% if (p.status === 'new') { %>
-                  <span class="badge badge-info">Yeni</span>
-                <% } else if (p.status === 'collecting') { %>
-                  <span class="badge badge-warning">Bilgi Toplama</span>
-                <% } else if (p.status === 'waiting') { %>
-                  <span class="badge badge-warning">Bekliyor</span>
-                <% } else if (p.status === 'appointment_scheduled') { %>
-                  <span class="badge badge-success">Randevu Alındı</span>
-                <% } else if (p.status === 'called') { %>
-                  <span class="badge badge-success">Arandı</span>
-                <% } else if (p.status === 'customer') { %>
-                  <span class="badge badge-success">Müşteri</span>
-                <% } else if (p.status === 'admin') { %>
-                  <span class="badge badge-danger">Admin</span>
-                <% } else { %>
-                  <span class="badge badge-secondary"><%= p.status %></span>
-                <% } %>
-              </td>
-              <td><%= new Date(p.created_at).toLocaleDateString('tr-TR') %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    <% } else { %>
-      <div class="empty-state">
-        <i class="fas fa-users"></i>
-        <h4>Profil Yok</h4>
-        <p>Bu sekmede henüz profil bulunmuyor.</p>
+    <div class="profiles-tabs">
+      <button class="tab-btn active" data-tab="active" onclick="switchTab('active')">
+        <i class="fas fa-clock me-1"></i> Aktif (<span id="activeCount"><%= (activeProfiles || []).length %></span>)
+      </button>
+      <button class="tab-btn" data-tab="completed" onclick="switchTab('completed')">
+        <i class="fas fa-check me-1"></i> Tamamlanan (<span id="completedCount"><%= (completedProfiles || []).length %></span>)
+      </button>
+    </div>
+
+    <div class="profiles-search">
+      <input type="text" placeholder="Isim veya numara ara..." id="searchInput" oninput="filterProfiles()">
+    </div>
+
+    <div class="profiles-scroll" id="profilesList">
+      <% const allProfiles = [...(activeProfiles || []), ...(completedProfiles || [])]; %>
+      <% allProfiles.forEach((p, idx) => {
+        const isCompleted = ['appointment_scheduled', 'called', 'customer'].includes(p.status);
+        const statusLabels = {
+          'new': 'Yeni', 'collecting': 'Bilgi', 'waiting': 'Bekliyor',
+          'appointment_scheduled': 'Randevu', 'called': 'Arandi', 'customer': 'Musteri', 'admin': 'Admin'
+        };
+        const statusClasses = {
+          'new': 'badge-new', 'collecting': 'badge-collecting', 'waiting': 'badge-waiting',
+          'appointment_scheduled': 'badge-scheduled', 'called': 'badge-called', 'customer': 'badge-customer', 'admin': 'badge-admin'
+        };
+      %>
+      <div class="profile-card"
+           data-id="<%= p.id %>"
+           data-chat-id="<%= p.chat_id %>"
+           data-client-id="<%= p.client_id %>"
+           data-tab="<%= isCompleted ? 'completed' : 'active' %>"
+           onclick="selectProfile(this)">
+        <img src="<%= p.profile_photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(p.full_name || 'U') + '&background=random' %>"
+             class="profile-avatar"
+             onerror="this.src='https://ui-avatars.com/api/?name=U&background=random'">
+        <div class="profile-info">
+          <div class="profile-name"><%= p.full_name || 'Isimsiz' %></div>
+          <div class="profile-phone"><%= p.chat_id?.split('@')[0] || '-' %></div>
+        </div>
+        <div class="profile-meta">
+          <div class="profile-time"><%= p.last_message_at ? new Date(p.last_message_at).toLocaleDateString('tr-TR') : '' %></div>
+          <span class="profile-badge <%= statusClasses[p.status] || 'badge-new' %>"><%= statusLabels[p.status] || p.status %></span>
+        </div>
       </div>
-    <% } %>
+      <% }); %>
+    </div>
+  </div>
+
+  <!-- Sag Panel - Detay -->
+  <div class="profile-detail-panel" id="detailPanel">
+    <div class="detail-empty">
+      <i class="fas fa-user-circle"></i>
+      <h4>Profil Secin</h4>
+      <p>Detaylari gormek icin soldan bir kisi secin</p>
+    </div>
   </div>
 </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  let currentChatId = null;
+  let currentClientId = null;
+  let currentProfile = null;
+  let currentTab = 'active';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    document.querySelectorAll('.profile-card').forEach(card => {
+      card.style.display = card.dataset.tab === tab ? 'flex' : 'none';
+    });
+  }
+
+  function filterProfiles() {
+    const val = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.profile-card').forEach(card => {
+      const text = card.innerText.toLowerCase();
+      const matchesSearch = text.includes(val);
+      const matchesTab = card.dataset.tab === currentTab;
+      card.style.display = (matchesSearch && matchesTab) ? 'flex' : 'none';
+    });
+  }
+
+  async function selectProfile(el) {
+    document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+
+    currentChatId = el.dataset.chatId;
+    currentClientId = el.dataset.clientId;
+
+    const panel = document.getElementById('detailPanel');
+    panel.innerHTML = '<div class="detail-empty"><div class="spinner-border text-primary"></div><p class="mt-3">Yukleniyor...</p></div>';
+
+    try {
+      const [profRes, msgRes] = await Promise.all([
+        fetch(`/api/chat/${currentChatId}/profile`),
+        fetch(`/api/chat/${currentChatId}/messages`)
+      ]);
+
+      const profData = await profRes.json();
+      const msgData = await msgRes.json();
+
+      if (profData.success) {
+        currentProfile = profData.profile;
+        renderDetail(currentProfile, msgData.messages || []);
+      }
+    } catch (e) {
+      panel.innerHTML = '<div class="detail-empty"><i class="fas fa-exclamation-circle text-danger"></i><p>Yukleme hatasi</p></div>';
+    }
+  }
+
+  function renderDetail(p, messages) {
+    const panel = document.getElementById('detailPanel');
+    const avatarUrl = p.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.full_name || 'U')}&background=random`;
+
+    const statusOptions = [
+      { value: 'new', label: 'Yeni' },
+      { value: 'collecting', label: 'Bilgi Toplama' },
+      { value: 'waiting', label: 'Bekliyor' },
+      { value: 'appointment_scheduled', label: 'Randevu Alindi' },
+      { value: 'called', label: 'Arandi' },
+      { value: 'customer', label: 'Musteri' },
+      { value: 'admin', label: 'Admin Devraldi' }
+    ];
+
+    panel.innerHTML = `
+      <div class="detail-header">
+        <img src="${avatarUrl}" class="detail-avatar" onerror="this.src='https://ui-avatars.com/api/?name=U&background=random'">
+        <div class="detail-title">
+          <h4>${p.full_name || 'Isimsiz'}</h4>
+          <small>${p.chat_id?.split('@')[0] || '-'}</small>
+        </div>
+        <div class="detail-actions">
+          <button class="action-btn action-btn-secondary" onclick="analyzeProfile()">
+            <i class="fas fa-magic"></i> AI Analiz
+          </button>
+          <button class="action-btn action-btn-primary" onclick="openWhatsApp()">
+            <i class="fab fa-whatsapp"></i> WhatsApp
+          </button>
+          <button class="action-btn action-btn-danger" onclick="toggleBlock()">
+            <i class="fas fa-ban"></i> ${p.is_blocked ? 'Engeli Kaldir' : 'Engelle'}
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-content">
+        <div class="info-panel">
+          <div class="info-section">
+            <div class="info-section-title"><i class="fas fa-user"></i> Kisi Bilgileri</div>
+            <div class="info-row">
+              <span class="info-label">Isim</span>
+              <span class="info-value">${p.full_name || '-'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Telefon</span>
+              <span class="info-value">${p.phone || p.chat_id?.split('@')[0] || '-'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Sehir</span>
+              <span class="info-value">${p.city || '-'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Yas / Dogum</span>
+              <span class="info-value">${p.birth_date || '-'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Anne Adi</span>
+              <span class="info-value">${p.mother_name || '-'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Meslek</span>
+              <span class="info-value">${p.job || '-'}</span>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-section-title"><i class="fas fa-exclamation-triangle"></i> Derdi / Sorunu</div>
+            <div class="info-value highlight" style="padding: 10px 0; line-height: 1.5;">${p.subject || 'Henuz belirtilmemis'}</div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-section-title"><i class="fas fa-cog"></i> Durum</div>
+            <div class="info-row">
+              <span class="info-label">Mevcut Durum</span>
+              <select class="status-select" onchange="changeStatus(this.value)">
+                ${statusOptions.map(opt => `<option value="${opt.value}" ${p.status === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+              </select>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Mesaj Sayisi</span>
+              <span class="info-value">${p.msg_count || 0}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Ilk Gorusme</span>
+              <span class="info-value">${p.conversation_started_at ? new Date(p.conversation_started_at).toLocaleDateString('tr-TR') : '-'}</span>
+            </div>
+          </div>
+
+          ${p.ai_analysis ? `
+          <div class="ai-analysis-box">
+            <h6><i class="fas fa-brain"></i> AI Karakter Analizi</h6>
+            <p>${p.ai_analysis}</p>
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="messages-panel">
+          <div class="messages-scroll" id="messagesScroll">
+            ${renderMessagesHTML(messages)}
+          </div>
+          <div class="messages-footer">
+            <input type="text" id="messageInput" placeholder="Mesaj yaz..." onkeypress="if(event.key==='Enter')sendMessage()">
+            <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Scroll to bottom
+    const scroll = document.getElementById('messagesScroll');
+    if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  function renderMessagesHTML(messages) {
+    if (!messages || messages.length === 0) {
+      return '<div class="detail-empty" style="height:100%;"><i class="fas fa-comments" style="font-size:40px;"></i><p>Henuz mesaj yok</p></div>';
+    }
+
+    let html = '';
+    let lastDate = '';
+
+    messages.forEach(msg => {
+      const date = new Date(msg.created_at);
+      const dateStr = date.toLocaleDateString('tr-TR');
+      const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const isMe = msg.direction === 'outgoing';
+
+      if (dateStr !== lastDate) {
+        html += `<div class="msg-date-divider"><span>${dateStr}</span></div>`;
+        lastDate = dateStr;
+      }
+
+      html += `
+        <div class="msg-bubble ${isMe ? 'outgoing' : 'incoming'}">
+          ${msg.content || ''}
+          <span class="msg-time">${timeStr}</span>
+        </div>
+      `;
+    });
+
+    return html;
+  }
+
+  async function changeStatus(status) {
+    if (!currentChatId) return;
+    try {
+      await fetch(`/api/chat/${currentChatId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      // Update local state
+      if (currentProfile) currentProfile.status = status;
+    } catch (e) {
+      alert('Durum guncellenemedi');
+    }
+  }
+
+  async function toggleBlock() {
+    if (!currentProfile || !currentChatId) return;
+    const newState = !currentProfile.is_blocked;
+    if (!confirm(newState ? 'Kisiyi engellemek istiyor musunuz?' : 'Engeli kaldirmak istiyor musunuz?')) return;
+
+    try {
+      await fetch(`/api/chat/${currentChatId}/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: newState })
+      });
+      currentProfile.is_blocked = newState;
+      // Refresh
+      const el = document.querySelector(`.profile-card[data-chat-id="${currentChatId}"]`);
+      if (el) selectProfile(el);
+    } catch (e) {
+      alert('Islem basarisiz');
+    }
+  }
+
+  async function analyzeProfile() {
+    if (!currentChatId) return;
+    const btn = event.currentTarget;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analiz...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/chat/${currentChatId}/analyze`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        currentProfile.ai_analysis = data.analysis;
+        const el = document.querySelector(`.profile-card[data-chat-id="${currentChatId}"]`);
+        if (el) selectProfile(el);
+      } else {
+        alert('Analiz yapilamadi: ' + (data.error || ''));
+      }
+    } catch (e) {
+      alert('Analiz hatasi');
+    }
+
+    btn.innerHTML = originalHTML;
+    btn.disabled = false;
+  }
+
+  function openWhatsApp() {
+    window.open(`/whatsapp?chat=${currentChatId}`, '_blank');
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text || !currentChatId || !currentClientId) return;
+
+    input.value = '';
+
+    // Optimistic UI update
+    const scroll = document.getElementById('messagesScroll');
+    const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    scroll.innerHTML += `
+      <div class="msg-bubble outgoing">
+        ${text}
+        <span class="msg-time">${time} <i class="fas fa-clock"></i></span>
+      </div>
+    `;
+    scroll.scrollTop = scroll.scrollHeight;
+
+    try {
+      await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: currentClientId, chatId: currentChatId, message: text })
+      });
+    } catch (e) {
+      alert('Mesaj gonderilemedi');
+    }
+  }
+
+  // Socket events
+  socket.on('newMessage', (data) => {
+    if (currentChatId === data.chatId) {
+      const scroll = document.getElementById('messagesScroll');
+      if (!scroll) return;
+
+      const time = new Date(data.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const isMe = data.direction === 'outgoing';
+
+      scroll.innerHTML += `
+        <div class="msg-bubble ${isMe ? 'outgoing' : 'incoming'}">
+          ${data.body}
+          <span class="msg-time">${time}</span>
+        </div>
+      `;
+      scroll.scrollTop = scroll.scrollHeight;
+    }
+  });
+
+  // Initial tab
+  switchTab('active');
+</script>
 
 <%- include('partials/footer') %>

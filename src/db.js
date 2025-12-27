@@ -131,6 +131,62 @@ async ensureSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_chat (chat_id),
         INDEX idx_action (action)
+      )`,
+      `CREATE TABLE IF NOT EXISTS bot_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id VARCHAR(50) NOT NULL,
+        character_id VARCHAR(50) DEFAULT 'warm',
+        character_name VARCHAR(100) DEFAULT 'Sicak ve Samimi',
+        character_prompt TEXT,
+        humanization_enabled TINYINT(1) DEFAULT 1,
+        show_typing_indicator TINYINT(1) DEFAULT 1,
+        split_messages TINYINT(1) DEFAULT 1,
+        min_response_delay INT DEFAULT 60,
+        max_response_delay INT DEFAULT 600,
+        wpm_reading INT DEFAULT 200,
+        cpm_typing INT DEFAULT 300,
+        typing_variance INT DEFAULT 20,
+        long_message_threshold INT DEFAULT 150,
+        long_message_extra_delay INT DEFAULT 60,
+        split_threshold INT DEFAULT 240,
+        chunk_delay INT DEFAULT 800,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY idx_client (client_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS keyword_responses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id VARCHAR(50) NOT NULL,
+        keyword VARCHAR(200) NOT NULL,
+        match_type ENUM('contains', 'exact', 'starts_with', 'ends_with', 'regex') DEFAULT 'contains',
+        response TEXT NOT NULL,
+        is_active TINYINT(1) DEFAULT 1,
+        priority INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_client (client_id),
+        INDEX idx_active (is_active)
+      )`,
+      `CREATE TABLE IF NOT EXISTS bot_triggers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id VARCHAR(50) NOT NULL,
+        trigger_event ENUM('first_message', 'profile_complete', 'appointment_scheduled', 'status_change', 'keyword_match', 'time_based', 'message_count') NOT NULL,
+        trigger_condition JSON,
+        action_type ENUM('send_message', 'change_status', 'notify_admin', 'set_variable', 'call_webhook') NOT NULL,
+        action_data JSON,
+        is_active TINYINT(1) DEFAULT 1,
+        priority INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_client (client_id),
+        INDEX idx_event (trigger_event),
+        INDEX idx_active (is_active)
+      )`,
+      `CREATE TABLE IF NOT EXISTS characters (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        char_id VARCHAR(50) NOT NULL UNIQUE,
+        name VARCHAR(100) NOT NULL,
+        prompt TEXT,
+        is_default TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 
@@ -563,6 +619,193 @@ async initDefaultSettings() {
 
     const [rows] = await this.pool.execute(sql, params);
     return rows;
+  }
+
+  // ==================== BOT SETTINGS METODLARI ====================
+
+  async getBotSettings(clientId) {
+    const [rows] = await this.pool.execute("SELECT * FROM bot_settings WHERE client_id = ?", [clientId]);
+    if (rows[0]) return rows[0];
+
+    // Yoksa varsayılan oluştur
+    await this.pool.execute(
+      `INSERT INTO bot_settings (client_id) VALUES (?) ON DUPLICATE KEY UPDATE client_id = client_id`,
+      [clientId]
+    );
+    const [newRows] = await this.pool.execute("SELECT * FROM bot_settings WHERE client_id = ?", [clientId]);
+    return newRows[0];
+  }
+
+  async updateBotSettings(clientId, data) {
+    const cleaned = this._sanitizeValues(data);
+    const keys = Object.keys(cleaned);
+    if (keys.length === 0) return;
+
+    // Önce kayıt var mı kontrol et
+    await this.pool.execute(
+      `INSERT INTO bot_settings (client_id) VALUES (?) ON DUPLICATE KEY UPDATE client_id = client_id`,
+      [clientId]
+    );
+
+    const fields = keys.map(k => `\`${k}\` = ?`).join(", ");
+    const values = [...keys.map(k => cleaned[k]), clientId];
+    await this.pool.execute(`UPDATE bot_settings SET ${fields} WHERE client_id = ?`, values);
+  }
+
+  // ==================== KEYWORD RESPONSES METODLARI ====================
+
+  async getKeywordResponses(clientId) {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM keyword_responses WHERE client_id = ? ORDER BY priority DESC, id ASC",
+      [clientId]
+    );
+    return rows;
+  }
+
+  async addKeywordResponse(clientId, data) {
+    const { keyword, match_type, response, priority } = data;
+    await this.pool.execute(
+      `INSERT INTO keyword_responses (client_id, keyword, match_type, response, priority) VALUES (?, ?, ?, ?, ?)`,
+      [clientId, keyword, match_type || 'contains', response, priority || 0]
+    );
+  }
+
+  async updateKeywordResponse(id, data) {
+    const cleaned = this._sanitizeValues(data);
+    const keys = Object.keys(cleaned);
+    if (keys.length === 0) return;
+    const fields = keys.map(k => `\`${k}\` = ?`).join(", ");
+    const values = [...keys.map(k => cleaned[k]), id];
+    await this.pool.execute(`UPDATE keyword_responses SET ${fields} WHERE id = ?`, values);
+  }
+
+  async deleteKeywordResponse(id) {
+    await this.pool.execute("DELETE FROM keyword_responses WHERE id = ?", [id]);
+  }
+
+  async findMatchingKeyword(clientId, message) {
+    const keywords = await this.getKeywordResponses(clientId);
+    const msgLower = message.toLowerCase();
+
+    for (const kw of keywords) {
+      if (!kw.is_active) continue;
+      const kwLower = kw.keyword.toLowerCase();
+
+      let matched = false;
+      switch (kw.match_type) {
+        case 'exact':
+          matched = msgLower === kwLower;
+          break;
+        case 'starts_with':
+          matched = msgLower.startsWith(kwLower);
+          break;
+        case 'ends_with':
+          matched = msgLower.endsWith(kwLower);
+          break;
+        case 'regex':
+          try {
+            matched = new RegExp(kw.keyword, 'i').test(message);
+          } catch (e) {}
+          break;
+        case 'contains':
+        default:
+          matched = msgLower.includes(kwLower);
+      }
+
+      if (matched) return kw;
+    }
+    return null;
+  }
+
+  // ==================== BOT TRIGGERS METODLARI ====================
+
+  async getBotTriggers(clientId) {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM bot_triggers WHERE client_id = ? ORDER BY priority DESC, id ASC",
+      [clientId]
+    );
+    return rows.map(r => ({
+      ...r,
+      trigger_condition: r.trigger_condition ? JSON.parse(r.trigger_condition) : {},
+      action_data: r.action_data ? JSON.parse(r.action_data) : {}
+    }));
+  }
+
+  async addBotTrigger(clientId, data) {
+    const { trigger_event, trigger_condition, action_type, action_data, priority } = data;
+    await this.pool.execute(
+      `INSERT INTO bot_triggers (client_id, trigger_event, trigger_condition, action_type, action_data, priority)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        clientId,
+        trigger_event,
+        JSON.stringify(trigger_condition || {}),
+        action_type,
+        JSON.stringify(action_data || {}),
+        priority || 0
+      ]
+    );
+  }
+
+  async updateBotTrigger(id, data) {
+    const updates = {};
+    if (data.trigger_event) updates.trigger_event = data.trigger_event;
+    if (data.trigger_condition !== undefined) updates.trigger_condition = JSON.stringify(data.trigger_condition);
+    if (data.action_type) updates.action_type = data.action_type;
+    if (data.action_data !== undefined) updates.action_data = JSON.stringify(data.action_data);
+    if (data.is_active !== undefined) updates.is_active = data.is_active ? 1 : 0;
+    if (data.priority !== undefined) updates.priority = data.priority;
+
+    const keys = Object.keys(updates);
+    if (keys.length === 0) return;
+    const fields = keys.map(k => `\`${k}\` = ?`).join(", ");
+    const values = [...keys.map(k => updates[k]), id];
+    await this.pool.execute(`UPDATE bot_triggers SET ${fields} WHERE id = ?`, values);
+  }
+
+  async deleteBotTrigger(id) {
+    await this.pool.execute("DELETE FROM bot_triggers WHERE id = ?", [id]);
+  }
+
+  async getTriggersByEvent(clientId, eventType) {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM bot_triggers WHERE client_id = ? AND trigger_event = ? AND is_active = 1 ORDER BY priority DESC",
+      [clientId, eventType]
+    );
+    return rows.map(r => ({
+      ...r,
+      trigger_condition: r.trigger_condition ? JSON.parse(r.trigger_condition) : {},
+      action_data: r.action_data ? JSON.parse(r.action_data) : {}
+    }));
+  }
+
+  // ==================== CHARACTERS METODLARI ====================
+
+  async getCharacters() {
+    const [rows] = await this.pool.execute("SELECT * FROM characters ORDER BY is_default DESC, name ASC");
+    return rows;
+  }
+
+  async addCharacter(data) {
+    const { char_id, name, prompt, is_default } = data;
+    await this.pool.execute(
+      `INSERT INTO characters (char_id, name, prompt, is_default) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = ?, prompt = ?`,
+      [char_id, name, prompt || '', is_default ? 1 : 0, name, prompt || '']
+    );
+  }
+
+  async updateCharacter(charId, data) {
+    const cleaned = this._sanitizeValues(data);
+    const keys = Object.keys(cleaned);
+    if (keys.length === 0) return;
+    const fields = keys.map(k => `\`${k}\` = ?`).join(", ");
+    const values = [...keys.map(k => cleaned[k]), charId];
+    await this.pool.execute(`UPDATE characters SET ${fields} WHERE char_id = ?`, values);
+  }
+
+  async deleteCharacter(charId) {
+    await this.pool.execute("DELETE FROM characters WHERE char_id = ? AND is_default = 0", [charId]);
   }
 
   // ==================== STATS METODLARI ====================
