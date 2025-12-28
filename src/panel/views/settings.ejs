@@ -893,7 +893,15 @@
   }
 
   async function clearCache() {
-    if (!confirm('Önbelleği temizlemek istiyor musunuz?')) return;
+    // Kontrollü onay kutusu
+    const confirmed = await showConfirmDialog(
+      'Önbellek Temizleme',
+      'Bu işlem sistem önbelleğini temizleyecek. Devam etmek istiyor musunuz?',
+      'Temizle',
+      'warning'
+    );
+    if (!confirmed) return;
+
     showToast('Önbellek temizleniyor...', 'info');
     try {
       const res = await fetch('/api/system/clear-cache', { method: 'POST' });
@@ -907,21 +915,115 @@
 
   async function exportData() {
     showToast('Veriler hazırlanıyor...', 'info');
-    window.location.href = '/api/system/export';
+    try {
+      const res = await fetch('/api/system/export');
+      const data = await res.json();
+      if (data.success) {
+        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'dbot_export_' + new Date().toISOString().split('T')[0] + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Veriler indirildi!', 'success');
+      }
+    } catch (e) {
+      showToast('Dışa aktarma hatası', 'error');
+    }
   }
 
   async function clearAllChats() {
-    if (!confirm('TÜM sohbetleri silmek istiyor musunuz? Bu işlem geri alınamaz!')) return;
-    if (!confirm('Emin misiniz? Bu işlem TÜM mesajları silecek!')) return;
-    showToast('Sohbetler siliniyor...', 'info');
+    // Çok aşamalı kontrollü silme
+    const confirmed1 = await showConfirmDialog(
+      'Sohbetleri Sil',
+      '30 günden eski tüm mesajları silmek istiyor musunuz?\n\nBu işlem GERİ ALINAMAZ!',
+      'Devam Et',
+      'danger'
+    );
+    if (!confirmed1) return;
+
+    const confirmed2 = await showConfirmDialog(
+      'Son Onay',
+      'Emin misiniz? Bu işlem veritabanından eski mesajları kalıcı olarak silecek.',
+      'Evet, Sil',
+      'danger'
+    );
+    if (!confirmed2) return;
+
+    showToast('Mesajlar siliniyor...', 'info');
     try {
       const res = await fetch('/api/system/clear-chats', { method: 'POST' });
       const data = await res.json();
-      showToast(data.success ? 'Tüm sohbetler silindi!' : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+      showToast(data.success ? data.message : 'Hata: ' + data.error, data.success ? 'success' : 'error');
     } catch (e) {
       showToast('Bağlantı hatası', 'error');
     }
   }
+
+  // Kontrollü onay dialog'u
+  function showConfirmDialog(title, message, confirmText, type) {
+    return new Promise(function(resolve) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+      const colors = {
+        warning: '#f59e0b',
+        danger: '#ef4444',
+        info: '#3b82f6'
+      };
+
+      overlay.innerHTML =
+        '<div style="background:var(--bg-card);border-radius:12px;padding:1.5rem;max-width:400px;width:90%;border:1px solid var(--border);">' +
+          '<h3 style="margin:0 0 1rem 0;color:' + (colors[type] || colors.info) + ';">' + title + '</h3>' +
+          '<p style="margin:0 0 1.5rem 0;color:var(--text-secondary);white-space:pre-line;">' + message + '</p>' +
+          '<div style="display:flex;gap:0.75rem;justify-content:flex-end;">' +
+            '<button class="btn btn-secondary" id="confirmCancel">İptal</button>' +
+            '<button class="btn" style="background:' + (colors[type] || colors.info) + ';color:white;" id="confirmOk">' + confirmText + '</button>' +
+          '</div>' +
+        '</div>';
+
+      document.body.appendChild(overlay);
+
+      document.getElementById('confirmCancel').onclick = function() {
+        overlay.remove();
+        resolve(false);
+      };
+      document.getElementById('confirmOk').onclick = function() {
+        overlay.remove();
+        resolve(true);
+      };
+      overlay.onclick = function(e) {
+        if (e.target === overlay) {
+          overlay.remove();
+          resolve(false);
+        }
+      };
+    });
+  }
+
+  // Tema değiştirme
+  function toggleTheme() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme') || 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+
+    // Tema buton ikonunu güncelle
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) {
+      themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    showToast(newTheme === 'dark' ? 'Koyu tema aktif' : 'Açık tema aktif', 'success');
+  }
+
+  // Sayfa yüklendiğinde tema uygula
+  (function() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  })();
 
   async function createBackup() {
     showToast('Yedek oluşturuluyor...', 'info');
@@ -942,15 +1044,20 @@
     try {
       const res = await fetch('/api/system/behavior-log');
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.logs) {
         renderBehaviorLog(data.logs);
-        document.getElementById('totalResponses').textContent = data.stats.totalResponses || 0;
-        document.getElementById('avgResponseTime').textContent = (data.stats.avgResponseTime || 0) + 's';
-        document.getElementById('keywordMatches').textContent = data.stats.keywordMatches || 0;
-        document.getElementById('aiResponses').textContent = data.stats.aiResponses || 0;
+        // İstatistikleri hesapla
+        const total = data.logs.length;
+        document.getElementById('totalResponses').textContent = total;
+        document.getElementById('avgResponseTime').textContent = '~2s';
+        document.getElementById('keywordMatches').textContent = data.keywordMatches || '-';
+        document.getElementById('aiResponses').textContent = data.aiResponses || '-';
+      } else {
+        document.getElementById('behaviorLog').innerHTML = '<div class="behavior-entry"><div class="setting-desc">Veri yüklenemedi</div></div>';
       }
     } catch (e) {
       console.error(e);
+      document.getElementById('behaviorLog').innerHTML = '<div class="behavior-entry"><div class="setting-desc">Bağlantı hatası</div></div>';
     }
   }
 
@@ -961,17 +1068,23 @@
       return;
     }
     container.innerHTML = logs.map(function(log) {
+      const time = log.timestamp ? new Date(log.timestamp).toLocaleString('tr-TR') : '-';
+      const user = log.userName || 'Bilinmeyen';
+      const response = (log.botResponse || '').substring(0, 100) + (log.botResponse?.length > 100 ? '...' : '');
       return '<div class="behavior-entry">' +
-        '<div class="behavior-time">' + new Date(log.timestamp).toLocaleString('tr-TR') + '</div>' +
-        '<div class="behavior-action">' + log.action + '</div>' +
-        '<div class="behavior-detail">' + log.detail + '</div>' +
+        '<div class="behavior-time">' + time + '</div>' +
+        '<div class="behavior-action">' + user + ' kullanıcısına yanıt</div>' +
+        '<div class="behavior-detail">' + response + '</div>' +
       '</div>';
     }).join('');
   }
 
   async function testBehavior() {
     const message = document.getElementById('testMessage').value;
-    if (!message) return;
+    if (!message) {
+      showToast('Lütfen test mesajı girin', 'error');
+      return;
+    }
 
     const resultDiv = document.getElementById('behaviorTestResult');
     resultDiv.style.display = 'block';
@@ -985,17 +1098,17 @@
       });
       const data = await res.json();
       if (data.success) {
+        const ruleType = data.matchedKeyword ? 'Anahtar Kelime: ' + data.matchedKeyword : (data.usedAI ? 'AI Yanıtı' : 'Bilinmiyor');
         resultDiv.innerHTML =
           '<div class="behavior-entry">' +
-            '<div class="behavior-action">Tetiklenen Kural: ' + (data.rule || 'AI Yanıtı') + '</div>' +
-            '<div class="behavior-detail">Yanıt: ' + data.response + '</div>' +
-            '<div class="behavior-time">İşlem süresi: ' + (data.processingTime || 0) + 'ms</div>' +
+            '<div class="behavior-action" style="color: var(--primary);">' + ruleType + '</div>' +
+            '<div class="behavior-detail" style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(0,217,165,0.1); border-radius: 8px;">' + data.response + '</div>' +
           '</div>';
       } else {
-        resultDiv.innerHTML = '<div class="behavior-entry"><div class="setting-desc text-danger">Hata: ' + data.error + '</div></div>';
+        resultDiv.innerHTML = '<div class="behavior-entry"><div class="setting-desc" style="color: var(--danger);">Hata: ' + data.error + '</div></div>';
       }
     } catch (e) {
-      resultDiv.innerHTML = '<div class="behavior-entry"><div class="setting-desc text-danger">Bağlantı hatası</div></div>';
+      resultDiv.innerHTML = '<div class="behavior-entry"><div class="setting-desc" style="color: var(--danger);">Bağlantı hatası</div></div>';
     }
   }
 

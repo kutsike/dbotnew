@@ -87,5 +87,29 @@
           <i class="fas fa-bars"></i>
         </button>
         <div class="topbar-title"><%= title %></div>
+        <div class="topbar-actions">
+          <button class="theme-toggle" onclick="toggleTheme()" title="Tema Değiştir">
+            <i class="fas fa-sun" id="themeIcon"></i>
+          </button>
+        </div>
       </div>
       <div id="toastContainer" class="toast-container"></div>
+      <script>
+        // Sayfa yüklendiğinde tema uygula
+        (function() {
+          const savedTheme = localStorage.getItem('theme') || 'dark';
+          document.documentElement.setAttribute('data-theme', savedTheme);
+          const icon = document.getElementById('themeIcon');
+          if (icon) icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        })();
+
+        function toggleTheme() {
+          const html = document.documentElement;
+          const currentTheme = html.getAttribute('data-theme') || 'dark';
+          const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+          html.setAttribute('data-theme', newTheme);
+          localStorage.setItem('theme', newTheme);
+          const icon = document.getElementById('themeIcon');
+          if (icon) icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+      </script>
