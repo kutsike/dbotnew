@@ -6,6 +6,13 @@
       <i class="fas fa-arrow-left"></i>
     </a>
     <h2><i class="fas fa-robot"></i> <%= client.name || client.id %></h2>
+    <% if (client.status === 'ready') { %>
+      <span class="badge badge-success"><i class="fas fa-check"></i> Aktif</span>
+    <% } else if (client.frozen) { %>
+      <span class="badge badge-info"><i class="fas fa-snowflake"></i> Dondurulmuş</span>
+    <% } else { %>
+      <span class="badge badge-secondary"><%= client.status %></span>
+    <% } %>
   </div>
   <div class="header-actions">
     <% if (client.frozen) { %>
@@ -21,255 +28,344 @@
 </div>
 
 <% if (saved) { %>
-<div class="alert alert-success" style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: #166534; border-radius: 0.5rem;">
+<div class="alert alert-success" id="savedAlert">
   <i class="fas fa-check-circle"></i> Ayarlar kaydedildi!
 </div>
 <% } %>
 
-<div class="grid-2">
-  <!-- Sol Kolon: Bot Bilgileri -->
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-info-circle"></i> Bot Bilgileri</h3>
-    </div>
-    <div class="card-body">
-      <table class="info-table">
-        <tr>
-          <td><strong>ID:</strong></td>
-          <td><code><%= client.id %></code></td>
-        </tr>
-        <tr>
-          <td><strong>Ad:</strong></td>
-          <td><%= client.name || '-' %></td>
-        </tr>
-        <tr>
-          <td><strong>Telefon:</strong></td>
-          <td><%= client.phone || '-' %></td>
-        </tr>
-        <tr>
-          <td><strong>Durum:</strong></td>
-          <td>
-            <% if (client.status === 'ready') { %>
-              <span class="badge badge-success"><i class="fas fa-check"></i> Aktif</span>
-            <% } else if (client.status === 'qr_pending') { %>
-              <span class="badge badge-warning"><i class="fas fa-qrcode"></i> QR Bekliyor</span>
-            <% } else if (client.frozen) { %>
-              <span class="badge badge-info"><i class="fas fa-snowflake"></i> Dondurulmuş</span>
-            <% } else { %>
-              <span class="badge badge-secondary"><%= client.status %></span>
-            <% } %>
-          </td>
-        </tr>
-        <tr>
-          <td><strong>Kayıt:</strong></td>
-          <td><%= new Date(client.created_at).toLocaleDateString('tr-TR') %></td>
-        </tr>
-      </table>
-
-      <!-- İstatistikler -->
-      <div class="stats-row">
-        <div class="stat-box">
-          <div class="stat-value"><%= stats.profiles %></div>
-          <div class="stat-label">Profil</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value"><%= stats.messages %></div>
-          <div class="stat-label">Mesaj</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value"><%= stats.todayMessages %></div>
-          <div class="stat-label">Bugün</div>
-        </div>
+<!-- Bot Bilgileri Özet -->
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="bot-summary">
+      <div class="summary-item">
+        <span class="summary-label">ID:</span>
+        <code><%= client.id %></code>
       </div>
+      <div class="summary-item">
+        <span class="summary-label">Telefon:</span>
+        <span><%= client.phone || '-' %></span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">Profil:</span>
+        <span class="stat-badge"><%= stats.profiles %></span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">Mesaj:</span>
+        <span class="stat-badge"><%= stats.messages %></span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">Bugün:</span>
+        <span class="stat-badge success"><%= stats.todayMessages %></span>
+      </div>
+    </div>
+  </div>
+</div>
 
-      <!-- QR Kod -->
-      <% if (client.qrCode) { %>
-        <div class="qr-section">
-          <h4><i class="fas fa-qrcode"></i> QR Kod</h4>
-          <img src="<%= client.qrCode %>" alt="QR Code" class="qr-image">
-          <p class="text-muted">WhatsApp'tan tarayın</p>
+<!-- Sekmeler -->
+<div class="tabs-container">
+  <div class="tabs">
+    <button class="tab active" data-tab="character">
+      <i class="fas fa-user-astronaut"></i> Karakter
+    </button>
+    <button class="tab" data-tab="humanization">
+      <i class="fas fa-user-clock"></i> İnsanlaştırma
+    </button>
+    <button class="tab" data-tab="keywords">
+      <i class="fas fa-key"></i> Anahtar Kelimeler
+    </button>
+    <button class="tab" data-tab="test">
+      <i class="fas fa-flask"></i> Test
+    </button>
+  </div>
+
+  <!-- Karakter Sekmesi -->
+  <div class="tab-content active" id="tab-character">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-user-astronaut"></i> Karakter Seçimi</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Bu bot için kullanılacak karakteri seçin. Seçim yapılmazsa global karakter kullanılır.</p>
+
+        <div class="character-grid">
+          <div class="character-card <%= !botSettings.character_id ? 'selected' : '' %>" data-character-id="">
+            <div class="character-icon"><i class="fas fa-globe"></i></div>
+            <div class="character-name">Global Karakter</div>
+            <div class="character-desc">Sistem ayarlarındaki aktif karakter</div>
+          </div>
+          <% characters.forEach(char => { %>
+            <div class="character-card <%= botSettings.character_id === char.id ? 'selected' : '' %>" data-character-id="<%= char.id %>">
+              <div class="character-icon"><i class="fas fa-user"></i></div>
+              <div class="character-name"><%= char.name %></div>
+              <div class="character-desc"><%= (char.description || char.personality || '').substring(0, 50) %>...</div>
+            </div>
+          <% }) %>
         </div>
-      <% } %>
+
+        <button class="btn btn-primary mt-3" id="saveCharacterBtn">
+          <i class="fas fa-save"></i> Karakteri Kaydet
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- Sağ Kolon: İnsanlaştırma Ayarları -->
-  <div class="card">
+  <!-- İnsanlaştırma Sekmesi -->
+  <div class="tab-content" id="tab-humanization">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-user-clock"></i> İnsanlaştırma Ayarları</h3>
+        <span class="badge badge-<%= humanizationConfig._source === 'bot' ? 'primary' : 'secondary' %>">
+          <%= humanizationConfig._source === 'bot' ? 'Bot Özel' : (humanizationConfig._source === 'global' ? 'Global' : 'Varsayılan') %>
+        </span>
+      </div>
+      <div class="card-body">
+        <form id="humanizationForm">
+          <div class="form-group">
+            <label class="form-check-label">
+              <input type="checkbox" id="humanEnabled" <%= humanizationConfig.enabled ? 'checked' : '' %>>
+              İnsanlaştırma Aktif
+            </label>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Min Bekleme (sn)</label>
+                <input type="number" id="minDelay" class="form-control" value="<%= humanizationConfig.min_response_delay %>" min="0">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Max Bekleme (sn)</label>
+                <input type="number" id="maxDelay" class="form-control" value="<%= humanizationConfig.max_response_delay %>" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Okuma Hızı (WPM)</label>
+                <input type="number" id="wpmReading" class="form-control" value="<%= humanizationConfig.wpm_reading %>" min="50">
+                <small class="form-text text-muted">Kelime/Dakika</small>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Yazma Hızı (CPM)</label>
+                <input type="number" id="cpmTyping" class="form-control" value="<%= humanizationConfig.cpm_typing %>" min="50">
+                <small class="form-text text-muted">Karakter/Dakika</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Uzun Mesaj Eşiği</label>
+                <input type="number" id="longThreshold" class="form-control" value="<%= humanizationConfig.long_message_threshold %>" min="50">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Uzun Mesaj Ek Bekleme (sn)</label>
+                <input type="number" id="longExtra" class="form-control" value="<%= humanizationConfig.long_message_extra_delay %>" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Yazma Varyansı (%)</label>
+                <input type="number" id="typingVariance" class="form-control" value="<%= humanizationConfig.typing_variance %>" min="0" max="50">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Mesaj Bölme Eşiği</label>
+                <input type="number" id="splitThreshold" class="form-control" value="<%= humanizationConfig.split_threshold || 240 %>" min="100">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-check-label">
+              <input type="checkbox" id="splitMessages" <%= humanizationConfig.split_messages !== false ? 'checked' : '' %>>
+              Uzun mesajları böl
+            </label>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-1">
+              <i class="fas fa-save"></i> Kaydet
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="clearHumanization()">
+              <i class="fas fa-undo"></i> Global Ayarlara Dön
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anahtar Kelimeler Sekmesi -->
+  <div class="tab-content" id="tab-keywords">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-key"></i> Anahtar Kelimeler</h3>
+        <button class="btn btn-primary btn-sm" onclick="openKeywordModal()">
+          <i class="fas fa-plus"></i> Yeni Ekle
+        </button>
+      </div>
+      <div class="card-body">
+        <% if (keywords && keywords.length > 0) { %>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Anahtar Kelime</th>
+                <th>Eşleşme</th>
+                <th>Yanıt</th>
+                <th>Kapsam</th>
+                <th>Durum</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="keywordsTable">
+              <% keywords.forEach(kw => { %>
+                <tr class="<%= kw.is_active ? '' : 'row-inactive' %>" data-id="<%= kw.id %>">
+                  <td><strong><%= kw.keyword %></strong></td>
+                  <td>
+                    <% if (kw.match_type === 'exact') { %>
+                      <span class="badge badge-info">Tam</span>
+                    <% } else if (kw.match_type === 'contains') { %>
+                      <span class="badge badge-primary">İçerir</span>
+                    <% } else if (kw.match_type === 'startswith') { %>
+                      <span class="badge badge-warning">Başlar</span>
+                    <% } else { %>
+                      <span class="badge badge-danger">Regex</span>
+                    <% } %>
+                  </td>
+                  <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <%= kw.response.substring(0, 50) %><%= kw.response.length > 50 ? '...' : '' %>
+                  </td>
+                  <td>
+                    <% if (kw.client_id === client.id) { %>
+                      <span class="badge badge-primary">Bu Bot</span>
+                    <% } else { %>
+                      <span class="badge badge-secondary">Tümü</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <label class="switch">
+                      <input type="checkbox" <%= kw.is_active ? 'checked' : '' %> onchange="toggleKeyword(<%= kw.id %>, this.checked)">
+                      <span class="slider"></span>
+                    </label>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-secondary" onclick="editKeyword(<%= kw.id %>)">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteKeyword(<%= kw.id %>)">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <div class="empty-state">
+            <i class="fas fa-key"></i>
+            <p>Henüz anahtar kelime eklenmemiş.</p>
+            <button class="btn btn-primary btn-sm" onclick="openKeywordModal()">
+              <i class="fas fa-plus"></i> Anahtar Kelime Ekle
+            </button>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test Sekmesi -->
+  <div class="tab-content" id="tab-test">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-flask"></i> Bot Testi</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Botun mesajlara nasıl yanıt vereceğini test edin.</p>
+
+        <div class="form-group">
+          <label class="form-label">Test Mesajı</label>
+          <textarea id="testMessage" class="form-control" rows="3" placeholder="Bir mesaj yazın..."></textarea>
+        </div>
+
+        <button class="btn btn-primary" id="testBtn">
+          <i class="fas fa-paper-plane"></i> Test Et
+        </button>
+
+        <div id="testResult" class="test-result" style="display: none;">
+          <h4><i class="fas fa-robot"></i> Bot Yanıtı:</h4>
+          <div class="test-response"></div>
+          <div class="test-meta"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Anahtar Kelime Modal -->
+<div id="keywordModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card">
     <div class="card-header">
-      <h3><i class="fas fa-user-clock"></i> İnsanlaştırma Ayarları</h3>
-      <span class="badge badge-<%= humanizationConfig._source === 'bot' ? 'primary' : 'secondary' %>">
-        <%= humanizationConfig._source === 'bot' ? 'Bot Özel' : (humanizationConfig._source === 'global' ? 'Global' : 'Varsayılan') %>
-      </span>
+      <h3><i class="fas fa-key"></i> <span id="keywordModalTitle">Anahtar Kelime Ekle</span></h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeKeywordModal()">
+        <i class="fas fa-times"></i>
+      </button>
     </div>
     <div class="card-body">
-      <form method="POST" action="/bots/<%= client.id %>/humanization">
+      <form id="keywordForm">
+        <input type="hidden" id="keywordId">
+
         <div class="form-group">
-          <label class="form-check-label">
-            <input type="checkbox" name="enabled" <%= humanizationConfig.enabled ? 'checked' : '' %>>
-            İnsanlaştırma Aktif
-          </label>
-        </div>
-
-        <div class="row">
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Min Bekleme (sn)</label>
-              <input type="number" name="min_response_delay" class="form-control"
-                value="<%= humanizationConfig.min_response_delay %>" min="0">
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Max Bekleme (sn)</label>
-              <input type="number" name="max_response_delay" class="form-control"
-                value="<%= humanizationConfig.max_response_delay %>" min="0">
-            </div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Okuma Hızı (WPM)</label>
-              <input type="number" name="wpm_reading" class="form-control"
-                value="<%= humanizationConfig.wpm_reading %>" min="50">
-              <small class="form-text text-muted">Kelime/Dakika</small>
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Yazma Hızı (CPM)</label>
-              <input type="number" name="cpm_typing" class="form-control"
-                value="<%= humanizationConfig.cpm_typing %>" min="50">
-              <small class="form-text text-muted">Karakter/Dakika</small>
-            </div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Uzun Mesaj Eşiği</label>
-              <input type="number" name="long_message_threshold" class="form-control"
-                value="<%= humanizationConfig.long_message_threshold %>" min="50">
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Uzun Mesaj Ek Bekleme (sn)</label>
-              <input type="number" name="long_message_extra_delay" class="form-control"
-                value="<%= humanizationConfig.long_message_extra_delay %>" min="0">
-            </div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Yazma Varyansı (%)</label>
-              <input type="number" name="typing_variance" class="form-control"
-                value="<%= humanizationConfig.typing_variance %>" min="0" max="50">
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="form-group">
-              <label class="form-label">Mesaj Bölme Eşiği</label>
-              <input type="number" name="split_threshold" class="form-control"
-                value="<%= humanizationConfig.split_threshold || 240 %>" min="100">
-            </div>
-          </div>
+          <label class="form-label">Anahtar Kelime</label>
+          <input type="text" id="keywordText" class="form-control" required>
         </div>
 
         <div class="form-group">
-          <label class="form-check-label">
-            <input type="checkbox" name="split_messages" <%= humanizationConfig.split_messages !== false ? 'checked' : '' %>>
-            Uzun mesajları böl
-          </label>
+          <label class="form-label">Eşleşme Tipi</label>
+          <select id="keywordMatchType" class="form-control">
+            <option value="contains">İçerir</option>
+            <option value="exact">Tam Eşleşme</option>
+            <option value="startswith">İle Başlar</option>
+            <option value="regex">Regex</option>
+          </select>
         </div>
 
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary flex-1">
-            <i class="fas fa-save"></i> Kaydet
-          </button>
-          <button type="button" class="btn btn-secondary" onclick="clearHumanization('<%= client.id %>')">
-            <i class="fas fa-undo"></i> Global Ayarlara Dön
-          </button>
+        <div class="form-group">
+          <label class="form-label">Yanıt</label>
+          <textarea id="keywordResponse" class="form-control" rows="4" required></textarea>
+          <small class="form-text text-muted">{name} veya {isim} ile kişinin adını ekleyebilirsiniz</small>
         </div>
+
+        <div class="form-group">
+          <label class="form-label">Kapsam</label>
+          <select id="keywordScope" class="form-control">
+            <option value="<%= client.id %>">Sadece Bu Bot</option>
+            <option value="">Tüm Botlar</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="fas fa-save"></i> Kaydet
+        </button>
       </form>
     </div>
   </div>
 </div>
 
-<!-- Anahtar Kelimeler Bölümü -->
-<div class="card mt-3">
-  <div class="card-header">
-    <h3><i class="fas fa-key"></i> Anahtar Kelimeler</h3>
-    <a href="/keywords" class="btn btn-primary btn-sm">
-      <i class="fas fa-external-link-alt"></i> Tümünü Yönet
-    </a>
-  </div>
-  <div class="card-body">
-    <% if (keywords && keywords.length > 0) { %>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Anahtar Kelime</th>
-            <th>Eşleşme</th>
-            <th>Yanıt</th>
-            <th>Kapsam</th>
-            <th>Durum</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% keywords.slice(0, 10).forEach(kw => { %>
-            <tr class="<%= kw.is_active ? '' : 'row-inactive' %>">
-              <td><strong><%= kw.keyword %></strong></td>
-              <td>
-                <% if (kw.match_type === 'exact') { %>
-                  <span class="badge badge-info">Tam</span>
-                <% } else if (kw.match_type === 'contains') { %>
-                  <span class="badge badge-primary">İçerir</span>
-                <% } else if (kw.match_type === 'startswith') { %>
-                  <span class="badge badge-warning">Başlar</span>
-                <% } else { %>
-                  <span class="badge badge-danger">Regex</span>
-                <% } %>
-              </td>
-              <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                <%= kw.response.substring(0, 60) %><%= kw.response.length > 60 ? '...' : '' %>
-              </td>
-              <td>
-                <% if (kw.client_id === client.id) { %>
-                  <span class="badge badge-primary">Bu Bot</span>
-                <% } else { %>
-                  <span class="badge badge-secondary">Tümü</span>
-                <% } %>
-              </td>
-              <td>
-                <% if (kw.is_active) { %>
-                  <span class="badge badge-success">Aktif</span>
-                <% } else { %>
-                  <span class="badge badge-secondary">Pasif</span>
-                <% } %>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-      <% if (keywords.length > 10) { %>
-        <p class="text-muted text-center">... ve <%= keywords.length - 10 %> tane daha. <a href="/keywords">Tümünü gör</a></p>
-      <% } %>
-    <% } else { %>
-      <div class="empty-state">
-        <i class="fas fa-key"></i>
-        <p>Bu bot için tanımlı anahtar kelime yok.</p>
-        <a href="/keywords" class="btn btn-primary btn-sm">Anahtar Kelime Ekle</a>
-      </div>
-    <% } %>
-  </div>
-</div>
-
-<!-- Dondurma Modalı -->
+<!-- Dondurma Modal -->
 <div id="freezeModal" class="modal-overlay" style="display: none;">
   <div class="card modal-card">
     <div class="card-header">
@@ -282,8 +378,7 @@
       <form id="freezeForm">
         <div class="form-group">
           <label class="form-label">Dondurma Mesajı</label>
-          <textarea name="message" class="form-control" rows="3"
-            placeholder="Şu an müsait değilim, biraz sonra tekrar yazabilir misiniz?"></textarea>
+          <textarea name="message" class="form-control" rows="3" placeholder="Şu an müsait değilim..."></textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Yönlendirme Telefonu (opsiyonel)</label>
@@ -298,84 +393,167 @@
 </div>
 
 <style>
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.mb-3 { margin-bottom: 1rem; }
+.mt-3 { margin-top: 1rem; }
+
+.bot-summary {
+  display: flex;
+  flex-wrap: wrap;
   gap: 1.5rem;
 }
-@media (max-width: 900px) {
-  .grid-2 { grid-template-columns: 1fr; }
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
-.info-table {
-  width: 100%;
+.summary-label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+.stat-badge {
+  background: #334155;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 600;
+}
+.stat-badge.success {
+  background: #166534;
+  color: #4ade80;
+}
+
+/* Tabs */
+.tabs-container { margin-top: 1rem; }
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid #334155;
   margin-bottom: 1rem;
 }
-.info-table td {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #334155;
-}
-.info-table td:first-child {
-  width: 120px;
+.tab {
+  background: none;
+  border: none;
+  padding: 0.75rem 1.25rem;
   color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
 }
-.stats-row {
-  display: flex;
+.tab:hover {
+  color: #e2e8f0;
+}
+.tab.active {
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
+}
+.tab i { margin-right: 0.5rem; }
+
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+
+/* Character Grid */
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
-  margin: 1.5rem 0;
 }
-.stat-box {
-  flex: 1;
-  text-align: center;
+.character-card {
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.character-card:hover {
+  border-color: #60a5fa;
+}
+.character-card.selected {
+  border-color: #60a5fa;
+  background: #1e3a5f;
+}
+.character-icon {
+  font-size: 2rem;
+  color: #60a5fa;
+  margin-bottom: 0.5rem;
+}
+.character-name {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.character-desc {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 0.25rem;
+}
+
+/* Test Result */
+.test-result {
+  margin-top: 1.5rem;
   padding: 1rem;
   background: #1e293b;
   border-radius: 0.5rem;
 }
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #4ade80;
+.test-result h4 {
+  color: #60a5fa;
+  margin-bottom: 0.75rem;
 }
-.stat-label {
+.test-response {
+  background: #0f172a;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  white-space: pre-wrap;
+}
+.test-meta {
+  margin-top: 0.75rem;
   font-size: 0.8rem;
   color: #94a3b8;
 }
-.qr-section {
-  text-align: center;
-  padding: 1rem;
-  background: #1e293b;
-  border-radius: 0.5rem;
-  margin-top: 1rem;
+
+/* Switch Toggle */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
 }
-.qr-section h4 {
-  margin-bottom: 1rem;
-  color: #e2e8f0;
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #475569;
+  transition: .3s;
+  border-radius: 20px;
 }
-.qr-image {
-  max-width: 200px;
-  border-radius: 0.5rem;
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
 }
-.row {
-  display: flex;
-  gap: 1rem;
-}
-.col-6 {
-  flex: 1;
-}
-.flex-1 {
-  flex: 1;
-}
-.mt-3 {
-  margin-top: 1.5rem;
-}
-.row-inactive {
-  opacity: 0.5;
-}
+input:checked + .slider { background-color: #22c55e; }
+input:checked + .slider:before { transform: translateX(20px); }
+
+.row { display: flex; gap: 1rem; }
+.col-6 { flex: 1; }
+.flex-1 { flex: 1; }
+.w-100 { width: 100%; }
+.row-inactive { opacity: 0.5; }
+
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.8);
   z-index: 1000;
   padding: 2rem;
@@ -386,13 +564,236 @@
   margin: 2rem auto;
 }
 .alert-success {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: #166534;
+  border-radius: 0.5rem;
   color: #bbf7d0;
 }
 </style>
 
 <script>
 const clientId = '<%= client.id %>';
+let selectedCharacterId = '<%= botSettings.character_id || "" %>';
 
+// Tab Switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Character Selection
+document.querySelectorAll('.character-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.character-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedCharacterId = card.dataset.characterId;
+  });
+});
+
+// Save Character
+document.getElementById('saveCharacterBtn')?.addEventListener('click', async () => {
+  try {
+    const res = await fetch(`/api/bots/${clientId}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ character_id: selectedCharacterId || null })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Başarılı', 'Karakter kaydedildi', 'success');
+    } else {
+      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
+    }
+  } catch (err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  }
+});
+
+// Humanization Form
+document.getElementById('humanizationForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const config = {
+    enabled: document.getElementById('humanEnabled').checked,
+    min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+    max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+    wpm_reading: parseInt(document.getElementById('wpmReading').value) || 200,
+    cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+    long_message_threshold: parseInt(document.getElementById('longThreshold').value) || 150,
+    long_message_extra_delay: parseInt(document.getElementById('longExtra').value) || 60,
+    typing_variance: parseInt(document.getElementById('typingVariance').value) || 20,
+    split_messages: document.getElementById('splitMessages').checked,
+    split_threshold: parseInt(document.getElementById('splitThreshold').value) || 240
+  };
+
+  try {
+    const res = await fetch(`/api/clients/${clientId}/humanization`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Başarılı', 'İnsanlaştırma ayarları kaydedildi', 'success');
+    } else {
+      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
+    }
+  } catch (err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  }
+});
+
+async function clearHumanization() {
+  if (!confirm('Bu botun özel ayarları silinecek ve global ayarlara dönülecek. Emin misiniz?')) return;
+  try {
+    const res = await fetch(`/api/clients/${clientId}/humanization`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Başarılı', 'Global ayarlara dönüldü', 'success');
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
+    }
+  } catch (err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  }
+}
+
+// Keywords
+function openKeywordModal(id = null) {
+  document.getElementById('keywordId').value = id || '';
+  document.getElementById('keywordModalTitle').textContent = id ? 'Anahtar Kelime Düzenle' : 'Anahtar Kelime Ekle';
+  document.getElementById('keywordText').value = '';
+  document.getElementById('keywordMatchType').value = 'contains';
+  document.getElementById('keywordResponse').value = '';
+  document.getElementById('keywordScope').value = clientId;
+  document.getElementById('keywordModal').style.display = 'block';
+}
+
+function closeKeywordModal() {
+  document.getElementById('keywordModal').style.display = 'none';
+}
+
+async function editKeyword(id) {
+  try {
+    const res = await fetch(`/api/keywords?client_id=${clientId}`);
+    const data = await res.json();
+    const kw = data.keywords.find(k => k.id === id);
+    if (kw) {
+      document.getElementById('keywordId').value = kw.id;
+      document.getElementById('keywordModalTitle').textContent = 'Anahtar Kelime Düzenle';
+      document.getElementById('keywordText').value = kw.keyword;
+      document.getElementById('keywordMatchType').value = kw.match_type;
+      document.getElementById('keywordResponse').value = kw.response;
+      document.getElementById('keywordScope').value = kw.client_id || '';
+      document.getElementById('keywordModal').style.display = 'block';
+    }
+  } catch (err) {
+    showToast('Hata', 'Veri yüklenemedi', 'error');
+  }
+}
+
+async function deleteKeyword(id) {
+  if (!confirm('Bu anahtar kelimeyi silmek istediğinize emin misiniz?')) return;
+  try {
+    const res = await fetch(`/api/keywords/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Başarılı', 'Anahtar kelime silindi', 'success');
+      document.querySelector(`tr[data-id="${id}"]`)?.remove();
+    } else {
+      showToast('Hata', data.error, 'error');
+    }
+  } catch (err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  }
+}
+
+async function toggleKeyword(id, isActive) {
+  try {
+    await fetch(`/api/keywords/${id}/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: isActive })
+    });
+  } catch (err) {
+    showToast('Hata', 'Durum güncellenemedi', 'error');
+  }
+}
+
+document.getElementById('keywordForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('keywordId').value;
+  const data = {
+    keyword: document.getElementById('keywordText').value,
+    match_type: document.getElementById('keywordMatchType').value,
+    response: document.getElementById('keywordResponse').value,
+    client_id: document.getElementById('keywordScope').value || null
+  };
+
+  try {
+    const url = id ? `/api/keywords/${id}` : '/api/keywords';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast('Başarılı', 'Anahtar kelime kaydedildi', 'success');
+      closeKeywordModal();
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast('Hata', result.error, 'error');
+    }
+  } catch (err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  }
+});
+
+// Test
+document.getElementById('testBtn')?.addEventListener('click', async () => {
+  const message = document.getElementById('testMessage').value.trim();
+  if (!message) {
+    showToast('Uyarı', 'Lütfen bir mesaj yazın', 'warning');
+    return;
+  }
+
+  document.getElementById('testBtn').disabled = true;
+  document.getElementById('testBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Test Ediliyor...';
+
+  try {
+    const res = await fetch('/api/test-personality', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, clientId })
+    });
+    const data = await res.json();
+
+    document.getElementById('testResult').style.display = 'block';
+    if (data.success) {
+      document.querySelector('.test-response').textContent = data.response;
+      document.querySelector('.test-meta').textContent = '';
+    } else {
+      document.querySelector('.test-response').textContent = 'Hata: ' + (data.error || 'Yanıt alınamadı');
+    }
+  } catch (err) {
+    document.getElementById('testResult').style.display = 'block';
+    document.querySelector('.test-response').textContent = 'Sunucu hatası';
+  } finally {
+    document.getElementById('testBtn').disabled = false;
+    document.getElementById('testBtn').innerHTML = '<i class="fas fa-paper-plane"></i> Test Et';
+  }
+});
+
+// Freeze/Unfreeze
 function freezeClient(id) {
   document.getElementById('freezeModal').style.display = 'block';
 }
@@ -404,16 +805,14 @@ function closeFreezeModal() {
 document.getElementById('freezeForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const formData = new FormData(e.target);
-  const data = {
-    message: formData.get('message'),
-    redirectPhone: formData.get('redirectPhone')
-  };
-
   try {
     const res = await fetch(`/api/clients/${clientId}/freeze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        message: formData.get('message'),
+        redirectPhone: formData.get('redirectPhone')
+      })
     });
     const result = await res.json();
     if (result.success) {
@@ -442,26 +841,19 @@ async function unfreezeClient(id) {
   }
 }
 
-async function clearHumanization(id) {
-  if (!confirm('Bu botun özel ayarları silinecek ve global ayarlara dönülecek. Emin misiniz?')) return;
-
-  try {
-    const res = await fetch(`/api/clients/${id}/humanization`, { method: 'DELETE' });
-    const result = await res.json();
-    if (result.success) {
-      showToast('Başarılı', 'Bot global ayarlara döndürüldü', 'success');
-      setTimeout(() => location.reload(), 500);
-    } else {
-      showToast('Hata', result.error || 'Bir hata oluştu', 'error');
-    }
-  } catch (err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
-  }
-}
-
+// ESC to close modals
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeFreezeModal();
+  if (e.key === 'Escape') {
+    closeKeywordModal();
+    closeFreezeModal();
+  }
 });
+
+// Auto-hide success alert
+setTimeout(() => {
+  const alert = document.getElementById('savedAlert');
+  if (alert) alert.style.display = 'none';
+}, 3000);
 </script>
 
 <%- include('partials/footer') %>
