@@ -93,7 +93,7 @@
             <div class="character-name">Global Karakter</div>
             <div class="character-desc">Sistem ayarlarındaki aktif karakter</div>
           </div>
-          <% characters.forEach(char => { %>
+          <% characters.forEach(function(char) { %>
             <div class="character-card <%= botSettings.character_id === char.id ? 'selected' : '' %>" data-character-id="<%= char.id %>">
               <div class="character-icon"><i class="fas fa-user"></i></div>
               <div class="character-name"><%= char.name %></div>
@@ -232,7 +232,7 @@
               </tr>
             </thead>
             <tbody id="keywordsTable">
-              <% keywords.forEach(kw => { %>
+              <% keywords.forEach(function(kw) { %>
                 <tr class="<%= kw.is_active ? '' : 'row-inactive' %>" data-id="<%= kw.id %>">
                   <td><strong><%= kw.keyword %></strong></td>
                   <td>
@@ -573,14 +573,14 @@ input:checked + .slider:before { transform: translateX(20px); }
 </style>
 
 <script>
-const clientId = '<%= client.id %>';
-let selectedCharacterId = '<%= botSettings.character_id || "" %>';
+var clientId = '<%= client.id %>';
+var selectedCharacterId = '<%= botSettings.character_id || "" %>';
 
 // Tab Switching
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
 
     tab.classList.add('active');
     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
@@ -588,85 +588,94 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 // Character Selection
-document.querySelectorAll('.character-card').forEach(card => {
-  card.addEventListener('click', () => {
-    document.querySelectorAll('.character-card').forEach(c => c.classList.remove('selected'));
+document.querySelectorAll('.character-card').forEach(function(card) {
+  card.addEventListener('click', function() {
+    document.querySelectorAll('.character-card').forEach(function(c) { c.classList.remove('selected'); });
     card.classList.add('selected');
     selectedCharacterId = card.dataset.characterId;
   });
 });
 
 // Save Character
-document.getElementById('saveCharacterBtn')?.addEventListener('click', async () => {
-  try {
-    const res = await fetch(`/api/bots/${clientId}/settings`, {
+var saveCharBtn = document.getElementById('saveCharacterBtn');
+if (saveCharBtn) {
+  saveCharBtn.addEventListener('click', function() {
+    fetch('/api/bots/' + clientId + '/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ character_id: selectedCharacterId || null })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) {
+        showToast('Başarılı', 'Karakter kaydedildi', 'success');
+      } else {
+        showToast('Hata', data.error || 'Bir hata oluştu', 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Hata', 'Sunucu hatası', 'error');
     });
-    const data = await res.json();
-    if (data.success) {
-      showToast('Başarılı', 'Karakter kaydedildi', 'success');
-    } else {
-      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
-    }
-  } catch (err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
-  }
-});
+  });
+}
 
 // Humanization Form
-document.getElementById('humanizationForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
+var humanForm = document.getElementById('humanizationForm');
+if (humanForm) {
+  humanForm.addEventListener('submit', function(e) {
+    e.preventDefault();
 
-  const config = {
-    enabled: document.getElementById('humanEnabled').checked,
-    min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
-    max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
-    wpm_reading: parseInt(document.getElementById('wpmReading').value) || 200,
-    cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
-    long_message_threshold: parseInt(document.getElementById('longThreshold').value) || 150,
-    long_message_extra_delay: parseInt(document.getElementById('longExtra').value) || 60,
-    typing_variance: parseInt(document.getElementById('typingVariance').value) || 20,
-    split_messages: document.getElementById('splitMessages').checked,
-    split_threshold: parseInt(document.getElementById('splitThreshold').value) || 240
-  };
+    var config = {
+      enabled: document.getElementById('humanEnabled').checked,
+      min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+      max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+      wpm_reading: parseInt(document.getElementById('wpmReading').value) || 200,
+      cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+      long_message_threshold: parseInt(document.getElementById('longThreshold').value) || 150,
+      long_message_extra_delay: parseInt(document.getElementById('longExtra').value) || 60,
+      typing_variance: parseInt(document.getElementById('typingVariance').value) || 20,
+      split_messages: document.getElementById('splitMessages').checked,
+      split_threshold: parseInt(document.getElementById('splitThreshold').value) || 240
+    };
 
-  try {
-    const res = await fetch(`/api/clients/${clientId}/humanization`, {
+    fetch('/api/clients/' + clientId + '/humanization', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config)
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) {
+        showToast('Başarılı', 'İnsanlaştırma ayarları kaydedildi', 'success');
+      } else {
+        showToast('Hata', data.error || 'Bir hata oluştu', 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Hata', 'Sunucu hatası', 'error');
     });
-    const data = await res.json();
-    if (data.success) {
-      showToast('Başarılı', 'İnsanlaştırma ayarları kaydedildi', 'success');
-    } else {
-      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
-    }
-  } catch (err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
-  }
-});
+  });
+}
 
-async function clearHumanization() {
+function clearHumanization() {
   if (!confirm('Bu botun özel ayarları silinecek ve global ayarlara dönülecek. Emin misiniz?')) return;
-  try {
-    const res = await fetch(`/api/clients/${clientId}/humanization`, { method: 'DELETE' });
-    const data = await res.json();
+  fetch('/api/clients/' + clientId + '/humanization', { method: 'DELETE' })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
     if (data.success) {
       showToast('Başarılı', 'Global ayarlara dönüldü', 'success');
-      setTimeout(() => location.reload(), 500);
+      setTimeout(function() { location.reload(); }, 500);
     } else {
       showToast('Hata', data.error || 'Bir hata oluştu', 'error');
     }
-  } catch (err) {
+  })
+  .catch(function(err) {
     showToast('Hata', 'Sunucu hatası', 'error');
-  }
+  });
 }
 
 // Keywords
-function openKeywordModal(id = null) {
+function openKeywordModal(id) {
   document.getElementById('keywordId').value = id || '';
   document.getElementById('keywordModalTitle').textContent = id ? 'Anahtar Kelime Düzenle' : 'Anahtar Kelime Ekle';
   document.getElementById('keywordText').value = '';
@@ -680,11 +689,11 @@ function closeKeywordModal() {
   document.getElementById('keywordModal').style.display = 'none';
 }
 
-async function editKeyword(id) {
-  try {
-    const res = await fetch(`/api/keywords?client_id=${clientId}`);
-    const data = await res.json();
-    const kw = data.keywords.find(k => k.id === id);
+function editKeyword(id) {
+  fetch('/api/keywords?client_id=' + clientId)
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    var kw = data.keywords.find(function(k) { return k.id === id; });
     if (kw) {
       document.getElementById('keywordId').value = kw.id;
       document.getElementById('keywordModalTitle').textContent = 'Anahtar Kelime Düzenle';
@@ -694,104 +703,115 @@ async function editKeyword(id) {
       document.getElementById('keywordScope').value = kw.client_id || '';
       document.getElementById('keywordModal').style.display = 'block';
     }
-  } catch (err) {
+  })
+  .catch(function(err) {
     showToast('Hata', 'Veri yüklenemedi', 'error');
-  }
+  });
 }
 
-async function deleteKeyword(id) {
+function deleteKeyword(id) {
   if (!confirm('Bu anahtar kelimeyi silmek istediğinize emin misiniz?')) return;
-  try {
-    const res = await fetch(`/api/keywords/${id}`, { method: 'DELETE' });
-    const data = await res.json();
+  fetch('/api/keywords/' + id, { method: 'DELETE' })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
     if (data.success) {
       showToast('Başarılı', 'Anahtar kelime silindi', 'success');
-      document.querySelector(`tr[data-id="${id}"]`)?.remove();
+      var row = document.querySelector('tr[data-id="' + id + '"]');
+      if (row) row.remove();
     } else {
       showToast('Hata', data.error, 'error');
     }
-  } catch (err) {
+  })
+  .catch(function(err) {
     showToast('Hata', 'Sunucu hatası', 'error');
-  }
+  });
 }
 
-async function toggleKeyword(id, isActive) {
-  try {
-    await fetch(`/api/keywords/${id}/toggle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_active: isActive })
-    });
-  } catch (err) {
+function toggleKeyword(id, isActive) {
+  fetch('/api/keywords/' + id + '/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_active: isActive })
+  })
+  .catch(function(err) {
     showToast('Hata', 'Durum güncellenemedi', 'error');
-  }
+  });
 }
 
-document.getElementById('keywordForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const id = document.getElementById('keywordId').value;
-  const data = {
-    keyword: document.getElementById('keywordText').value,
-    match_type: document.getElementById('keywordMatchType').value,
-    response: document.getElementById('keywordResponse').value,
-    client_id: document.getElementById('keywordScope').value || null
-  };
+var keywordForm = document.getElementById('keywordForm');
+if (keywordForm) {
+  keywordForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var id = document.getElementById('keywordId').value;
+    var formData = {
+      keyword: document.getElementById('keywordText').value,
+      match_type: document.getElementById('keywordMatchType').value,
+      response: document.getElementById('keywordResponse').value,
+      client_id: document.getElementById('keywordScope').value || null
+    };
 
-  try {
-    const url = id ? `/api/keywords/${id}` : '/api/keywords';
-    const method = id ? 'PUT' : 'POST';
-    const res = await fetch(url, {
-      method,
+    var url = id ? '/api/keywords/' + id : '/api/keywords';
+    var method = id ? 'PUT' : 'POST';
+
+    fetch(url, {
+      method: method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(formData)
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showToast('Başarılı', 'Anahtar kelime kaydedildi', 'success');
+        closeKeywordModal();
+        setTimeout(function() { location.reload(); }, 500);
+      } else {
+        showToast('Hata', result.error, 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Hata', 'Sunucu hatası', 'error');
     });
-    const result = await res.json();
-    if (result.success) {
-      showToast('Başarılı', 'Anahtar kelime kaydedildi', 'success');
-      closeKeywordModal();
-      setTimeout(() => location.reload(), 500);
-    } else {
-      showToast('Hata', result.error, 'error');
-    }
-  } catch (err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
-  }
-});
+  });
+}
 
 // Test
-document.getElementById('testBtn')?.addEventListener('click', async () => {
-  const message = document.getElementById('testMessage').value.trim();
-  if (!message) {
-    showToast('Uyarı', 'Lütfen bir mesaj yazın', 'warning');
-    return;
-  }
+var testBtn = document.getElementById('testBtn');
+if (testBtn) {
+  testBtn.addEventListener('click', function() {
+    var message = document.getElementById('testMessage').value.trim();
+    if (!message) {
+      showToast('Uyarı', 'Lütfen bir mesaj yazın', 'warning');
+      return;
+    }
 
-  document.getElementById('testBtn').disabled = true;
-  document.getElementById('testBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Test Ediliyor...';
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Test Ediliyor...';
 
-  try {
-    const res = await fetch('/api/test-personality', {
+    fetch('/api/test-personality', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, clientId })
+      body: JSON.stringify({ message: message, clientId: clientId })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      document.getElementById('testResult').style.display = 'block';
+      if (data.success) {
+        document.querySelector('.test-response').textContent = data.response;
+        document.querySelector('.test-meta').textContent = '';
+      } else {
+        document.querySelector('.test-response').textContent = 'Hata: ' + (data.error || 'Yanıt alınamadı');
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('testResult').style.display = 'block';
+      document.querySelector('.test-response').textContent = 'Sunucu hatası';
+    })
+    .finally(function() {
+      testBtn.disabled = false;
+      testBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Test Et';
     });
-    const data = await res.json();
-
-    document.getElementById('testResult').style.display = 'block';
-    if (data.success) {
-      document.querySelector('.test-response').textContent = data.response;
-      document.querySelector('.test-meta').textContent = '';
-    } else {
-      document.querySelector('.test-response').textContent = 'Hata: ' + (data.error || 'Yanıt alınamadı');
-    }
-  } catch (err) {
-    document.getElementById('testResult').style.display = 'block';
-    document.querySelector('.test-response').textContent = 'Sunucu hatası';
-  } finally {
-    document.getElementById('testBtn').disabled = false;
-    document.getElementById('testBtn').innerHTML = '<i class="fas fa-paper-plane"></i> Test Et';
-  }
-});
+  });
+}
 
 // Freeze/Unfreeze
 function freezeClient(id) {
@@ -802,47 +822,52 @@ function closeFreezeModal() {
   document.getElementById('freezeModal').style.display = 'none';
 }
 
-document.getElementById('freezeForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const formData = new FormData(e.target);
-  try {
-    const res = await fetch(`/api/clients/${clientId}/freeze`, {
+var freezeForm = document.getElementById('freezeForm');
+if (freezeForm) {
+  freezeForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var formData = new FormData(e.target);
+    fetch('/api/clients/' + clientId + '/freeze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: formData.get('message'),
         redirectPhone: formData.get('redirectPhone')
       })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showToast('Başarılı', 'Bot donduruldu', 'success');
+        setTimeout(function() { location.reload(); }, 500);
+      } else {
+        showToast('Hata', result.error || 'Bir hata oluştu', 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Hata', 'Sunucu hatası', 'error');
     });
-    const result = await res.json();
-    if (result.success) {
-      showToast('Başarılı', 'Bot donduruldu', 'success');
-      setTimeout(() => location.reload(), 500);
-    } else {
-      showToast('Hata', result.error || 'Bir hata oluştu', 'error');
-    }
-  } catch (err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
-  }
-});
+  });
+}
 
-async function unfreezeClient(id) {
-  try {
-    const res = await fetch(`/api/clients/${id}/unfreeze`, { method: 'POST' });
-    const result = await res.json();
+function unfreezeClient(id) {
+  fetch('/api/clients/' + id + '/unfreeze', { method: 'POST' })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
     if (result.success) {
       showToast('Başarılı', 'Bot aktif edildi', 'success');
-      setTimeout(() => location.reload(), 500);
+      setTimeout(function() { location.reload(); }, 500);
     } else {
       showToast('Hata', result.error || 'Bir hata oluştu', 'error');
     }
-  } catch (err) {
+  })
+  .catch(function(err) {
     showToast('Hata', 'Sunucu hatası', 'error');
-  }
+  });
 }
 
 // ESC to close modals
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeKeywordModal();
     closeFreezeModal();
@@ -850,8 +875,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Auto-hide success alert
-setTimeout(() => {
-  const alert = document.getElementById('savedAlert');
+setTimeout(function() {
+  var alert = document.getElementById('savedAlert');
   if (alert) alert.style.display = 'none';
 }, 3000);
 </script>
