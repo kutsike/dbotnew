@@ -1,15 +1,14 @@
 "use strict";
 
 /**
- * ConversationFlow v9.0 - Gerçek İnsan Gibi Manevi Rehber
+ * ConversationFlow v10.0 - Dini Rehber + Otomatik Profil
  *
  * DAVRANIŞLAR:
- * 1. Kişinin sorununa odaklan
- * 2. Her mesajda soru sorma (bazen sadece empati)
- * 3. Konuya özel sorular sor
- * 4. Yazım hataları yap (insansı)
- * 5. Çok nadir dini emoji kullan
- * 6. 3-5 mesajda bir ayet/dua paylaş
+ * 1. Dini terimlerle konuş (inşallah, maşallah, Allah'ın izniyle)
+ * 2. Cümle sonları dini ifadelerle bitsin
+ * 3. Kişinin sorununa odaklan
+ * 4. Mesajlardan profil bilgisi çıkar
+ * 5. 4+ metrik toplandığında otomatik kart oluştur
  */
 
 class ConversationFlow {
@@ -17,13 +16,30 @@ class ConversationFlow {
     this.db = db;
     this.aiChat = aiChat;
 
-    // Son sorulan soruları takip et (chatId -> [son sorular])
+    // Son sorulan soruları takip et
     this.lastQuestions = new Map();
+
+    // Sohbet sayacı (chatId -> mesaj sayısı)
+    this.messageCount = new Map();
 
     // Sıcak hitaplar
     this.warmAddresses = ["kardeşim", "canım", "güzel kardeşim", "değerli kardeşim"];
 
-    // Dini emojiler (çok nadir kullanılacak)
+    // Dini cümle sonları
+    this.religiousEndings = [
+      "inşallah",
+      "Allah'ın izniyle",
+      "hayırlısı olur inşallah",
+      "Rabbim yardımcın olsun",
+      "Allah kolaylık versin",
+      "maşallah",
+      "Allah hayırlısını nasip etsin",
+      "Rabbim sabır versin",
+      "Allah'a emanet",
+      "hayırlısıyla inşallah"
+    ];
+
+    // Dini emojiler (çok nadir)
     this.religiousEmojis = ["🤲", "☪️", "📿", "🕌", "❤️"];
 
     // Konuya özel sorular
@@ -78,47 +94,44 @@ class ConversationFlow {
       ]
     };
 
-    // Kuran ayetleri - konuya göre
+    // Kuran ayetleri
     this.quranVerses = {
       sabir: [
-        { ayet: "Ey iman edenler! Sabır ve namazla yardım isteyin. Şüphesiz Allah sabredenlerle beraberdir.", kaynak: "Bakara 153" },
-        { ayet: "Her zorlukla beraber bir kolaylık vardır.", kaynak: "İnşirah 5-6" },
-        { ayet: "Gevşemeyin, üzülmeyin; eğer inanıyorsanız en üstün olan sizlersiniz.", kaynak: "Al-i İmran 139" }
+        { ayet: "Sabır ve namazla yardım isteyin. Allah sabredenlerle beraberdir.", kaynak: "Bakara 153" },
+        { ayet: "Her zorlukla beraber bir kolaylık vardır.", kaynak: "İnşirah 5-6" }
       ],
       umut: [
         { ayet: "Allah'ın rahmetinden ümit kesmeyin.", kaynak: "Yusuf 87" },
-        { ayet: "Kim Allah'a tevekkül ederse, O ona yeter.", kaynak: "Talak 3" },
         { ayet: "Bana dua edin, size cevap vereyim.", kaynak: "Mümin 60" }
       ],
       sikinti: [
         { ayet: "Allah hiçbir nefse gücünün yettiğinden fazlasını yüklemez.", kaynak: "Bakara 286" },
-        { ayet: "Belki sevmediğiniz bir şey sizin için hayırlıdır.", kaynak: "Bakara 216" },
-        { ayet: "Şüphesiz güçlükle beraber kolaylık vardır.", kaynak: "İnşirah 6" }
-      ],
-      korku: [
-        { ayet: "Allah'ın velilerine korku yoktur ve onlar üzülmeyeceklerdir.", kaynak: "Yunus 62" },
-        { ayet: "Allah'ın bizim için yazdığından başkası bize erişmez.", kaynak: "Tevbe 51" }
+        { ayet: "Belki sevmediğiniz bir şey sizin için hayırlıdır.", kaynak: "Bakara 216" }
       ],
       aile: [
-        { ayet: "Eşlerinize güzellikle davranın.", kaynak: "Nisa 19" },
-        { ayet: "Bize eşlerimizden göz aydınlığı ihsan et.", kaynak: "Furkan 74" }
+        { ayet: "Eşlerinize güzellikle davranın.", kaynak: "Nisa 19" }
       ],
       rizik: [
-        { ayet: "Nice canlı var ki rızkını taşıyamaz. Onları da sizi de Allah rızıklandırır.", kaynak: "Ankebut 60" },
         { ayet: "Kim Allah'tan korkarsa, Allah onu ummadığı yerden rızıklandırır.", kaynak: "Talak 2-3" }
       ],
       saglik: [
-        { ayet: "Şifa veren ancak Sensin.", kaynak: "Şuara 80" },
-        { ayet: "Kur'an müminler için şifa ve rahmettir.", kaynak: "İsra 82" }
+        { ayet: "Şifa veren ancak Sensin.", kaynak: "Şuara 80" }
+      ],
+      korku: [
+        { ayet: "Allah'ın velilerine korku yoktur.", kaynak: "Yunus 62" }
       ]
     };
 
-    // Dualar
-    this.prayers = {
-      genel: ["Hasbünallahü ve ni'mel vekil", "La havle vela kuvvete illa billah"],
-      sikinti: ["Ya Hayyu ya Kayyum bi rahmetike esteğis"],
-      sabir: ["Rabbena efrığ aleyna sabran"]
-    };
+    // Şehirler listesi
+    this.cities = [
+      "istanbul", "ankara", "izmir", "bursa", "antalya", "konya", "adana",
+      "gaziantep", "mersin", "diyarbakır", "kayseri", "eskişehir", "samsun"
+    ];
+  }
+
+  // Rastgele dini cümle sonu
+  getReligiousEnding() {
+    return this.religiousEndings[Math.floor(Math.random() * this.religiousEndings.length)];
   }
 
   // Rastgele hitap
@@ -126,90 +139,174 @@ class ConversationFlow {
     return this.warmAddresses[Math.floor(Math.random() * this.warmAddresses.length)];
   }
 
-  // Soru sorulsun mu? (%60 ihtimal)
+  // Soru sorulsun mu? (%55 ihtimal)
   shouldAskQuestion() {
-    return Math.random() < 0.6;
+    return Math.random() < 0.55;
   }
 
-  // Ayet/dua gösterilsin mi? (%20 ihtimal = ~5 mesajda 1)
+  // Ayet gösterilsin mi? (%18 ihtimal)
   shouldShowVerse() {
-    return Math.random() < 0.20;
+    return Math.random() < 0.18;
   }
 
-  // Emoji eklensin mi? (%10 ihtimal = çok nadir)
+  // Emoji eklensin mi? (%8 ihtimal)
   shouldAddEmoji() {
-    return Math.random() < 0.10;
+    return Math.random() < 0.08;
   }
 
-  // Rastgele emoji
   getRandomEmoji() {
     return this.religiousEmojis[Math.floor(Math.random() * this.religiousEmojis.length)];
   }
 
-  // Konuya özel soru (tekrar etmez)
+  // Konuya özel soru
   getTopicQuestion(chatId, topic) {
     const questions = this.topicQuestions[topic] || this.topicQuestions.genel;
     const lastQs = this.lastQuestions.get(chatId) || [];
-
-    // Son 3 soruyu hariç tut
     let available = questions.filter(q => !lastQs.includes(q));
     if (available.length === 0) available = questions;
 
     const question = available[Math.floor(Math.random() * available.length)];
-
-    // Son soruları güncelle (max 3 tut)
     const newLastQs = [...lastQs, question].slice(-3);
     this.lastQuestions.set(chatId, newLastQs);
 
-    // Map temizliği
     if (this.lastQuestions.size > 1000) {
       const firstKey = this.lastQuestions.keys().next().value;
       this.lastQuestions.delete(firstKey);
     }
-
     return question;
   }
 
-  // Konuya göre ayet seç
   getVerse(topic = "umut") {
     const verses = this.quranVerses[topic] || this.quranVerses.umut;
     return verses[Math.floor(Math.random() * verses.length)];
-  }
-
-  // Konuya göre dua seç
-  getPrayer(topic = "genel") {
-    const prayers = this.prayers[topic] || this.prayers.genel;
-    return prayers[Math.floor(Math.random() * prayers.length)];
   }
 
   // Mesajdan konu tespit et
   detectTopic(msg) {
     const lower = msg.toLowerCase();
     if (lower.includes("eş") || lower.includes("evlilik") || lower.includes("koca") || lower.includes("karı") || lower.includes("aile")) return "aile";
-    if (lower.includes("hasta") || lower.includes("ağrı") || lower.includes("doktor") || lower.includes("ilaç")) return "saglik";
-    if (lower.includes("para") || lower.includes("iş") || lower.includes("borç") || lower.includes("geçim") || lower.includes("maaş")) return "rizik";
-    if (lower.includes("korku") || lower.includes("endişe") || lower.includes("kaygı") || lower.includes("panik")) return "korku";
-    if (lower.includes("umutsuz") || lower.includes("çaresiz") || lower.includes("bıktım") || lower.includes("yoruldum")) return "umut";
+    if (lower.includes("hasta") || lower.includes("ağrı") || lower.includes("doktor")) return "saglik";
+    if (lower.includes("para") || lower.includes("iş") || lower.includes("borç") || lower.includes("geçim")) return "rizik";
+    if (lower.includes("korku") || lower.includes("endişe") || lower.includes("kaygı")) return "korku";
+    if (lower.includes("umutsuz") || lower.includes("çaresiz") || lower.includes("bıktım")) return "umut";
     if (lower.includes("sabır") || lower.includes("dayanamı") || lower.includes("zor")) return "sabir";
-    if (lower.includes("sıkıntı") || lower.includes("dert") || lower.includes("sorun") || lower.includes("problem")) return "sikinti";
+    if (lower.includes("sıkıntı") || lower.includes("dert") || lower.includes("sorun")) return "sikinti";
     return "genel";
   }
 
-  // İnsansı yazım hataları
+  // === MESAJDAN PROFİL BİLGİSİ ÇIKAR ===
+  extractProfileInfo(msg, existingProfile = {}) {
+    const extracted = {};
+    const lower = msg.toLowerCase();
+    const words = msg.split(/\s+/);
+
+    // İsim tespiti (benim adım X, ben X, ismim X)
+    const nameMatch = msg.match(/(?:ben|benim\s+ad[ıi]m|ismim|ad[ıi]m)\s+([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i);
+    if (nameMatch && !existingProfile.full_name) {
+      extracted.full_name = this.capitalize(nameMatch[1]);
+    }
+
+    // Şehir tespiti
+    if (!existingProfile.city) {
+      for (const city of this.cities) {
+        if (lower.includes(city) || lower.includes(city + "da") || lower.includes(city + "dan") || lower.includes(city + "lı") || lower.includes(city + "lu")) {
+          extracted.city = this.capitalize(city);
+          break;
+        }
+      }
+      // "X şehrindeyim", "X'da yaşıyorum" pattern
+      const cityMatch = msg.match(/([A-ZÇĞİÖŞÜa-zçğıöşü]+)(?:'da|'de|'ta|'te|\s+şehrinde|\s+ilinde)/i);
+      if (cityMatch && !extracted.city) {
+        extracted.city = this.capitalize(cityMatch[1]);
+      }
+    }
+
+    // Yaş tespiti
+    if (!existingProfile.birth_date) {
+      const ageMatch = lower.match(/(\d{1,2})\s*yaşındayım|yaşım\s*(\d{1,2})/);
+      if (ageMatch) {
+        const age = parseInt(ageMatch[1] || ageMatch[2]);
+        if (age >= 15 && age <= 90) {
+          extracted.birth_date = String(new Date().getFullYear() - age);
+        }
+      }
+    }
+
+    // Telefon tespiti
+    if (!existingProfile.phone) {
+      const phoneMatch = msg.replace(/\s+/g, "").match(/(\+?90)?0?(5\d{9})/);
+      if (phoneMatch) {
+        extracted.phone = phoneMatch[2].startsWith("5") ? "0" + phoneMatch[2] : phoneMatch[2];
+      }
+    }
+
+    // Meslek tespiti
+    if (!existingProfile.occupation) {
+      const jobMatch = msg.match(/(?:mesleğim|işim|çalışıyorum)\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s]+?)(?:\.|,|$)/i);
+      if (jobMatch) {
+        extracted.occupation = jobMatch[1].trim();
+      }
+    }
+
+    // Medeni hal tespiti
+    if (!existingProfile.marital_status) {
+      if (lower.includes("evliyim") || lower.includes("eşim")) {
+        extracted.marital_status = "evli";
+      } else if (lower.includes("bekarım") || lower.includes("bekar")) {
+        extracted.marital_status = "bekar";
+      }
+    }
+
+    // Konu/Dert tespiti (uzun mesajlar)
+    if (!existingProfile.subject && msg.length > 50) {
+      extracted.subject = msg.substring(0, 200);
+    }
+
+    return extracted;
+  }
+
+  // Profil doluluk kontrolü
+  getProfileMetrics(profile) {
+    let count = 0;
+    if (profile?.full_name) count++;
+    if (profile?.city) count++;
+    if (profile?.phone) count++;
+    if (profile?.birth_date) count++;
+    if (profile?.subject) count++;
+    if (profile?.occupation) count++;
+    if (profile?.marital_status) count++;
+    return count;
+  }
+
+  capitalize(str) {
+    return String(str || "").split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  }
+
+  // İnsansı yazım + dini ifadeler
   addHumanTouch(text) {
     if (!text) return text;
 
-    // Yazım hataları (%40 ihtimal)
+    // Yazım hataları
     if (Math.random() < 0.4) text = text.replace(/inşallah/gi, "insallah");
     if (Math.random() < 0.4) text = text.replace(/\bbir\b/g, "bi");
     if (Math.random() < 0.3) text = text.replace(/\bşey\b/g, "bişey");
     if (Math.random() < 0.2) text = text.replace(/\bşu an\b/g, "şuan");
-    if (Math.random() < 0.2) text = text.replace(/\bdaha\b/g, "daa");
     if (Math.random() < 0.15) text = text.replace(/değil/g, "deil");
-    if (Math.random() < 0.15) text = text.replace(/gelecek/g, "gelcek");
-    if (Math.random() < 0.1) text = text.replace(/\byani\b/g, "yanii");
 
-    // Emoji ekle (çok nadir)
+    // Dini cümle sonu ekle (%70 ihtimal)
+    if (Math.random() < 0.7) {
+      // Eğer zaten dini ifade ile bitmiyorsa
+      const lowerText = text.toLowerCase();
+      const hasDiniEnding = this.religiousEndings.some(e => lowerText.includes(e.toLowerCase()));
+      if (!hasDiniEnding) {
+        const ending = this.getReligiousEnding();
+        // Nokta veya ? ile bitiyorsa önce kaldır
+        text = text.replace(/[.!]$/, "");
+        text = text + ", " + ending + ".";
+      }
+    }
+
+    // Emoji (nadir)
     if (this.shouldAddEmoji()) {
       text = text + " " + this.getRandomEmoji();
     }
@@ -217,70 +314,94 @@ class ConversationFlow {
     return text;
   }
 
-  // Türkçe normalize
   normalizeTR(str) {
     return String(str || "").replace(/İ/g, "i").replace(/I/g, "ı").toLowerCase().trim();
   }
 
-  // Selamlama mı?
   isGreeting(msg) {
     const lower = this.normalizeTR(msg);
     const greetings = ["selam", "merhaba", "mrb", "slm", "selamun", "aleyküm", "aleykum"];
     return greetings.some(g => lower.includes(g));
   }
 
-  // Soru mu?
   isQuestion(msg) {
     const lower = this.normalizeTR(msg);
     return lower.includes("?") || lower.includes("nasıl") || lower.includes("ne zaman") ||
            lower.includes("neden") || lower.includes("ne yapmalı") || lower.includes("ne yapmam");
   }
 
-  // Teşekkür mü?
   isThanks(msg) {
     const lower = this.normalizeTR(msg);
     return lower.includes("teşekkür") || lower.includes("sağol") || lower.includes("eyvallah") ||
            lower.includes("allah razı");
   }
 
-  // Veda mı?
   isGoodbye(msg) {
     const lower = this.normalizeTR(msg);
     const hasGoodbye = lower.includes("görüşürüz") || lower.includes("hoşçakal") ||
                        lower.includes("allah'a emanet") || lower.includes("bye");
-    const hasGreeting = this.isGreeting(msg);
-    return hasGoodbye && !hasGreeting;
+    return hasGoodbye && !this.isGreeting(msg);
   }
 
   // === ANA FONKSİYON ===
   async processMessage(chatId, clientId, message, context = {}) {
     const { name, profile } = context;
-    const warmName = profile?.full_name?.split(" ")[0] || name || this.getWarmAddress();
+    let currentProfile = profile || {};
     const msg = message.trim();
     const topic = this.detectTopic(msg);
 
+    // Mesaj sayısını artır
+    const msgCount = (this.messageCount.get(chatId) || 0) + 1;
+    this.messageCount.set(chatId, msgCount);
+
+    // === MESAJDAN PROFİL BİLGİSİ ÇIKAR ===
+    const extracted = this.extractProfileInfo(msg, currentProfile);
+    if (Object.keys(extracted).length > 0 && this.db) {
+      try {
+        await this.db.updateProfile(chatId, clientId, extracted);
+        currentProfile = { ...currentProfile, ...extracted };
+      } catch (e) {
+        console.log("Profil güncelleme hatası:", e.message);
+      }
+    }
+
+    const warmName = currentProfile?.full_name?.split(" ")[0] || name || this.getWarmAddress();
+    const metricsCount = this.getProfileMetrics(currentProfile);
+
+    // === 4+ METRİK TOPLANDIYSA KART OLUŞTUR ===
+    let profileCardMessage = "";
+    if (metricsCount >= 4 && currentProfile.status !== "card_created" && currentProfile.status !== "waiting") {
+      try {
+        // Appointment/kart oluştur
+        if (this.db?.createAppointment) {
+          await this.db.createAppointment(currentProfile.id, clientId, currentProfile.subject || "Görüşme talebi");
+        }
+        await this.db.updateProfileStatus(chatId, clientId, "card_created");
+
+        profileCardMessage = `\n\n${warmName}, seninle güzel bi sohbet ettik elhamdülillah. ` +
+          `Bilgilerini aldım, en kısa sürede seninle ilgilenilecek inşallah. ` +
+          `Allah hayırlı kapılar açsın. 🤲`;
+      } catch (e) {
+        console.log("Kart oluşturma hatası:", e.message);
+      }
+    }
+
     // === SELAMLAMA ===
     if (this.isGreeting(msg)) {
-      const reply = this.addHumanTouch(
-        `Aleyküm selam ${warmName}, hoş geldin. Nasılsın, anlat dinliyorum.`
-      );
-      return { reply, action: "greeting" };
+      let reply = `Ve aleykümselam ${warmName}, hoş geldin. Nasılsın, hayırdır inşallah? Anlat dinliyorum.`;
+      return { reply: this.addHumanTouch(reply), action: "greeting", extracted };
     }
 
     // === TEŞEKKÜR ===
     if (this.isThanks(msg)) {
-      const reply = this.addHumanTouch(
-        `Estağfurullah ${warmName}, ne demek. Her zaman buradayım.`
-      );
-      return { reply, action: "thanks" };
+      let reply = `Estağfurullah ${warmName}, ne demek. Allah razı olsun senden de. Her zaman buradayım.`;
+      return { reply: this.addHumanTouch(reply) + profileCardMessage, action: "thanks", extracted };
     }
 
     // === VEDA ===
     if (this.isGoodbye(msg)) {
-      const reply = this.addHumanTouch(
-        `Allah'a emanet ol ${warmName}. Kendine iyi bak, ihtiyacın olursa yaz.`
-      );
-      return { reply, action: "goodbye" };
+      let reply = `Allah'a emanet ol ${warmName}. Rabbim yolunu açık etsin, hayırlı günler.`;
+      return { reply: this.addHumanTouch(reply), action: "goodbye", extracted };
     }
 
     // === SORU SORUYORSA ===
@@ -290,15 +411,14 @@ class ConversationFlow {
 
       if (this.aiChat) {
         const aiReply = await this._answerQuestion(msg, warmName, topic, showVerse, askQuestion, chatId);
-        if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "answer" };
+        if (aiReply) {
+          return { reply: this.addHumanTouch(aiReply) + profileCardMessage, action: "answer", extracted };
+        }
       }
 
-      // AI yoksa basit cevap
-      let reply = `${warmName}, bu konuda sabırlı ol, insallah hayırlısı olur.`;
-      if (askQuestion) {
-        reply += ` ${this.getTopicQuestion(chatId, topic)}`;
-      }
-      return { reply: this.addHumanTouch(reply), action: "answer" };
+      let reply = `${warmName}, bu konuda sabırlı ol, Allah'ın izniyle hayırlısı olur.`;
+      if (askQuestion) reply += ` ${this.getTopicQuestion(chatId, topic)}`;
+      return { reply: this.addHumanTouch(reply) + profileCardMessage, action: "answer", extracted };
     }
 
     // === DERT ANLATIYORSA ===
@@ -307,43 +427,47 @@ class ConversationFlow {
 
     if (this.aiChat) {
       const aiReply = await this._empathize(msg, warmName, topic, showVerse, askQuestion, chatId);
-      if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "empathy" };
+      if (aiReply) {
+        return { reply: this.addHumanTouch(aiReply) + profileCardMessage, action: "empathy", extracted };
+      }
     }
 
-    // AI yoksa basit empati
-    let reply = `Anlıyorum ${warmName}, gerçekten zor bi durum. Yalnız değilsin.`;
+    let reply = `Anlıyorum ${warmName}, gerçekten zor bi durum. Rabbim yardımcın olsun.`;
     if (showVerse) {
       const verse = this.getVerse(topic);
       reply += ` "${verse.ayet}" (${verse.kaynak})`;
     }
-    if (askQuestion) {
-      reply += ` ${this.getTopicQuestion(chatId, topic)}`;
-    }
-    return { reply: this.addHumanTouch(reply), action: "empathy" };
+    if (askQuestion) reply += ` ${this.getTopicQuestion(chatId, topic)}`;
+    return { reply: this.addHumanTouch(reply) + profileCardMessage, action: "empathy", extracted };
   }
 
-  // AI: Soruya cevap ver
+  // AI: Soruya cevap (dini dil ile)
   async _answerQuestion(msg, warmName, topic, showVerse, askQuestion, chatId) {
     if (!this.aiChat?.openai) return null;
 
-    let systemContent = `Sen samimi bir manevi rehbersin. Kişinin SORUNUNA ODAKLAN.
+    let systemContent = `Sen samimi bir dini danışman/hocasın. DİNİ TERİMLERLE KONUŞ.
+
+MUTLAKA KULLAN:
+- Cümle sonlarında: "inşallah", "Allah'ın izniyle", "hayırlısı olur inşallah", "Rabbim yardımcın olsun"
+- "maşallah", "elhamdülillah", "Allah razı olsun" gibi ifadeler
+- "${warmName}" diye hitap et
 
 KURALLAR:
-- "${warmName}" diye hitap et
 - 2-3 cümle max
 - Samimi, içten ol
+- Her cümle dini bi ifadeyle bitsin
 - Kişinin derdini anladığını göster`;
 
     if (showVerse) {
       const verse = this.getVerse(topic);
-      systemContent += `\n- Bu ayeti doğal şekilde ekle: "${verse.ayet}" (${verse.kaynak})`;
+      systemContent += `\n- Bu ayeti ekle: "${verse.ayet}" (${verse.kaynak})`;
     }
 
     if (askQuestion) {
       const question = this.getTopicQuestion(chatId, topic);
       systemContent += `\n- Sonunda bu soruyu sor: "${question}"`;
     } else {
-      systemContent += `\n- Soru SORMA, sadece empati göster`;
+      systemContent += `\n- Soru sorma, sadece destek ver`;
     }
 
     try {
@@ -360,31 +484,33 @@ KURALLAR:
     } catch { return null; }
   }
 
-  // AI: Empati göster, derdine odaklan
+  // AI: Empati (dini dil ile)
   async _empathize(msg, warmName, topic, showVerse, askQuestion, chatId) {
     if (!this.aiChat?.openai) return null;
 
-    let systemContent = `Sen dertlere ortak olan samimi bi arkadaşsın. KİŞİNİN SORUNUNA ODAKLAN.
+    let systemContent = `Sen dertlere ortak olan samimi bi dini danışmansın. DİNİ TERİMLERLE KONUŞ.
+
+MUTLAKA KULLAN:
+- "inşallah", "maşallah", "elhamdülillah", "Allah'ın izniyle"
+- "Rabbim yardımcın olsun", "Allah kolaylık versin", "hayırlısı olur inşallah"
+- "${warmName}" diye hitap et
 
 KURALLAR:
-- "${warmName}" diye hitap et
-- Önce EMPATİ göster, dinlediğini hissettir
+- Önce empati göster, dinlediğini hissettir
 - 2-3 cümle max
-- Kişinin anlattığı SORUNA özel cevap ver
-- Genel laflar etme, spesifik ol`;
+- HER CÜMLE dini ifadeyle bitsin
+- Kişinin anlattığı soruna özel cevap ver`;
 
     if (showVerse) {
       const verse = this.getVerse(topic);
-      const prayer = this.getPrayer(topic);
       systemContent += `\n- Bu ayeti kişinin durumuna bağla: "${verse.ayet}" (${verse.kaynak})`;
-      systemContent += `\n- Bu duayı öner: "${prayer}"`;
     }
 
     if (askQuestion) {
       const question = this.getTopicQuestion(chatId, topic);
       systemContent += `\n- Sonunda bu soruyu sor: "${question}"`;
     } else {
-      systemContent += `\n- Soru SORMA, sadece destek ver ve dinle`;
+      systemContent += `\n- Soru sorma, sadece destek ver`;
     }
 
     try {
