@@ -908,26 +908,27 @@ function startPanel({ manager, port, host }) {
 
   // ========= BOT SETTINGS API =========
 
-  // Bot ayarlarını kaydet (karakter seçimi vs.)
+  // Bot ayarlarını kaydet (kapsamlı)
   app.post("/api/bots/:id/settings", async (req, res) => {
     try {
       const clientId = req.params.id;
-      const { character_id, name } = req.body || {};
+      const allowedFields = [
+        'name', 'character_id', 'role', 'company', 'sector',
+        'formality_level', 'warmth_level', 'detail_level', 'emoji_level',
+        'use_custom_prompt', 'custom_prompt', 'greeting_message', 'handoff_message'
+      ];
 
-      // character_id güncelle
-      if (character_id !== undefined) {
-        await manager.db.pool.execute(
-          "UPDATE clients SET character_id = ? WHERE id = ?",
-          [character_id || null, clientId]
-        );
+      const updates = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
       }
 
-      // name güncelle
-      if (name !== undefined) {
-        await manager.db.pool.execute(
-          "UPDATE clients SET name = ? WHERE id = ?",
-          [name, clientId]
-        );
+      if (Object.keys(updates).length > 0) {
+        const fields = Object.keys(updates).map(k => `\`${k}\` = ?`).join(", ");
+        const values = [...Object.values(updates), clientId];
+        await manager.db.pool.execute(`UPDATE clients SET ${fields} WHERE id = ?`, values);
       }
 
       res.json({ success: true });
@@ -941,7 +942,10 @@ function startPanel({ manager, port, host }) {
     try {
       const clientId = req.params.id;
       const [rows] = await manager.db.pool.execute(
-        "SELECT id, name, character_id FROM clients WHERE id = ?",
+        `SELECT id, name, character_id, role, company, sector,
+         formality_level, warmth_level, detail_level, emoji_level,
+         use_custom_prompt, custom_prompt, greeting_message, handoff_message
+         FROM clients WHERE id = ?`,
         [clientId]
       );
 
@@ -950,6 +954,143 @@ function startPanel({ manager, port, host }) {
       }
 
       res.json({ success: true, settings: rows[0] });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= BOT KNOWLEDGE BASE API =========
+
+  // Bilgi tabanını getir
+  app.get("/api/bots/:id/knowledge", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const category = req.query.category || null;
+      const knowledge = await manager.db.getBotKnowledge(clientId, category);
+      res.json({ success: true, knowledge });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bilgi ekle
+  app.post("/api/bots/:id/knowledge", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const { question, answer, category, tags } = req.body || {};
+      if (!question || !answer) {
+        return res.json({ success: false, error: "Soru ve cevap zorunludur" });
+      }
+      const id = await manager.db.addKnowledge(clientId, { question, answer, category, tags });
+      res.json({ success: true, id });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Toplu bilgi ekleme
+  app.post("/api/bots/:id/knowledge/bulk", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const { items } = req.body || {};
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.json({ success: false, error: "Geçerli veri bulunamadı" });
+      }
+      const imported = await manager.db.addKnowledgeBulk(clientId, items);
+      res.json({ success: true, imported });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bilgi güncelle
+  app.put("/api/bots/:id/knowledge/:knowledgeId", async (req, res) => {
+    try {
+      const knowledgeId = req.params.knowledgeId;
+      const { question, answer, category, tags } = req.body || {};
+      await manager.db.updateKnowledge(knowledgeId, { question, answer, category, tags });
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bilgi sil
+  app.delete("/api/bots/:id/knowledge/:knowledgeId", async (req, res) => {
+    try {
+      const knowledgeId = req.params.knowledgeId;
+      await manager.db.deleteKnowledge(knowledgeId);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bilgi tabanında arama
+  app.get("/api/bots/:id/knowledge/search", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const query = req.query.q || '';
+      if (!query) {
+        return res.json({ success: true, results: [] });
+      }
+      const results = await manager.db.searchKnowledge(clientId, query);
+      res.json({ success: true, results });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= BOT TEST API =========
+
+  // Bot testi
+  app.post("/api/bots/:id/test", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const { message, useKnowledge, useKeywords, useAI } = req.body || {};
+
+      if (!message) {
+        return res.json({ success: false, error: "Mesaj zorunludur" });
+      }
+
+      let response = null;
+      let source = null;
+
+      // 1. Keyword kontrolü
+      if (useKeywords !== false) {
+        const matchedKeyword = await manager.db.matchKeyword(message, clientId);
+        if (matchedKeyword) {
+          response = matchedKeyword.response;
+          source = 'Tetikleyici: ' + matchedKeyword.keyword;
+        }
+      }
+
+      // 2. Bilgi tabanı kontrolü
+      if (!response && useKnowledge !== false) {
+        const knowledge = await manager.db.findRelevantKnowledge(clientId, message);
+        if (knowledge) {
+          response = knowledge.answer;
+          source = 'Bilgi Tabanı: ' + knowledge.question;
+        }
+      }
+
+      // 3. AI yanıtı
+      if (!response && useAI !== false && manager.generateAIResponse) {
+        try {
+          response = await manager.generateAIResponse(message, clientId, null, { test: true });
+          source = 'AI';
+        } catch (e) {
+          response = 'AI yanıt üretemedi: ' + e.message;
+          source = 'Hata';
+        }
+      }
+
+      if (!response) {
+        response = 'Yanıt bulunamadı';
+        source = 'Yok';
+      }
+
+      res.json({ success: true, response, source });
     } catch (err) {
       res.json({ success: false, error: err.message });
     }

@@ -146,6 +146,21 @@ async ensureSchema() {
         INDEX idx_client (client_id),
         INDEX idx_active (is_active),
         INDEX idx_priority (priority)
+      )`,
+      `CREATE TABLE IF NOT EXISTS bot_knowledge (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id VARCHAR(50) NOT NULL,
+        question VARCHAR(500) NOT NULL,
+        answer TEXT NOT NULL,
+        category VARCHAR(50) DEFAULT 'faq',
+        tags VARCHAR(255) DEFAULT NULL,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_client (client_id),
+        INDEX idx_category (category),
+        INDEX idx_active (is_active),
+        FULLTEXT idx_search (question, answer, tags)
       )`
     ];
 
@@ -193,7 +208,19 @@ async ensureSchema() {
       // Bot bazlı humanization ayarları
       "ALTER TABLE clients ADD COLUMN humanization_config JSON NULL",
       // Bot bazlı karakter seçimi
-      "ALTER TABLE clients ADD COLUMN character_id VARCHAR(50) NULL"
+      "ALTER TABLE clients ADD COLUMN character_id VARCHAR(50) NULL",
+      // Bot kimlik ve kişilik ayarları
+      "ALTER TABLE clients ADD COLUMN role VARCHAR(100) NULL",
+      "ALTER TABLE clients ADD COLUMN company VARCHAR(100) NULL",
+      "ALTER TABLE clients ADD COLUMN sector VARCHAR(50) NULL",
+      "ALTER TABLE clients ADD COLUMN formality_level TINYINT DEFAULT 3",
+      "ALTER TABLE clients ADD COLUMN warmth_level TINYINT DEFAULT 4",
+      "ALTER TABLE clients ADD COLUMN detail_level TINYINT DEFAULT 3",
+      "ALTER TABLE clients ADD COLUMN emoji_level TINYINT DEFAULT 2",
+      "ALTER TABLE clients ADD COLUMN use_custom_prompt TINYINT(1) DEFAULT 0",
+      "ALTER TABLE clients ADD COLUMN custom_prompt TEXT NULL",
+      "ALTER TABLE clients ADD COLUMN greeting_message TEXT NULL",
+      "ALTER TABLE clients ADD COLUMN handoff_message TEXT NULL"
     ];
 
     for (const sql of alters) {
@@ -803,6 +830,136 @@ async initDefaultSettings() {
       "UPDATE clients SET humanization_config = NULL WHERE id = ?",
       [clientId]
     );
+  }
+
+  // ==================== BOT KNOWLEDGE BASE METODLARI ====================
+
+  /**
+   * Bot'un bilgi tabanını getir
+   */
+  async getBotKnowledge(clientId, category = null) {
+    let sql = "SELECT * FROM bot_knowledge WHERE client_id = ? AND is_active = 1";
+    const params = [clientId];
+
+    if (category) {
+      sql += " AND category = ?";
+      params.push(category);
+    }
+
+    sql += " ORDER BY created_at DESC";
+
+    const [rows] = await this.pool.execute(sql, params);
+    return rows;
+  }
+
+  /**
+   * Tek bir bilgi kaydını getir
+   */
+  async getKnowledgeById(id) {
+    const [rows] = await this.pool.execute("SELECT * FROM bot_knowledge WHERE id = ?", [id]);
+    return rows[0];
+  }
+
+  /**
+   * Bilgi tabanına yeni kayıt ekle
+   */
+  async addKnowledge(clientId, data) {
+    const { question, answer, category, tags } = data;
+    const [result] = await this.pool.execute(
+      `INSERT INTO bot_knowledge (client_id, question, answer, category, tags)
+       VALUES (?, ?, ?, ?, ?)`,
+      [clientId, question, answer, category || 'faq', tags || null]
+    );
+    return result.insertId;
+  }
+
+  /**
+   * Toplu bilgi ekleme
+   */
+  async addKnowledgeBulk(clientId, items) {
+    let imported = 0;
+    for (const item of items) {
+      try {
+        await this.addKnowledge(clientId, item);
+        imported++;
+      } catch (e) {
+        // Hata varsa geç
+      }
+    }
+    return imported;
+  }
+
+  /**
+   * Bilgi kaydını güncelle
+   */
+  async updateKnowledge(id, data) {
+    const cleaned = this._sanitizeValues(data);
+    const keys = Object.keys(cleaned);
+    if (keys.length === 0) return;
+    const fields = keys.map(k => `\`${k}\` = ?`).join(", ");
+    const values = [...keys.map(k => cleaned[k]), id];
+    await this.pool.execute(`UPDATE bot_knowledge SET ${fields} WHERE id = ?`, values);
+  }
+
+  /**
+   * Bilgi kaydını sil
+   */
+  async deleteKnowledge(id) {
+    await this.pool.execute("DELETE FROM bot_knowledge WHERE id = ?", [id]);
+  }
+
+  /**
+   * Bilgi tabanında arama yap
+   */
+  async searchKnowledge(clientId, query) {
+    const searchTerm = `%${query}%`;
+    const [rows] = await this.pool.execute(
+      `SELECT * FROM bot_knowledge
+       WHERE client_id = ? AND is_active = 1
+       AND (question LIKE ? OR answer LIKE ? OR tags LIKE ?)
+       ORDER BY
+         CASE WHEN question LIKE ? THEN 1 ELSE 2 END,
+         created_at DESC
+       LIMIT 10`,
+      [clientId, searchTerm, searchTerm, searchTerm, searchTerm]
+    );
+    return rows;
+  }
+
+  /**
+   * Mesaj için en uygun bilgiyi bul
+   */
+  async findRelevantKnowledge(clientId, message) {
+    const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    if (words.length === 0) return null;
+
+    // Önce tam eşleşme ara
+    const searchTerms = words.map(w => `%${w}%`);
+    let bestMatch = null;
+    let bestScore = 0;
+
+    const knowledge = await this.getBotKnowledge(clientId);
+
+    for (const k of knowledge) {
+      const questionLower = k.question.toLowerCase();
+      const answerLower = k.answer.toLowerCase();
+      const tagsLower = (k.tags || '').toLowerCase();
+
+      let score = 0;
+      for (const word of words) {
+        if (questionLower.includes(word)) score += 3;
+        if (tagsLower.includes(word)) score += 2;
+        if (answerLower.includes(word)) score += 1;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = k;
+      }
+    }
+
+    // En az 2 puan almışsa döndür
+    return bestScore >= 2 ? bestMatch : null;
   }
 }
 
