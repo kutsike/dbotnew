@@ -17,15 +17,167 @@ function startPanel({ manager, port, host }) {
   const server = http.createServer(app);
   const io = socketIo(server, { cors: { origin: "*" } });
 
-  // Basic Auth (Tüm sayfalar şifreli)
+  // Cookie parser for magic link sessions
+  const cookieParser = require("cookie-parser");
+  app.use(cookieParser());
+
+  // Magic link storage (public erişim için önce tanımla)
+  const magicLinks = new Map();
+  const activeSessions = new Map();
+
+  // Random token oluştur
+  function generateToken(length = 32) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < length; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+  }
+
+  // ========= PUBLIC ROUTES (Auth gerektirmeyen) =========
+
+  // Magic link ile giriş (public - auth bypass)
+  app.get("/magic-login/:token", async (req, res) => {
+    try {
+      const token = req.params.token;
+      const linkData = magicLinks.get(token);
+
+      if (!linkData) {
+        return res.send(`
+          <!DOCTYPE html>
+          <html><head><title>Geçersiz Link</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+          <body style="font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#111b21;color:#fff;margin:0;">
+            <div style="text-align:center;padding:2rem;">
+              <h1 style="color:#ef4444;">Geçersiz veya Süresi Dolmuş Link</h1>
+              <p>Bu magic link artık geçerli değil.</p>
+              <a href="/" style="color:#00d9a5;">Ana Sayfaya Git</a>
+            </div>
+          </body></html>
+        `);
+      }
+
+      if (linkData.expiresAt < Date.now()) {
+        magicLinks.delete(token);
+        return res.send(`
+          <!DOCTYPE html>
+          <html><head><title>Süre Doldu</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+          <body style="font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#111b21;color:#fff;margin:0;">
+            <div style="text-align:center;padding:2rem;">
+              <h1 style="color:#ef4444;">Link Süresi Doldu</h1>
+              <p>Bu magic link'in süresi dolmuş.</p>
+              <a href="/" style="color:#00d9a5;">Ana Sayfaya Git</a>
+            </div>
+          </body></html>
+        `);
+      }
+
+      if (linkData.used) {
+        return res.send(`
+          <!DOCTYPE html>
+          <html><head><title>Kullanılmış Link</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+          <body style="font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#111b21;color:#fff;margin:0;">
+            <div style="text-align:center;padding:2rem;">
+              <h1 style="color:#ef4444;">Link Daha Önce Kullanılmış</h1>
+              <p>Bu magic link zaten kullanılmış.</p>
+              <a href="/" style="color:#00d9a5;">Ana Sayfaya Git</a>
+            </div>
+          </body></html>
+        `);
+      }
+
+      // Linki kullanıldı olarak işaretle
+      linkData.used = true;
+      magicLinks.set(token, linkData);
+
+      // Session oluştur
+      const sessionId = generateToken(32);
+      activeSessions.set(sessionId, {
+        id: sessionId,
+        createdAt: new Date().toISOString(),
+        ip: req.ip,
+        userAgent: req.get('user-agent') || 'Unknown'
+      });
+
+      // Cookie ile session set et
+      res.cookie('magic_session', sessionId, {
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 saat
+        sameSite: 'lax'
+      });
+
+      // Dashboard'a yönlendir
+      res.redirect('/');
+    } catch (err) {
+      res.status(500).send('Hata: ' + err.message);
+    }
+  });
+
+  // Magic link oluştur fonksiyonu (bot için)
+  manager.generateMagicLink = async function(chatId, clientId) {
+    try {
+      // Yetkili numara kontrolü
+      const authorizedNumbers = await manager.db.getSetting('authorized_numbers');
+      if (authorizedNumbers && authorizedNumbers.trim()) {
+        const authorized = authorizedNumbers.split(',').map(n => n.trim().replace(/\D/g, ''));
+        const senderNumber = chatId.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+        if (authorized.length > 0 && !authorized.includes(senderNumber)) {
+          return null; // Yetkisiz numara
+        }
+      }
+
+      const expiry = parseInt(await manager.db.getSetting('magic_link_expiry')) || 15;
+      const token = generateToken(48);
+      const expiresAt = Date.now() + (expiry * 60 * 1000);
+
+      magicLinks.set(token, {
+        createdAt: Date.now(),
+        expiresAt,
+        used: false,
+        chatId,
+        clientId
+      });
+
+      // Panel URL'ini al
+      const panelHost = process.env.PANEL_HOST || `http://${host}:${port}`;
+      const link = panelHost + '/magic-login/' + token;
+
+      return { link, expiry };
+    } catch (err) {
+      console.error('Magic link oluşturma hatası:', err);
+      return null;
+    }
+  };
+
+  // ========= AUTH MIDDLEWARE =========
+
+  // Basic Auth - magic session kontrolü ile bypass
   const adminUser = process.env.ADMIN_USER || "admin";
   const adminPass = process.env.ADMIN_PASS || "diyanet123";
-  app.use(
+
+  const authMiddleware = (req, res, next) => {
+    // Magic session cookie kontrolü
+    const magicSessionId = req.cookies?.magic_session;
+    if (magicSessionId && activeSessions.has(magicSessionId)) {
+      const session = activeSessions.get(magicSessionId);
+      // Session 24 saatten eski mi kontrol et
+      const sessionAge = Date.now() - new Date(session.createdAt).getTime();
+      if (sessionAge < 24 * 60 * 60 * 1000) {
+        return next(); // Magic session geçerli, auth bypass
+      } else {
+        activeSessions.delete(magicSessionId);
+        res.clearCookie('magic_session');
+      }
+    }
+
+    // Normal basic auth
     basicAuth({
       users: { [adminUser]: adminPass },
       challenge: true,
-    })
-  );
+    })(req, res, next);
+  };
+
+  app.use(authMiddleware);
 
   app.set("view engine", "ejs");
   app.set("views", path.join(__dirname, "views"));
@@ -919,6 +1071,91 @@ function startPanel({ manager, port, host }) {
       } else {
         res.json({ success: true, response: "AI servisi aktif değil." });
       }
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= SECURITY API =========
+
+  // Magic link oluştur (panel içinden)
+  app.post("/api/security/magic-link", async (req, res) => {
+    try {
+      const expiry = parseInt(await manager.db.getSetting('magic_link_expiry')) || 15;
+      const token = generateToken(48);
+      const expiresAt = Date.now() + (expiry * 60 * 1000);
+
+      magicLinks.set(token, {
+        createdAt: Date.now(),
+        expiresAt,
+        used: false,
+        ip: req.ip
+      });
+
+      // Eski linkleri temizle
+      for (const [key, value] of magicLinks) {
+        if (value.expiresAt < Date.now() || value.used) {
+          magicLinks.delete(key);
+        }
+      }
+
+      const baseUrl = req.protocol + '://' + req.get('host');
+      const link = baseUrl + '/magic-login/' + token;
+
+      res.json({ success: true, link, expiry, token });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // 2FA toggle
+  app.post("/api/security/2fa", async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      await manager.db.setSetting('two_factor_enabled', enabled ? '1' : '0');
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // IP restriction toggle
+  app.post("/api/security/ip-restriction", async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      await manager.db.setSetting('ip_restriction_enabled', enabled ? '1' : '0');
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Aktif oturumları listele
+  app.get("/api/security/sessions", async (req, res) => {
+    try {
+      const sessions = Array.from(activeSessions.values());
+      res.json({ success: true, sessions });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Oturum sonlandır
+  app.delete("/api/security/sessions/:id", async (req, res) => {
+    try {
+      const sessionId = req.params.id;
+      activeSessions.delete(sessionId);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Tüm oturumları sonlandır
+  app.post("/api/security/logout-all", async (req, res) => {
+    try {
+      activeSessions.clear();
+      res.json({ success: true });
     } catch (err) {
       res.json({ success: false, error: err.message });
     }

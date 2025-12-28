@@ -652,11 +652,11 @@
         <div class="setting-item">
           <div class="setting-info">
             <div class="setting-title">İki Faktörlü Doğrulama</div>
-            <div class="setting-desc">Ekstra güvenlik katmanı ekle</div>
+            <div class="setting-desc">WhatsApp üzerinden doğrulama kodu al</div>
           </div>
           <div class="setting-action">
             <label class="switch">
-              <input type="checkbox" id="twoFactor">
+              <input type="checkbox" id="twoFactor" onchange="toggle2FA()">
               <span class="slider"></span>
             </label>
           </div>
@@ -667,7 +667,7 @@
             <div class="setting-desc">Otomatik çıkış süresi</div>
           </div>
           <div class="setting-action">
-            <select class="form-control form-select" style="width: auto;">
+            <select class="form-control form-select" id="sessionTimeout" style="width: auto;" onchange="saveSecuritySetting('session_timeout', this.value)">
               <option value="30">30 dakika</option>
               <option value="60" selected>1 saat</option>
               <option value="240">4 saat</option>
@@ -682,7 +682,7 @@
           </div>
           <div class="setting-action">
             <label class="switch">
-              <input type="checkbox" id="ipRestriction">
+              <input type="checkbox" id="ipRestriction" onchange="toggleIPRestriction()">
               <span class="slider"></span>
             </label>
           </div>
@@ -694,6 +694,86 @@
           <button class="btn btn-warning btn-sm" onclick="resetSettings()" style="margin-left: 0.5rem;">
             <i class="fas fa-undo"></i> Ayarları Sıfırla
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Magic Link -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-magic"></i>
+        <h3>Magic Link Girişi</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Magic Link Aktif</div>
+            <div class="setting-desc">Ana bot'a <code>!panel</code> yazarak giriş linki al</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="magicLinkEnabled" onchange="toggleMagicLink()" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Link Geçerlilik Süresi</div>
+            <div class="setting-desc">Magic link'in geçerli olacağı süre</div>
+          </div>
+          <div class="setting-action">
+            <select class="form-control form-select" id="magicLinkExpiry" style="width: auto;" onchange="saveSecuritySetting('magic_link_expiry', this.value)">
+              <option value="5">5 dakika</option>
+              <option value="15" selected>15 dakika</option>
+              <option value="30">30 dakika</option>
+              <option value="60">1 saat</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Yetkili Numaralar</div>
+            <div class="setting-desc">Magic link oluşturabilecek numaralar (virgülle ayır)</div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 0.5rem;">
+          <input type="text" id="authorizedNumbers" class="form-control" placeholder="905551234567, 905559876543" onchange="saveSecuritySetting('authorized_numbers', this.value)">
+          <small class="text-muted">Boş bırakılırsa herkes magic link oluşturabilir</small>
+        </div>
+        <div style="margin-top: 1rem;">
+          <button class="btn btn-primary btn-sm" onclick="generateMagicLink()">
+            <i class="fas fa-link"></i> Manuel Link Oluştur
+          </button>
+          <div id="magicLinkResult" style="margin-top: 1rem; display: none;">
+            <div class="form-group">
+              <label class="form-label">Oluşturulan Link:</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="generatedLink" class="form-control" readonly>
+                <button class="btn btn-secondary" onclick="copyMagicLink()">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <small class="text-muted" id="linkExpiry">15 dakika geçerli</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aktif Oturumlar -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-users"></i>
+        <h3>Aktif Oturumlar</h3>
+      </div>
+      <div class="settings-section-body">
+        <div id="activeSessions">
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-title">Yükleniyor...</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1024,14 +1104,174 @@
     try {
       const res = await fetch('/api/system/stats');
       const data = await res.json();
-      if (data.success) {
-        document.getElementById('activeBots').textContent = data.activeBots || 0;
-        document.getElementById('todayMessages').textContent = data.todayMessages || 0;
-        document.getElementById('cacheSize').textContent = data.cacheSize || '0 MB';
-        document.getElementById('uptime').textContent = data.uptime || 'Bilinmiyor';
+      if (data.success && data.stats) {
+        document.getElementById('activeBots').textContent = data.stats.activeBots || 0;
+        document.getElementById('todayMessages').textContent = data.stats.todayMessages || 0;
+        document.getElementById('cacheSize').textContent = data.stats.cacheSize || '0 MB';
+        document.getElementById('uptime').textContent = data.stats.uptime || 'Bilinmiyor';
       }
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  // Security functions
+  async function toggle2FA() {
+    const enabled = document.getElementById('twoFactor').checked;
+    try {
+      const res = await fetch('/api/security/2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(enabled ? '2FA aktif edildi!' : '2FA devre dışı bırakıldı', 'success');
+      } else {
+        document.getElementById('twoFactor').checked = !enabled;
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      document.getElementById('twoFactor').checked = !enabled;
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  async function toggleIPRestriction() {
+    const enabled = document.getElementById('ipRestriction').checked;
+    try {
+      const res = await fetch('/api/security/ip-restriction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(enabled ? 'IP kısıtlaması aktif!' : 'IP kısıtlaması devre dışı', 'success');
+      } else {
+        document.getElementById('ipRestriction').checked = !enabled;
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      document.getElementById('ipRestriction').checked = !enabled;
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  async function toggleMagicLink() {
+    const enabled = document.getElementById('magicLinkEnabled').checked;
+    await saveSecuritySetting('magic_link_enabled', enabled ? '1' : '0');
+  }
+
+  async function saveSecuritySetting(key, value) {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Ayar kaydedildi', 'success');
+      }
+    } catch (e) {
+      showToast('Kaydetme hatası', 'error');
+    }
+  }
+
+  async function generateMagicLink() {
+    try {
+      const res = await fetch('/api/security/magic-link', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('magicLinkResult').style.display = 'block';
+        document.getElementById('generatedLink').value = data.link;
+        document.getElementById('linkExpiry').textContent = data.expiry + ' dakika geçerli';
+        showToast('Magic link oluşturuldu!', 'success');
+      } else {
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  function copyMagicLink() {
+    const link = document.getElementById('generatedLink').value;
+    navigator.clipboard.writeText(link).then(function() {
+      showToast('Link kopyalandı!', 'success');
+    });
+  }
+
+  async function loadSecuritySettings() {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      if (data.success && data.settings) {
+        const settings = {};
+        (Array.isArray(data.settings) ? data.settings : Object.values(data.settings)).forEach(function(s) {
+          settings[s.key] = s.value;
+        });
+
+        if (settings.two_factor_enabled === '1') {
+          document.getElementById('twoFactor').checked = true;
+        }
+        if (settings.ip_restriction_enabled === '1') {
+          document.getElementById('ipRestriction').checked = true;
+        }
+        if (settings.magic_link_enabled !== '0') {
+          document.getElementById('magicLinkEnabled').checked = true;
+        }
+        if (settings.session_timeout) {
+          document.getElementById('sessionTimeout').value = settings.session_timeout;
+        }
+        if (settings.magic_link_expiry) {
+          document.getElementById('magicLinkExpiry').value = settings.magic_link_expiry;
+        }
+        if (settings.authorized_numbers) {
+          document.getElementById('authorizedNumbers').value = settings.authorized_numbers;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function loadActiveSessions() {
+    try {
+      const res = await fetch('/api/security/sessions');
+      const data = await res.json();
+      const container = document.getElementById('activeSessions');
+      if (data.success && data.sessions && data.sessions.length > 0) {
+        container.innerHTML = data.sessions.map(function(s) {
+          return '<div class="setting-item">' +
+            '<div class="setting-info">' +
+              '<div class="setting-title">' + (s.ip || 'Bilinmeyen IP') + '</div>' +
+              '<div class="setting-desc">' + (s.userAgent || 'Bilinmeyen Tarayıcı') + ' - ' + new Date(s.createdAt).toLocaleString('tr-TR') + '</div>' +
+            '</div>' +
+            '<button class="btn btn-danger btn-sm" onclick="revokeSession(\'' + s.id + '\')">' +
+              '<i class="fas fa-times"></i>' +
+            '</button>' +
+          '</div>';
+        }).join('');
+      } else {
+        container.innerHTML = '<div class="setting-item"><div class="setting-info"><div class="setting-desc">Aktif oturum yok</div></div></div>';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function revokeSession(sessionId) {
+    try {
+      const res = await fetch('/api/security/sessions/' + sessionId, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Oturum sonlandırıldı', 'success');
+        loadActiveSessions();
+      }
+    } catch (e) {
+      showToast('Hata', 'error');
     }
   }
 
@@ -1088,6 +1328,8 @@
   // Init
   loadSystemStats();
   refreshBehaviorLog();
+  loadSecuritySettings();
+  loadActiveSessions();
   setInterval(loadSystemStats, 30000);
 </script>
 

@@ -244,9 +244,15 @@ class Router {
       case "hoca":
       case "yetkili":
         await this.db.updateProfileStatus(chatId, clientId, "waiting");
-        const handoffMsg = await this.db.getSetting("handoff_message") || 
+        const handoffMsg = await this.db.getSetting("handoff_message") ||
           `Tamam ${name} kardeşim, hocamıza ilettim. En kısa sürede dönüş yapacağız inşallah.`;
         return handoffMsg.replace("{name}", name);
+
+      case "panel":
+      case "giris":
+      case "login":
+        // Magic link oluştur ve gönder
+        return this.handleMagicLinkCommand(chatId, clientId, name);
 
       default:
         return `${name} kardeşim, "${cmd}" komutunu tanımadım.\n\nKomutları görmek için !menu yazabilirsin.`;
@@ -372,6 +378,50 @@ Kesin vakitler için Diyanet'in sitesini kontrol etmeni öneririm.`;
       });
     } catch (err) {
       console.error("Log hatası:", err);
+    }
+  }
+
+  /**
+   * Magic Link komutu - panel girişi için tek kullanımlık link oluşturur
+   */
+  async handleMagicLinkCommand(chatId, clientId, name) {
+    try {
+      // Magic link özelliği aktif mi kontrol et
+      const magicLinkEnabled = await this.db.getSetting('magic_link_enabled');
+      if (magicLinkEnabled === '0') {
+        return `${name} kardeşim, bu özellik şu an aktif değil.`;
+      }
+
+      // Yetkili numara kontrolü
+      const authorizedNumbers = await this.db.getSetting('authorized_numbers');
+      if (authorizedNumbers && authorizedNumbers.trim()) {
+        const authorized = authorizedNumbers.split(',').map(n => n.trim().replace(/\D/g, ''));
+        const senderNumber = chatId.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+
+        if (authorized.length > 0 && !authorized.includes(senderNumber)) {
+          return `${name} kardeşim, bu komutu kullanma yetkiniz yok.`;
+        }
+      }
+
+      // Manager üzerinden magic link oluştur
+      if (this.manager.generateMagicLink) {
+        const result = await this.manager.generateMagicLink(chatId, clientId);
+
+        if (result && result.link) {
+          await this.logActivity(chatId, null, clientId, "magic_link_generated", { expiry: result.expiry });
+
+          return `🔐 *Panel Giriş Linki*\n\n` +
+            `Aşağıdaki linke tıklayarak panele şifresiz giriş yapabilirsiniz:\n\n` +
+            `🔗 ${result.link}\n\n` +
+            `⏰ Bu link *${result.expiry} dakika* geçerlidir.\n` +
+            `⚠️ Linki kimseyle paylaşmayın!`;
+        }
+      }
+
+      return `${name} kardeşim, giriş linki oluşturulamadı. Lütfen daha sonra tekrar deneyin.`;
+    } catch (err) {
+      console.error("[Router] Magic link hatası:", err.message);
+      return `${name} kardeşim, bir hata oluştu. Lütfen daha sonra tekrar deneyin.`;
     }
   }
 }
