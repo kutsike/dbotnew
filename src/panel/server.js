@@ -924,6 +924,345 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // ========= SYSTEM API (Settings Page) =========
+
+  // Sistem istatistikleri
+  app.get("/api/system/stats", async (req, res) => {
+    try {
+      const stats = await manager.db.getStats();
+      const clients = await manager.db.getClients();
+
+      // Uptime hesapla
+      const uptimeSeconds = process.uptime();
+      const days = Math.floor(uptimeSeconds / 86400);
+      const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+      const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+      const uptime = days > 0 ? `${days}g ${hours}s ${minutes}d` : `${hours}s ${minutes}d`;
+
+      // Bot durumları
+      const activeBots = clients.filter(c => c.status === 'ready' || c.status === 'connected').length;
+
+      // Cache boyutu (tahmini)
+      const cacheSize = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+
+      res.json({
+        success: true,
+        stats: {
+          ...stats,
+          uptime,
+          activeBots,
+          totalBots: clients.length,
+          cacheSize: `${cacheSize} MB`,
+          nodeVersion: process.version,
+          platform: process.platform
+        }
+      });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bot yeniden başlat
+  app.post("/api/system/restart-bot", async (req, res) => {
+    try {
+      const clients = await manager.db.getClients();
+      for (const client of clients) {
+        try {
+          await manager.restartClient(client.id);
+        } catch (e) {
+          console.log(`Bot restart hatası (${client.id}):`, e.message);
+        }
+      }
+      res.json({ success: true, message: "Tüm botlar yeniden başlatılıyor..." });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Cache temizle
+  app.post("/api/system/clear-cache", async (req, res) => {
+    try {
+      // Global garbage collection (eğer --expose-gc ile çalışıyorsa)
+      if (global.gc) {
+        global.gc();
+      }
+
+      // Manager'daki cache'leri temizle
+      if (manager.cache) {
+        manager.cache.clear();
+      }
+
+      // Her bot için cache temizle
+      const clients = await manager.db.getClients();
+      for (const client of clients) {
+        if (manager.clients && manager.clients[client.id]) {
+          const botClient = manager.clients[client.id];
+          if (botClient.store) {
+            // WhatsApp store cache temizle
+            try {
+              botClient.store.chats.clear();
+              botClient.store.messages.clear();
+            } catch (e) {}
+          }
+        }
+      }
+
+      res.json({ success: true, message: "Cache temizlendi" });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Davranış logu
+  app.get("/api/system/behavior-log", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit) || 50;
+
+      // Son mesajları ve bot yanıtlarını getir
+      const [rows] = await manager.db.pool.execute(`
+        SELECT
+          m.id,
+          m.chat_id,
+          m.content,
+          m.direction,
+          m.created_at,
+          p.full_name,
+          m.client_id
+        FROM messages m
+        LEFT JOIN profiles p ON m.chat_id = p.chat_id
+        WHERE m.direction = 'outgoing'
+        ORDER BY m.created_at DESC
+        LIMIT ?
+      `, [limit]);
+
+      const logs = rows.map(r => ({
+        id: r.id,
+        chatId: r.chat_id,
+        userName: r.full_name || 'Bilinmeyen',
+        botResponse: r.content,
+        timestamp: r.created_at,
+        clientId: r.client_id
+      }));
+
+      res.json({ success: true, logs });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Davranış testi
+  app.post("/api/system/test-behavior", async (req, res) => {
+    try {
+      const { message } = req.body || {};
+      if (!message) {
+        return res.json({ success: false, error: "Mesaj gerekli" });
+      }
+
+      let response = "";
+      let matchedKeyword = null;
+      let usedAI = false;
+
+      // Önce keyword kontrolü
+      const keywords = await manager.db.getAllKeywords();
+      for (const kw of keywords) {
+        const msgLower = message.toLowerCase();
+        const kwLower = kw.keyword.toLowerCase();
+
+        let matched = false;
+        if (kw.match_type === 'exact' && msgLower === kwLower) matched = true;
+        else if (kw.match_type === 'contains' && msgLower.includes(kwLower)) matched = true;
+        else if (kw.match_type === 'starts_with' && msgLower.startsWith(kwLower)) matched = true;
+        else if (kw.match_type === 'ends_with' && msgLower.endsWith(kwLower)) matched = true;
+        else if (kw.match_type === 'regex') {
+          try {
+            const regex = new RegExp(kw.keyword, 'i');
+            if (regex.test(message)) matched = true;
+          } catch (e) {}
+        }
+
+        if (matched && kw.is_active) {
+          matchedKeyword = kw.keyword;
+          response = kw.response;
+          break;
+        }
+      }
+
+      // Keyword bulunamadıysa AI kullan
+      if (!response && manager.router?.aiChat) {
+        usedAI = true;
+        response = await manager.router.aiChat.testPersonality(message);
+      }
+
+      res.json({
+        success: true,
+        response: response || "Yanıt oluşturulamadı",
+        matchedKeyword,
+        usedAI
+      });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Parola değiştir
+  app.post("/api/system/change-password", async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body || {};
+
+      if (!currentPassword || !newPassword) {
+        return res.json({ success: false, error: "Mevcut ve yeni parola gerekli" });
+      }
+
+      // Mevcut parolayı kontrol et
+      const adminPass = process.env.ADMIN_PASS || "diyanet123";
+      if (currentPassword !== adminPass) {
+        return res.json({ success: false, error: "Mevcut parola yanlış" });
+      }
+
+      // Yeni parola min 6 karakter
+      if (newPassword.length < 6) {
+        return res.json({ success: false, error: "Yeni parola en az 6 karakter olmalı" });
+      }
+
+      // Parolayı veritabanına kaydet (settings tablosunda)
+      await manager.db.setSetting("admin_password", newPassword);
+
+      // NOT: Gerçek parola değişikliği için .env dosyası güncellenmeli
+      // veya sistem yeniden başlatılmalı
+
+      res.json({
+        success: true,
+        message: "Parola kaydedildi. Değişikliğin etkili olması için sistemi yeniden başlatın."
+      });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Yedek oluştur
+  app.post("/api/system/backup", async (req, res) => {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupData = {
+        timestamp,
+        settings: await manager.db.getSettings(),
+        keywords: await manager.db.getAllKeywords(),
+        characters: await manager.db.getSetting("characters_json"),
+        clients: await manager.db.getClients()
+      };
+
+      res.json({
+        success: true,
+        backup: backupData,
+        filename: `backup_${timestamp}.json`
+      });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // WhatsApp yeniden bağlan
+  app.post("/api/system/reconnect", async (req, res) => {
+    try {
+      const clients = await manager.db.getClients();
+      let reconnected = 0;
+
+      for (const client of clients) {
+        try {
+          if (manager.clients && manager.clients[client.id]) {
+            const botClient = manager.clients[client.id];
+            if (botClient.sock) {
+              // Yeniden bağlan
+              await botClient.sock.end();
+              await manager.addClient(client.id, client.name);
+              reconnected++;
+            }
+          }
+        } catch (e) {
+          console.log(`Reconnect hatası (${client.id}):`, e.message);
+        }
+      }
+
+      res.json({ success: true, message: `${reconnected} bot yeniden bağlandı` });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Tüm sohbetleri temizle
+  app.post("/api/system/clear-chats", async (req, res) => {
+    try {
+      // Mesajları temizle
+      await manager.db.pool.execute("DELETE FROM messages WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
+
+      res.json({ success: true, message: "30 günden eski mesajlar temizlendi" });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Verileri dışa aktar
+  app.get("/api/system/export", async (req, res) => {
+    try {
+      const type = req.query.type || 'all';
+      let data = {};
+
+      if (type === 'all' || type === 'profiles') {
+        data.profiles = await manager.db.getProfiles();
+      }
+      if (type === 'all' || type === 'appointments') {
+        data.appointments = await manager.db.getAppointments();
+      }
+      if (type === 'all' || type === 'keywords') {
+        data.keywords = await manager.db.getAllKeywords();
+      }
+      if (type === 'all' || type === 'settings') {
+        data.settings = await manager.db.getSettings();
+      }
+
+      res.json({ success: true, data, exportedAt: new Date().toISOString() });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Verileri içe aktar
+  app.post("/api/system/import", async (req, res) => {
+    try {
+      const { keywords, settings } = req.body || {};
+      let imported = { keywords: 0, settings: 0 };
+
+      if (Array.isArray(keywords)) {
+        for (const kw of keywords) {
+          try {
+            await manager.db.addKeyword({
+              clientId: kw.client_id || null,
+              keyword: kw.keyword,
+              matchType: kw.match_type || 'contains',
+              response: kw.response,
+              priority: kw.priority || 0,
+              category: kw.category || null
+            });
+            imported.keywords++;
+          } catch (e) {}
+        }
+      }
+
+      if (settings && typeof settings === 'object') {
+        for (const [key, value] of Object.entries(settings)) {
+          try {
+            await manager.db.setSetting(key, value);
+            imported.settings++;
+          } catch (e) {}
+        }
+      }
+
+      res.json({ success: true, imported });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
   // ========= SOCKET.IO =========
 
   io.on("connection", (socket) => {
