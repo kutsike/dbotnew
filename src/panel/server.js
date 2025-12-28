@@ -138,9 +138,9 @@ function startPanel({ manager, port, host }) {
         clientId
       });
 
-      // Panel URL'ini al
-      const panelHost = process.env.PANEL_HOST || `http://${host}:${port}`;
-      const link = panelHost + '/magic-login/' + token;
+      // Panel URL'ini al (PANEL_PUBLIC_URL öncelikli)
+      const panelUrl = process.env.PANEL_PUBLIC_URL || `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
+      const link = panelUrl + '/magic-login/' + token;
 
       return { link, expiry };
     } catch (err) {
@@ -1099,7 +1099,8 @@ function startPanel({ manager, port, host }) {
         }
       }
 
-      const baseUrl = req.protocol + '://' + req.get('host');
+      // PANEL_PUBLIC_URL varsa onu kullan, yoksa request'ten al
+      const baseUrl = process.env.PANEL_PUBLIC_URL || (req.protocol + '://' + req.get('host'));
       const link = baseUrl + '/magic-login/' + token;
 
       res.json({ success: true, link, expiry, token });
