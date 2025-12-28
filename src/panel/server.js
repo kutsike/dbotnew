@@ -213,6 +213,28 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Anahtar Kelimeler Sayfası
+  app.get("/keywords", async (req, res) => {
+    try {
+      const keywords = await manager.db.getAllKeywords();
+      const clients = await manager.db.getClients();
+      res.render("keywords", {
+        title: "Anahtar Kelimeler",
+        page: "keywords",
+        keywords: keywords || [],
+        clients: clients || []
+      });
+    } catch (err) {
+      console.error("Keywords hatası:", err);
+      res.render("keywords", {
+        title: "Anahtar Kelimeler",
+        page: "keywords",
+        keywords: [],
+        clients: []
+      });
+    }
+  });
+
   // Humanization Settings (GET)
   app.get("/humanization", async (req, res) => {
     const configStr = await manager.db.getSetting("humanization_config");
@@ -465,6 +487,112 @@ function startPanel({ manager, port, host }) {
       }
       await manager.db.setSetting("characters_json", JSON.stringify(characters));
       if (activeCharacterId) await manager.db.setSetting("active_character_id", String(activeCharacterId));
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= KEYWORDS API =========
+
+  // Tüm anahtar kelimeleri getir
+  app.get("/api/keywords", async (req, res) => {
+    try {
+      const clientId = req.query.client_id || null;
+      const keywords = await manager.db.getAllKeywords(clientId);
+      res.json({ success: true, keywords: keywords || [] });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Yeni anahtar kelime ekle
+  app.post("/api/keywords", async (req, res) => {
+    try {
+      const { keyword, match_type, response, category, priority, client_id } = req.body || {};
+      if (!keyword || !response) {
+        return res.json({ success: false, error: "Anahtar kelime ve yanıt zorunludur" });
+      }
+      await manager.db.addKeyword({
+        clientId: client_id || null,
+        keyword,
+        matchType: match_type || 'contains',
+        response,
+        priority: priority || 0,
+        category: category || null
+      });
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Anahtar kelime güncelle
+  app.put("/api/keywords/:id", async (req, res) => {
+    try {
+      const { keyword, match_type, response, category, priority, client_id } = req.body || {};
+      await manager.db.updateKeyword(req.params.id, {
+        keyword,
+        match_type,
+        response,
+        category: category || null,
+        priority: priority || 0,
+        client_id: client_id || null
+      });
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Anahtar kelime sil
+  app.delete("/api/keywords/:id", async (req, res) => {
+    try {
+      await manager.db.deleteKeyword(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Anahtar kelime aktif/pasif toggle
+  app.post("/api/keywords/:id/toggle", async (req, res) => {
+    try {
+      const { is_active } = req.body;
+      await manager.db.toggleKeyword(req.params.id, is_active);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= BOT HUMANIZATION API =========
+
+  // Bot'un humanization ayarlarını getir
+  app.get("/api/clients/:id/humanization", async (req, res) => {
+    try {
+      const config = await manager.db.getHumanizationConfig(req.params.id);
+      res.json({ success: true, config });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bot'un humanization ayarlarını kaydet
+  app.post("/api/clients/:id/humanization", async (req, res) => {
+    try {
+      const config = req.body;
+      await manager.db.setHumanizationConfig(req.params.id, config);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bot'un humanization ayarlarını temizle (global'e dön)
+  app.delete("/api/clients/:id/humanization", async (req, res) => {
+    try {
+      await manager.db.clearHumanizationConfig(req.params.id);
       res.json({ success: true });
     } catch (err) {
       res.json({ success: false, error: err.message });

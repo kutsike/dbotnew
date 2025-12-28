@@ -150,9 +150,26 @@ class Router {
           `Anlıyorum ${name} kardeşim, sesli görüşme şu an mümkün değil. Ama yazarak da hallederiz inşallah.`,
           `${name} kardeşim, şu an arama yapamıyoruz ama mesajlaşarak da yardımcı olabilirim.`
         ];
-        
+
         const customBusy = await this.db.getSetting("busy_message");
         return customBusy || busyMessages[Math.floor(Math.random() * busyMessages.length)];
+      }
+
+      // ========== ANAHTAR KELİME KONTROLÜ (AI'DAN ÖNCE) ==========
+      const matchedKeyword = await this.db.matchKeyword(body, clientId);
+      if (matchedKeyword) {
+        console.log(`[Router] Anahtar kelime eşleşti: "${matchedKeyword.keyword}"`);
+        await this.logActivity(chatId, profile?.id, clientId, "keyword_matched", {
+          keyword: matchedKeyword.keyword,
+          category: matchedKeyword.category
+        });
+
+        // Yanıtı {name} placeholder ile değiştir
+        let keywordResponse = matchedKeyword.response;
+        keywordResponse = keywordResponse.replace(/\{name\}/g, name);
+        keywordResponse = keywordResponse.replace(/\{isim\}/g, name);
+
+        return keywordResponse;
       }
 
       // Conversation Flow ile işle

@@ -54,6 +54,9 @@
               </td>
               <td>
                 <div class="d-flex gap-2">
+                  <button class="btn btn-sm btn-primary" onclick="openHumanizationModal('<%= client.id %>')" title="İnsanlaştırma Ayarları">
+                    <i class="fas fa-user-clock"></i>
+                  </button>
                   <% if (client.frozen) { %>
                     <button class="btn btn-sm btn-secondary" onclick="unfreezeClient('<%= client.id %>')">
                       <i class="fas fa-fire"></i> Aktif Et
@@ -81,5 +84,224 @@
     <% } %>
   </div>
 </div>
+
+<!-- Bot Humanization Modal -->
+<div id="humanizationModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card">
+    <div class="card-header">
+      <h3><i class="fas fa-user-clock"></i> İnsanlaştırma Ayarları</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeHumanizationModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="card-body">
+      <div id="humanizationSource" class="mb-3" style="padding: 0.5rem; background: #1e293b; border-radius: 0.5rem; font-size: 0.85rem;">
+        <span class="text-muted">Kaynak: </span><span id="configSource">-</span>
+      </div>
+
+      <form id="humanizationForm">
+        <input type="hidden" id="humanClientId" name="client_id">
+
+        <div class="form-group">
+          <label class="form-check-label">
+            <input type="checkbox" id="humanEnabled" name="enabled" checked>
+            İnsanlaştırma Aktif
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Min Bekleme (sn)</label>
+              <input type="number" id="minDelay" name="min_response_delay" class="form-control" value="60" min="0">
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Max Bekleme (sn)</label>
+              <input type="number" id="maxDelay" name="max_response_delay" class="form-control" value="600" min="0">
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Okuma Hızı (WPM)</label>
+              <input type="number" id="wpmReading" name="wpm_reading" class="form-control" value="200" min="50">
+              <small class="form-text text-muted">Kelime/Dakika</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Yazma Hızı (CPM)</label>
+              <input type="number" id="cpmTyping" name="cpm_typing" class="form-control" value="300" min="50">
+              <small class="form-text text-muted">Karakter/Dakika</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Uzun Mesaj Eşiği</label>
+              <input type="number" id="longThreshold" name="long_message_threshold" class="form-control" value="150" min="50">
+              <small class="form-text text-muted">Karakter sayısı</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Uzun Mesaj Ek Bekleme</label>
+              <input type="number" id="longExtra" name="long_message_extra_delay" class="form-control" value="60" min="0">
+              <small class="form-text text-muted">Saniye</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Yazma Varyansı (%)</label>
+          <input type="number" id="typingVariance" name="typing_variance" class="form-control" value="20" min="0" max="50">
+          <small class="form-text text-muted">Yazma hızında doğal sapma</small>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button type="submit" class="btn btn-primary flex-1">
+            <i class="fas fa-save"></i> Kaydet
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="clearHumanization()">
+            <i class="fas fa-undo"></i> Global Ayarlara Dön
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 1000;
+  padding: 2rem;
+  overflow-y: auto;
+}
+.modal-card {
+  max-width: 500px;
+  margin: 2rem auto;
+}
+.row {
+  display: flex;
+  gap: 1rem;
+}
+.col-6 {
+  flex: 1;
+}
+.flex-1 {
+  flex: 1;
+}
+.mb-3 {
+  margin-bottom: 1rem;
+}
+.mt-3 {
+  margin-top: 1rem;
+}
+</style>
+
+<script>
+let currentHumanClientId = null;
+
+async function openHumanizationModal(clientId) {
+  currentHumanClientId = clientId;
+  document.getElementById('humanClientId').value = clientId;
+
+  try {
+    const res = await fetch(`/api/clients/${clientId}/humanization`);
+    const data = await res.json();
+
+    if (data.success && data.config) {
+      const c = data.config;
+      document.getElementById('humanEnabled').checked = c.enabled !== false;
+      document.getElementById('minDelay').value = c.min_response_delay || 60;
+      document.getElementById('maxDelay').value = c.max_response_delay || 600;
+      document.getElementById('wpmReading').value = c.wpm_reading || 200;
+      document.getElementById('cpmTyping').value = c.cpm_typing || 300;
+      document.getElementById('longThreshold').value = c.long_message_threshold || 150;
+      document.getElementById('longExtra').value = c.long_message_extra_delay || 60;
+      document.getElementById('typingVariance').value = c.typing_variance || 20;
+
+      const sourceMap = { 'bot': 'Bot Özel', 'global': 'Global', 'default': 'Varsayılan' };
+      document.getElementById('configSource').textContent = sourceMap[c._source] || c._source;
+    }
+  } catch (err) {
+    console.error('Humanization config yüklenemedi:', err);
+  }
+
+  document.getElementById('humanizationModal').style.display = 'block';
+}
+
+function closeHumanizationModal() {
+  document.getElementById('humanizationModal').style.display = 'none';
+  currentHumanClientId = null;
+}
+
+async function clearHumanization() {
+  if (!currentHumanClientId) return;
+  if (!confirm('Bu botun özel ayarları silinecek ve global ayarlara dönülecek. Emin misiniz?')) return;
+
+  try {
+    const res = await fetch(`/api/clients/${currentHumanClientId}/humanization`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Başarılı', 'Bot global ayarlara döndürüldü', 'success');
+      closeHumanizationModal();
+    } else {
+      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
+    }
+  } catch (err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  }
+}
+
+document.getElementById('humanizationForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentHumanClientId) return;
+
+  const config = {
+    enabled: document.getElementById('humanEnabled').checked,
+    min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+    max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+    wpm_reading: parseInt(document.getElementById('wpmReading').value) || 200,
+    cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+    long_message_threshold: parseInt(document.getElementById('longThreshold').value) || 150,
+    long_message_extra_delay: parseInt(document.getElementById('longExtra').value) || 60,
+    typing_variance: parseInt(document.getElementById('typingVariance').value) || 20
+  };
+
+  try {
+    const res = await fetch(`/api/clients/${currentHumanClientId}/humanization`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Başarılı', 'İnsanlaştırma ayarları kaydedildi', 'success');
+      closeHumanizationModal();
+    } else {
+      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
+    }
+  } catch (err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeHumanizationModal();
+});
+</script>
 
 <%- include('partials/footer') %>

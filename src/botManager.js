@@ -165,7 +165,7 @@ getDefaultCharacters() {
             const redirectPhone = botRow?.redirect_phone;
             const out = redirectPhone ? `${frozenMessage}\n\nGüncel numara: ${redirectPhone}` : frozenMessage;
             // Dondurulmuş olsa bile insansı gönder
-            await this._humanSend(client, chatId, out, { incomingText: msg.body || "" });
+            await this._humanSend(client, chatId, out, id);
             return;
           }
 
@@ -256,7 +256,7 @@ getDefaultCharacters() {
 
           // 2. ADIM: Yazma Efekti ve Gönderme (Parçalı)
           // _humanSend fonksiyonu metni parçalara böler ve her parça için "Yazıyor..." efekti verir.
-          await this._humanSend(client, chatId, replyText);
+          await this._humanSend(client, chatId, replyText, id);
 
           // Kaydet (outgoing)
           await this.db.saveMessage(
@@ -340,7 +340,7 @@ getDefaultCharacters() {
     const client = this.clients.get(clientId);
     if (!client) throw new Error("Bot bulunamadı");
 
-    await this._humanSend(client, chatId, message);
+    await this._humanSend(client, chatId, message, clientId);
 
     const profile = await this.db.getProfile(chatId, clientId);
     await this.db.saveMessage(
@@ -383,27 +383,13 @@ getDefaultCharacters() {
     return "";
   }
 
-  async _humanSend(client, chatId, text) {
-    // Ayarları DB'den çek (JSON formatında)
-    const configStr = await this.db.getSetting("humanization_config");
-    let config = {
-      enabled: true,
-      split_messages: true,
-      split_threshold: 240,
-      cpm_typing: 300, // Varsayılan yazma hızı (Karakter/Dakika)
-      typing_variance: 20
-    };
-    
-    try {
-      if (configStr) {
-        const parsed = JSON.parse(configStr);
-        Object.assign(config, parsed);
-        // Eski ayarlarla uyumluluk (ayrı key'ler varsa)
-        config.split_messages = await this._getBoolSetting("split_messages", true);
-        const st = await this.db.getSetting("split_threshold");
-        if (st) config.split_threshold = Number(st);
-      }
-    } catch (_) {}
+  async _humanSend(client, chatId, text, clientId = null) {
+    // Bot bazlı humanization ayarlarını çek (yoksa global)
+    const config = await this.db.getHumanizationConfig(clientId);
+
+    // Eski ayarlarla uyumluluk
+    if (!config.split_messages) config.split_messages = true;
+    if (!config.split_threshold) config.split_threshold = 240;
 
     // Parçalara böl
     const chunks = config.split_messages 

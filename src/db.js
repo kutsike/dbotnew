@@ -131,6 +131,21 @@ async ensureSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_chat (chat_id),
         INDEX idx_action (action)
+      )`,
+      `CREATE TABLE IF NOT EXISTS keywords (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id VARCHAR(50) DEFAULT NULL,
+        keyword VARCHAR(255) NOT NULL,
+        match_type ENUM('exact', 'contains', 'startswith', 'regex') DEFAULT 'contains',
+        response TEXT NOT NULL,
+        is_active TINYINT(1) DEFAULT 1,
+        priority INT DEFAULT 0,
+        category VARCHAR(50) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_client (client_id),
+        INDEX idx_active (is_active),
+        INDEX idx_priority (priority)
       )`
     ];
 
@@ -174,7 +189,9 @@ async ensureSchema() {
       "ALTER TABLE messages ADD COLUMN message_wweb_id VARCHAR(255) UNIQUE NULL",
       "ALTER TABLE profiles ADD COLUMN is_blocked TINYINT(1) DEFAULT 0",
       "ALTER TABLE profiles ADD COLUMN ai_analysis TEXT NULL",
-      "ALTER TABLE profiles ADD COLUMN job VARCHAR(100) NULL" // Meslek alanı eksikse
+      "ALTER TABLE profiles ADD COLUMN job VARCHAR(100) NULL", // Meslek alanı eksikse
+      // Bot bazlı humanization ayarları
+      "ALTER TABLE clients ADD COLUMN humanization_config JSON NULL"
     ];
 
     for (const sql of alters) {
@@ -585,6 +602,205 @@ async initDefaultSettings() {
       pendingAppointments: appointments[0].count,
       todayMessages: todayMessages[0].count
     };
+  }
+
+  // ==================== KEYWORD METODLARI ====================
+
+  /**
+   * Tüm anahtar kelimeleri getir (opsiyonel client_id filtresi)
+   */
+  async getKeywords(clientId = null) {
+    let sql = "SELECT * FROM keywords WHERE is_active = 1";
+    const params = [];
+
+    if (clientId) {
+      sql += " AND (client_id = ? OR client_id IS NULL)";
+      params.push(clientId);
+    }
+
+    sql += " ORDER BY priority DESC, id ASC";
+
+    const [rows] = await this.pool.execute(sql, params);
+    return rows;
+  }
+
+  /**
+   * Tüm anahtar kelimeleri getir (admin panel için - aktif/pasif dahil)
+   */
+  async getAllKeywords(clientId = null) {
+    let sql = "SELECT * FROM keywords";
+    const params = [];
+
+    if (clientId) {
+      sql += " WHERE client_id = ? OR client_id IS NULL";
+      params.push(clientId);
+    }
+
+    sql += " ORDER BY priority DESC, created_at DESC";
+
+    const [rows] = await this.pool.execute(sql, params);
+    return rows;
+  }
+
+  /**
+   * Tek bir anahtar kelime getir
+   */
+  async getKeyword(id) {
+    const [rows] = await this.pool.execute("SELECT * FROM keywords WHERE id = ?", [id]);
+    return rows[0];
+  }
+
+  /**
+   * Anahtar kelime ekle
+   */
+  async addKeyword(data) {
+    const { clientId, keyword, matchType, response, priority, category } = data;
+    await this.pool.execute(
+      `INSERT INTO keywords (client_id, keyword, match_type, response, priority, category, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [clientId || null, keyword, matchType || 'contains', response, priority || 0, category || null]
+    );
+  }
+
+  /**
+   * Anahtar kelime güncelle
+   */
+  async updateKeyword(id, data) {
+    const cleaned = this._sanitizeValues(data);
+    const keys = Object.keys(cleaned);
+    if (keys.length === 0) return;
+    const fields = keys.map(k => `\`${k}\` = ?`).join(", ");
+    const values = [...keys.map(k => cleaned[k]), id];
+    await this.pool.execute(`UPDATE keywords SET ${fields} WHERE id = ?`, values);
+  }
+
+  /**
+   * Anahtar kelime sil
+   */
+  async deleteKeyword(id) {
+    await this.pool.execute("DELETE FROM keywords WHERE id = ?", [id]);
+  }
+
+  /**
+   * Anahtar kelime aktif/pasif toggle
+   */
+  async toggleKeyword(id, isActive) {
+    await this.pool.execute("UPDATE keywords SET is_active = ? WHERE id = ?", [isActive ? 1 : 0, id]);
+  }
+
+  /**
+   * Mesajı anahtar kelimelere göre eşleştir
+   * @returns {object|null} Eşleşen keyword veya null
+   */
+  async matchKeyword(message, clientId = null) {
+    const keywords = await this.getKeywords(clientId);
+    const lowerMessage = message.toLowerCase().trim();
+
+    for (const kw of keywords) {
+      const keywordLower = kw.keyword.toLowerCase().trim();
+      let matched = false;
+
+      switch (kw.match_type) {
+        case 'exact':
+          matched = lowerMessage === keywordLower;
+          break;
+        case 'contains':
+          matched = lowerMessage.includes(keywordLower);
+          break;
+        case 'startswith':
+          matched = lowerMessage.startsWith(keywordLower);
+          break;
+        case 'regex':
+          try {
+            const regex = new RegExp(kw.keyword, 'i');
+            matched = regex.test(message);
+          } catch (e) {
+            // Geçersiz regex - atla
+            matched = false;
+          }
+          break;
+        default:
+          matched = lowerMessage.includes(keywordLower);
+      }
+
+      if (matched) {
+        return kw;
+      }
+    }
+
+    return null;
+  }
+
+  // ==================== BOT HUMANIZATION METODLARI ====================
+
+  /**
+   * Bot'un humanization ayarlarını getir
+   * Önce bot bazlı, yoksa global ayarları döndür
+   */
+  async getHumanizationConfig(clientId = null) {
+    // Varsayılan ayarlar
+    const defaultConfig = {
+      enabled: true,
+      min_response_delay: 60,
+      max_response_delay: 600,
+      wpm_reading: 200,
+      cpm_typing: 300,
+      long_message_threshold: 150,
+      long_message_extra_delay: 60,
+      typing_variance: 20,
+      split_messages: true,
+      split_threshold: 240
+    };
+
+    // Bot bazlı ayar var mı?
+    if (clientId) {
+      try {
+        const [rows] = await this.pool.execute(
+          "SELECT humanization_config FROM clients WHERE id = ?",
+          [clientId]
+        );
+        if (rows[0]?.humanization_config) {
+          const botConfig = typeof rows[0].humanization_config === 'string'
+            ? JSON.parse(rows[0].humanization_config)
+            : rows[0].humanization_config;
+          return { ...defaultConfig, ...botConfig, _source: 'bot' };
+        }
+      } catch (e) {
+        // Bot ayarı yoksa global'e düş
+      }
+    }
+
+    // Global ayar
+    try {
+      const globalStr = await this.getSetting("humanization_config");
+      if (globalStr) {
+        const globalConfig = JSON.parse(globalStr);
+        return { ...defaultConfig, ...globalConfig, _source: 'global' };
+      }
+    } catch (e) {}
+
+    return { ...defaultConfig, _source: 'default' };
+  }
+
+  /**
+   * Bot'un humanization ayarlarını kaydet
+   */
+  async setHumanizationConfig(clientId, config) {
+    const configJson = JSON.stringify(config);
+    await this.pool.execute(
+      "UPDATE clients SET humanization_config = ? WHERE id = ?",
+      [configJson, clientId]
+    );
+  }
+
+  /**
+   * Bot'un humanization ayarlarını temizle (global ayarlara dön)
+   */
+  async clearHumanizationConfig(clientId) {
+    await this.pool.execute(
+      "UPDATE clients SET humanization_config = NULL WHERE id = ?",
+      [clientId]
+    );
   }
 }
 
