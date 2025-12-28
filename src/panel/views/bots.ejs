@@ -26,7 +26,9 @@
           <% clients.forEach(client => { %>
             <tr>
               <td>
-                <strong><%= client.name || client.id %></strong>
+                <a href="/bots/<%= client.id %>" style="color: #60a5fa; text-decoration: none;">
+                  <strong><%= client.name || client.id %></strong>
+                </a>
                 <div class="text-muted" style="font-size: 0.8rem;"><%= client.id %></div>
               </td>
               <td><%= client.phone || '-' %></td>
@@ -54,9 +56,9 @@
               </td>
               <td>
                 <div class="d-flex gap-2">
-                  <button class="btn btn-sm btn-primary" onclick="openHumanizationModal('<%= client.id %>')" title="İnsanlaştırma Ayarları">
-                    <i class="fas fa-user-clock"></i>
-                  </button>
+                  <a href="/bots/<%= client.id %>" class="btn btn-sm btn-primary" title="Bot Ayarları">
+                    <i class="fas fa-cog"></i>
+                  </a>
                   <% if (client.frozen) { %>
                     <button class="btn btn-sm btn-secondary" onclick="unfreezeClient('<%= client.id %>')">
                       <i class="fas fa-fire"></i> Aktif Et

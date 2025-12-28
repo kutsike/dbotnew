@@ -128,6 +128,83 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Bot Detay Sayfası
+  app.get("/bots/:id", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const client = await manager.db.getClient(clientId);
+
+      if (!client) {
+        return res.redirect("/bots");
+      }
+
+      // QR kod
+      client.qrCode = manager.getQRCode(clientId) || client.qr;
+
+      // Humanization ayarları
+      const humanizationConfig = await manager.db.getHumanizationConfig(clientId);
+
+      // Bot'a özel anahtar kelimeler
+      const keywords = await manager.db.getAllKeywords(clientId);
+      const botKeywords = (keywords || []).filter(k => k.client_id === clientId || k.client_id === null);
+
+      // İstatistikler
+      const [profileCount] = await manager.db.pool.execute(
+        "SELECT COUNT(*) as count FROM profiles WHERE client_id = ?", [clientId]
+      );
+      const [messageCount] = await manager.db.pool.execute(
+        "SELECT COUNT(*) as count FROM messages WHERE client_id = ?", [clientId]
+      );
+      const [todayMsgCount] = await manager.db.pool.execute(
+        "SELECT COUNT(*) as count FROM messages WHERE client_id = ? AND DATE(created_at) = CURDATE()", [clientId]
+      );
+
+      const stats = {
+        profiles: profileCount[0]?.count || 0,
+        messages: messageCount[0]?.count || 0,
+        todayMessages: todayMsgCount[0]?.count || 0
+      };
+
+      res.render("bot-detail", {
+        title: client.name || clientId,
+        page: "bots",
+        client,
+        humanizationConfig,
+        keywords: botKeywords,
+        stats,
+        saved: req.query.saved === 'true'
+      });
+    } catch (err) {
+      console.error("Bot detay hatası:", err);
+      res.redirect("/bots");
+    }
+  });
+
+  // Bot Detay Sayfası - Humanization POST
+  app.post("/bots/:id/humanization", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const config = {
+        enabled: req.body.enabled === "on",
+        min_response_delay: parseInt(req.body.min_response_delay) || 60,
+        max_response_delay: parseInt(req.body.max_response_delay) || 600,
+        wpm_reading: parseInt(req.body.wpm_reading) || 200,
+        cpm_typing: parseInt(req.body.cpm_typing) || 300,
+        long_message_threshold: parseInt(req.body.long_message_threshold) || 150,
+        long_message_extra_delay: parseInt(req.body.long_message_extra_delay) || 60,
+        typing_variance: parseInt(req.body.typing_variance) || 20,
+        split_messages: req.body.split_messages === "on",
+        split_threshold: parseInt(req.body.split_threshold) || 240
+      };
+
+      await manager.db.setHumanizationConfig(clientId, config);
+      res.redirect(`/bots/${clientId}?saved=true`);
+    } catch (err) {
+      console.error("Humanization kayıt hatası:", err);
+      res.redirect(`/bots/${req.params.id}`);
+    }
+  });
+
   // Profiller
   app.get("/profiles", async (req, res) => {
     try {
