@@ -16,6 +16,9 @@ class ConversationFlow {
     this.db = db;
     this.aiChat = aiChat;
 
+    // Son sorulan soruları takip et (chatId -> son soru)
+    this.lastQuestions = new Map();
+
     // Sıcak hitaplar
     this.warmAddresses = ["kardeşim", "canım", "güzel kardeşim", "değerli kardeşim"];
 
@@ -94,9 +97,24 @@ class ConversationFlow {
     return Math.random() < 0.25; // %25 ihtimal = ortalama 4 mesajda 1
   }
 
-  // Rastgele sohbet sorusu
-  getConversationQuestion() {
-    return this.conversationQuestions[Math.floor(Math.random() * this.conversationQuestions.length)];
+  // Rastgele sohbet sorusu (aynı soruyu tekrarlama)
+  getConversationQuestion(chatId) {
+    const lastQ = this.lastQuestions.get(chatId);
+    let available = this.conversationQuestions.filter(q => q !== lastQ);
+
+    // Eğer sadece 1 soru kaldıysa hepsini kullan
+    if (available.length === 0) available = this.conversationQuestions;
+
+    const question = available[Math.floor(Math.random() * available.length)];
+    this.lastQuestions.set(chatId, question);
+
+    // Map'i temiz tut (max 1000 chat)
+    if (this.lastQuestions.size > 1000) {
+      const firstKey = this.lastQuestions.keys().next().value;
+      this.lastQuestions.delete(firstKey);
+    }
+
+    return question;
   }
 
   // Konuya göre ayet seç
@@ -207,11 +225,11 @@ class ConversationFlow {
     if (this.isQuestion(msg)) {
       const showVerse = this.shouldShowVerse();
       if (this.aiChat) {
-        const aiReply = await this._answerQuestion(msg, warmName, topic, showVerse);
+        const aiReply = await this._answerQuestion(msg, warmName, topic, showVerse, chatId);
         if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "answer" };
       }
       // AI yoksa
-      const question = this.getConversationQuestion();
+      const question = this.getConversationQuestion(chatId);
       if (showVerse) {
         const verse = this.getVerse(topic);
         const reply = this.addHumanTouch(
@@ -229,12 +247,12 @@ class ConversationFlow {
     // === DERT ANLATIYORSA ===
     const showVerse = this.shouldShowVerse();
     if (this.aiChat) {
-      const aiReply = await this._empathize(msg, warmName, topic, showVerse);
+      const aiReply = await this._empathize(msg, warmName, topic, showVerse, chatId);
       if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "empathy" };
     }
 
     // AI yoksa
-    const question = this.getConversationQuestion();
+    const question = this.getConversationQuestion(chatId);
     if (showVerse) {
       const verse = this.getVerse(topic);
       const reply = this.addHumanTouch(
@@ -250,9 +268,9 @@ class ConversationFlow {
   }
 
   // AI: Soruya cevap ver (bazen ayet/dua ile)
-  async _answerQuestion(msg, warmName, topic, showVerse = false) {
+  async _answerQuestion(msg, warmName, topic, showVerse = false, chatId = null) {
     if (!this.aiChat?.openai) return null;
-    const question = this.getConversationQuestion();
+    const question = this.getConversationQuestion(chatId);
 
     let systemContent = `Sen manevi rehber ve samimi bir arkadaşsın.
 
@@ -294,9 +312,9 @@ KURALLAR:
   }
 
   // AI: Empati göster (bazen ayet/dua ile)
-  async _empathize(msg, warmName, topic, showVerse = false) {
+  async _empathize(msg, warmName, topic, showVerse = false, chatId = null) {
     if (!this.aiChat?.openai) return null;
-    const question = this.getConversationQuestion();
+    const question = this.getConversationQuestion(chatId);
 
     let systemContent = `Sen dertlere ortak olan samimi bir arkadaşsın.
 
