@@ -148,6 +148,22 @@ function startPanel({ manager, port, host }) {
       const keywords = await manager.db.getAllKeywords(clientId);
       const botKeywords = (keywords || []).filter(k => k.client_id === clientId || k.client_id === null);
 
+      // Karakterler
+      const defaultCharacters = manager.getDefaultCharacters();
+      let characters = [];
+      try {
+        const charsJson = await manager.db.getSetting("characters_json");
+        characters = charsJson ? JSON.parse(charsJson) : [];
+      } catch (e) {}
+      if (!Array.isArray(characters) || characters.length === 0) {
+        characters = defaultCharacters;
+      }
+
+      // Bot ayarları (karakter seçimi vs.)
+      const botSettings = {
+        character_id: client.character_id || null
+      };
+
       // İstatistikler
       const [profileCount] = await manager.db.pool.execute(
         "SELECT COUNT(*) as count FROM profiles WHERE client_id = ?", [clientId]
@@ -171,6 +187,8 @@ function startPanel({ manager, port, host }) {
         client,
         humanizationConfig,
         keywords: botKeywords,
+        characters,
+        botSettings,
         stats,
         saved: req.query.saved === 'true'
       });

@@ -191,7 +191,9 @@ async ensureSchema() {
       "ALTER TABLE profiles ADD COLUMN ai_analysis TEXT NULL",
       "ALTER TABLE profiles ADD COLUMN job VARCHAR(100) NULL", // Meslek alanı eksikse
       // Bot bazlı humanization ayarları
-      "ALTER TABLE clients ADD COLUMN humanization_config JSON NULL"
+      "ALTER TABLE clients ADD COLUMN humanization_config JSON NULL",
+      // Bot bazlı karakter seçimi
+      "ALTER TABLE clients ADD COLUMN character_id VARCHAR(50) NULL"
     ];
 
     for (const sql of alters) {
