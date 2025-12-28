@@ -7,24 +7,13 @@ class MessageDelay {
 
   /**
    * Mesaj için gereken tüm gecikmeleri hesaplar
+   * @param {string} incomingText - Gelen mesaj metni
+   * @param {string} outgoingText - Gönderilecek cevap metni
+   * @param {string} clientId - Bot ID (bot-spesifik ayarlar için)
    */
-  async calculateDelays(incomingText, outgoingText) {
-    // Ayarları çek
-    const configStr = await this.db.getSetting("humanization_config");
-    let config = {
-      enabled: true,
-      min_response_delay: 60,
-      max_response_delay: 600,
-      wpm_reading: 200,
-      cpm_typing: 300,
-      long_message_threshold: 150,
-      long_message_extra_delay: 60,
-      typing_variance: 20
-    };
-
-    try {
-      if (configStr) Object.assign(config, JSON.parse(configStr));
-    } catch (e) {}
+  async calculateDelays(incomingText, outgoingText, clientId = null) {
+    // Bot-spesifik veya global ayarları çek
+    const config = await this.db.getHumanizationConfig(clientId);
 
     if (!config.enabled) {
       return { readDelay: 0, typeDelay: 0, totalDelay: 0 };

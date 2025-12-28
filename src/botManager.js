@@ -243,7 +243,8 @@ getDefaultCharacters() {
           if (delayService && delayService.calculateDelays) {
             // calculateDelays bize { readDelay, typeDelay } döner.
             // readDelay: Okuma süresi + Rastgele bekleme (1-10 dk) + Uzun mesaj bonusu
-            const delays = await delayService.calculateDelays(body, replyText);
+            // id parametresi bot-spesifik insanlaştırma ayarları için
+            const delays = await delayService.calculateDelays(body, replyText, id);
             readWait = delays.readDelay;
           }
 
