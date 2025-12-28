@@ -112,6 +112,47 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Randevu Detay
+  app.get("/appointments/:id", async (req, res) => {
+    try {
+      const appointmentId = req.params.id;
+      const appointments = await manager.db.getAppointments();
+      const appointment = (appointments || []).find(a => String(a.id) === String(appointmentId));
+
+      if (!appointment) {
+        return res.redirect("/appointments");
+      }
+
+      // Profile bilgisini al
+      let profile = null;
+      if (appointment.profile_id) {
+        const profiles = await manager.db.getProfiles();
+        profile = (profiles || []).find(p => p.id === appointment.profile_id);
+      }
+
+      // Son mesajları al
+      let messages = [];
+      if (profile?.chat_id) {
+        try {
+          messages = await manager.db.getMessages(profile.chat_id, appointment.client_id, 20);
+        } catch (e) {
+          console.log("Mesajlar alınamadı:", e.message);
+        }
+      }
+
+      res.render("appointment-detail", {
+        title: `Randevu #${appointmentId}`,
+        page: "appointments",
+        appointment,
+        profile,
+        messages: messages || []
+      });
+    } catch (err) {
+      console.error("Appointment detail hatası:", err);
+      res.redirect("/appointments");
+    }
+  });
+
   // Botlar
   app.get("/bots", async (req, res) => {
     try {
@@ -482,6 +523,17 @@ function startPanel({ manager, port, host }) {
     try {
       const { status } = req.body || {};
       await manager.db.updateAppointment(req.params.id, { status });
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Randevu not kaydet
+  app.post("/api/appointments/:id/note", async (req, res) => {
+    try {
+      const { notes } = req.body || {};
+      await manager.db.updateAppointment(req.params.id, { notes });
       res.json({ success: true });
     } catch (err) {
       res.json({ success: false, error: err.message });

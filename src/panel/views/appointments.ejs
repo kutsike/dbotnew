@@ -24,7 +24,7 @@
         </thead>
         <tbody>
           <% appointments.forEach(apt => { %>
-            <tr>
+            <tr onclick="window.location='/appointments/<%= apt.id %>'" style="cursor: pointer;">
               <td><strong><%= apt.full_name || 'İsimsiz' %></strong></td>
               <td><%= apt.phone?.split('@')[0] || '-' %></td>
               <td><%= apt.city || '-' %></td>
@@ -44,19 +44,22 @@
               </td>
               <td><%= new Date(apt.requested_at).toLocaleDateString('tr-TR') %></td>
               <td>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2" onclick="event.stopPropagation()">
+                  <a href="/appointments/<%= apt.id %>" class="btn btn-sm btn-info" title="Detay">
+                    <i class="fas fa-eye"></i>
+                  </a>
                   <% if (apt.status === 'pending') { %>
-                    <button class="btn btn-sm btn-primary" onclick="updateAppointmentStatus(<%= apt.id %>, 'confirmed')">
+                    <button class="btn btn-sm btn-primary" onclick="updateAppointmentStatus(<%= apt.id %>, 'confirmed')" title="Onayla">
                       <i class="fas fa-check"></i>
                     </button>
                   <% } %>
                   <% if (apt.status === 'confirmed') { %>
-                    <button class="btn btn-sm btn-secondary" onclick="updateAppointmentStatus(<%= apt.id %>, 'completed')">
+                    <button class="btn btn-sm btn-success" onclick="updateAppointmentStatus(<%= apt.id %>, 'completed')" title="Tamamla">
                       <i class="fas fa-check-double"></i>
                     </button>
                   <% } %>
                   <% if (apt.status !== 'cancelled' && apt.status !== 'completed') { %>
-                    <button class="btn btn-sm btn-danger" onclick="updateAppointmentStatus(<%= apt.id %>, 'cancelled')">
+                    <button class="btn btn-sm btn-danger" onclick="updateAppointmentStatus(<%= apt.id %>, 'cancelled')" title="İptal">
                       <i class="fas fa-times"></i>
                     </button>
                   <% } %>
