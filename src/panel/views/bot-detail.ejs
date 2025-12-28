@@ -1,10 +1,46 @@
-<%- include('partials/header', { title, page }) %>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> | Hocanın Yardımcısı</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="admin-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <i class="fas fa-mosque"></i>
+        <span>Hocanın Yardımcısı</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a></li>
+          <li><a href="/whatsapp" class="<%= page === 'whatsapp' ? 'active' : '' %>"><i class="fas fa-message"></i><span>WhatsApp</span></a></li>
+          <li><a href="/chats" class="<%= page === 'chats' ? 'active' : '' %>"><i class="fas fa-comments"></i><span>Sohbetler</span></a></li>
+          <li><a href="/appointments" class="<%= page === 'appointments' ? 'active' : '' %>"><i class="fas fa-calendar-check"></i><span>Randevular</span></a></li>
+          <li><a href="/bots" class="<%= page === 'bots' ? 'active' : '' %>"><i class="fas fa-robot"></i><span>Botlar</span></a></li>
+          <li><a href="/profiles" class="<%= page === 'profiles' ? 'active' : '' %>"><i class="fas fa-users"></i><span>Profiller</span></a></li>
+          <li><a href="/keywords" class="<%= page === 'keywords' ? 'active' : '' %>"><i class="fas fa-key"></i><span>Anahtar Kelimeler</span></a></li>
+          <li><a href="/duas" class="<%= page === 'duas' ? 'active' : '' %>"><i class="fas fa-pray"></i><span>Dualar</span></a></li>
+          <li><a href="/character" class="<%= page === 'character' ? 'active' : '' %>"><i class="fas fa-user-astronaut"></i><span>Karakter</span></a></li>
+          <li><a href="/settings" class="<%= page === 'settings' ? 'active' : '' %>"><i class="fas fa-cog"></i><span>Ayarlar</span></a></li>
+        </ul>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menü"><i class="fas fa-bars"></i></button>
+        <div class="topbar-title"><%= title %></div>
+      </div>
+      <div id="toastContainer" class="toast-container"></div>
 
 <div class="content-header">
   <div style="display: flex; align-items: center; gap: 1rem;">
-    <a href="/bots" class="btn btn-secondary btn-sm">
-      <i class="fas fa-arrow-left"></i>
-    </a>
+    <a href="/bots" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i></a>
     <h2><i class="fas fa-robot"></i> <%= client.name || client.id %></h2>
     <% if (client.status === 'ready') { %>
       <span class="badge badge-success"><i class="fas fa-check"></i> Aktif</span>
@@ -16,47 +52,26 @@
   </div>
   <div class="header-actions">
     <% if (client.frozen) { %>
-      <button class="btn btn-success" onclick="unfreezeClient('<%= client.id %>')">
-        <i class="fas fa-fire"></i> Aktif Et
-      </button>
+      <button class="btn btn-success" onclick="unfreezeClient('<%= client.id %>')"><i class="fas fa-fire"></i> Aktif Et</button>
     <% } else { %>
-      <button class="btn btn-warning" onclick="freezeClient('<%= client.id %>')">
-        <i class="fas fa-snowflake"></i> Dondur
-      </button>
+      <button class="btn btn-warning" onclick="freezeClient('<%= client.id %>')"><i class="fas fa-snowflake"></i> Dondur</button>
     <% } %>
   </div>
 </div>
 
 <% if (saved) { %>
-<div class="alert alert-success" id="savedAlert">
-  <i class="fas fa-check-circle"></i> Ayarlar kaydedildi!
-</div>
+<div class="alert alert-success" id="savedAlert"><i class="fas fa-check-circle"></i> Ayarlar kaydedildi!</div>
 <% } %>
 
-<!-- Bot Bilgileri Özet -->
+<!-- Bot Bilgileri -->
 <div class="card mb-3">
   <div class="card-body">
     <div class="bot-summary">
-      <div class="summary-item">
-        <span class="summary-label">ID:</span>
-        <code><%= client.id %></code>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">Telefon:</span>
-        <span><%= client.phone || '-' %></span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">Profil:</span>
-        <span class="stat-badge"><%= stats.profiles %></span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">Mesaj:</span>
-        <span class="stat-badge"><%= stats.messages %></span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">Bugün:</span>
-        <span class="stat-badge success"><%= stats.todayMessages %></span>
-      </div>
+      <div class="summary-item"><span class="summary-label">ID:</span><code><%= client.id %></code></div>
+      <div class="summary-item"><span class="summary-label">Telefon:</span><span><%= client.phone || '-' %></span></div>
+      <div class="summary-item"><span class="summary-label">Profil:</span><span class="stat-badge"><%= stats.profiles %></span></div>
+      <div class="summary-item"><span class="summary-label">Mesaj:</span><span class="stat-badge"><%= stats.messages %></span></div>
+      <div class="summary-item"><span class="summary-label">Bugün:</span><span class="stat-badge success"><%= stats.todayMessages %></span></div>
     </div>
   </div>
 </div>
@@ -64,29 +79,18 @@
 <!-- Sekmeler -->
 <div class="tabs-container">
   <div class="tabs">
-    <button class="tab active" data-tab="character">
-      <i class="fas fa-user-astronaut"></i> Karakter
-    </button>
-    <button class="tab" data-tab="humanization">
-      <i class="fas fa-user-clock"></i> İnsanlaştırma
-    </button>
-    <button class="tab" data-tab="keywords">
-      <i class="fas fa-key"></i> Anahtar Kelimeler
-    </button>
-    <button class="tab" data-tab="test">
-      <i class="fas fa-flask"></i> Test
-    </button>
+    <button class="tab active" data-tab="character"><i class="fas fa-user-astronaut"></i> Karakter</button>
+    <button class="tab" data-tab="humanization"><i class="fas fa-user-clock"></i> İnsanlaştırma</button>
+    <button class="tab" data-tab="keywords"><i class="fas fa-key"></i> Anahtar Kelimeler</button>
+    <button class="tab" data-tab="test"><i class="fas fa-flask"></i> Test</button>
   </div>
 
   <!-- Karakter Sekmesi -->
   <div class="tab-content active" id="tab-character">
     <div class="card">
-      <div class="card-header">
-        <h3><i class="fas fa-user-astronaut"></i> Karakter Seçimi</h3>
-      </div>
+      <div class="card-header"><h3><i class="fas fa-user-astronaut"></i> Karakter Seçimi</h3></div>
       <div class="card-body">
-        <p class="text-muted mb-3">Bu bot için kullanılacak karakteri seçin. Seçim yapılmazsa global karakter kullanılır.</p>
-
+        <p class="text-muted mb-3">Bu bot için kullanılacak karakteri seçin.</p>
         <div class="character-grid">
           <div class="character-card <%= !botSettings.character_id ? 'selected' : '' %>" data-character-id="">
             <div class="character-icon"><i class="fas fa-globe"></i></div>
@@ -101,10 +105,7 @@
             </div>
           <% }) %>
         </div>
-
-        <button class="btn btn-primary mt-3" id="saveCharacterBtn">
-          <i class="fas fa-save"></i> Karakteri Kaydet
-        </button>
+        <button class="btn btn-primary mt-3" id="saveCharacterBtn"><i class="fas fa-save"></i> Karakteri Kaydet</button>
       </div>
     </div>
   </div>
@@ -122,11 +123,9 @@
         <form id="humanizationForm">
           <div class="form-group">
             <label class="form-check-label">
-              <input type="checkbox" id="humanEnabled" <%= humanizationConfig.enabled ? 'checked' : '' %>>
-              İnsanlaştırma Aktif
+              <input type="checkbox" id="humanEnabled" <%= humanizationConfig.enabled ? 'checked' : '' %>> İnsanlaştırma Aktif
             </label>
           </div>
-
           <div class="row">
             <div class="col-6">
               <div class="form-group">
@@ -141,24 +140,20 @@
               </div>
             </div>
           </div>
-
           <div class="row">
             <div class="col-6">
               <div class="form-group">
                 <label class="form-label">Okuma Hızı (WPM)</label>
                 <input type="number" id="wpmReading" class="form-control" value="<%= humanizationConfig.wpm_reading %>" min="50">
-                <small class="form-text text-muted">Kelime/Dakika</small>
               </div>
             </div>
             <div class="col-6">
               <div class="form-group">
                 <label class="form-label">Yazma Hızı (CPM)</label>
                 <input type="number" id="cpmTyping" class="form-control" value="<%= humanizationConfig.cpm_typing %>" min="50">
-                <small class="form-text text-muted">Karakter/Dakika</small>
               </div>
             </div>
           </div>
-
           <div class="row">
             <div class="col-6">
               <div class="form-group">
@@ -173,36 +168,14 @@
               </div>
             </div>
           </div>
-
-          <div class="row">
-            <div class="col-6">
-              <div class="form-group">
-                <label class="form-label">Yazma Varyansı (%)</label>
-                <input type="number" id="typingVariance" class="form-control" value="<%= humanizationConfig.typing_variance %>" min="0" max="50">
-              </div>
-            </div>
-            <div class="col-6">
-              <div class="form-group">
-                <label class="form-label">Mesaj Bölme Eşiği</label>
-                <input type="number" id="splitThreshold" class="form-control" value="<%= humanizationConfig.split_threshold || 240 %>" min="100">
-              </div>
-            </div>
-          </div>
-
           <div class="form-group">
             <label class="form-check-label">
-              <input type="checkbox" id="splitMessages" <%= humanizationConfig.split_messages !== false ? 'checked' : '' %>>
-              Uzun mesajları böl
+              <input type="checkbox" id="splitMessages" <%= humanizationConfig.split_messages !== false ? 'checked' : '' %>> Uzun mesajları böl
             </label>
           </div>
-
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary flex-1">
-              <i class="fas fa-save"></i> Kaydet
-            </button>
-            <button type="button" class="btn btn-secondary" onclick="clearHumanization()">
-              <i class="fas fa-undo"></i> Global Ayarlara Dön
-            </button>
+            <button type="submit" class="btn btn-primary flex-1"><i class="fas fa-save"></i> Kaydet</button>
+            <button type="button" class="btn btn-secondary" onclick="clearHumanization()"><i class="fas fa-undo"></i> Global Ayarlara Dön</button>
           </div>
         </form>
       </div>
@@ -214,48 +187,25 @@
     <div class="card">
       <div class="card-header">
         <h3><i class="fas fa-key"></i> Anahtar Kelimeler</h3>
-        <button class="btn btn-primary btn-sm" onclick="openKeywordModal()">
-          <i class="fas fa-plus"></i> Yeni Ekle
-        </button>
+        <button class="btn btn-primary btn-sm" onclick="openKeywordModal()"><i class="fas fa-plus"></i> Yeni Ekle</button>
       </div>
       <div class="card-body">
         <% if (keywords && keywords.length > 0) { %>
           <table class="table">
             <thead>
-              <tr>
-                <th>Anahtar Kelime</th>
-                <th>Eşleşme</th>
-                <th>Yanıt</th>
-                <th>Kapsam</th>
-                <th>Durum</th>
-                <th>İşlem</th>
-              </tr>
+              <tr><th>Anahtar Kelime</th><th>Eşleşme</th><th>Yanıt</th><th>Durum</th><th>İşlem</th></tr>
             </thead>
             <tbody id="keywordsTable">
               <% keywords.forEach(function(kw) { %>
                 <tr class="<%= kw.is_active ? '' : 'row-inactive' %>" data-id="<%= kw.id %>">
                   <td><strong><%= kw.keyword %></strong></td>
                   <td>
-                    <% if (kw.match_type === 'exact') { %>
-                      <span class="badge badge-info">Tam</span>
-                    <% } else if (kw.match_type === 'contains') { %>
-                      <span class="badge badge-primary">İçerir</span>
-                    <% } else if (kw.match_type === 'startswith') { %>
-                      <span class="badge badge-warning">Başlar</span>
-                    <% } else { %>
-                      <span class="badge badge-danger">Regex</span>
-                    <% } %>
+                    <% if (kw.match_type === 'exact') { %><span class="badge badge-info">Tam</span>
+                    <% } else if (kw.match_type === 'contains') { %><span class="badge badge-primary">İçerir</span>
+                    <% } else if (kw.match_type === 'startswith') { %><span class="badge badge-warning">Başlar</span>
+                    <% } else { %><span class="badge badge-danger">Regex</span><% } %>
                   </td>
-                  <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    <%= kw.response.substring(0, 50) %><%= kw.response.length > 50 ? '...' : '' %>
-                  </td>
-                  <td>
-                    <% if (kw.client_id === client.id) { %>
-                      <span class="badge badge-primary">Bu Bot</span>
-                    <% } else { %>
-                      <span class="badge badge-secondary">Tümü</span>
-                    <% } %>
-                  </td>
+                  <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= kw.response.substring(0, 40) %></td>
                   <td>
                     <label class="switch">
                       <input type="checkbox" <%= kw.is_active ? 'checked' : '' %> onchange="toggleKeyword(<%= kw.id %>, this.checked)">
@@ -263,12 +213,8 @@
                     </label>
                   </td>
                   <td>
-                    <button class="btn btn-sm btn-secondary" onclick="editKeyword(<%= kw.id %>)">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteKeyword(<%= kw.id %>)">
-                      <i class="fas fa-trash"></i>
-                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="editKeyword(<%= kw.id %>)"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteKeyword(<%= kw.id %>)"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
               <% }) %>
@@ -278,9 +224,7 @@
           <div class="empty-state">
             <i class="fas fa-key"></i>
             <p>Henüz anahtar kelime eklenmemiş.</p>
-            <button class="btn btn-primary btn-sm" onclick="openKeywordModal()">
-              <i class="fas fa-plus"></i> Anahtar Kelime Ekle
-            </button>
+            <button class="btn btn-primary btn-sm" onclick="openKeywordModal()"><i class="fas fa-plus"></i> Anahtar Kelime Ekle</button>
           </div>
         <% } %>
       </div>
@@ -290,25 +234,17 @@
   <!-- Test Sekmesi -->
   <div class="tab-content" id="tab-test">
     <div class="card">
-      <div class="card-header">
-        <h3><i class="fas fa-flask"></i> Bot Testi</h3>
-      </div>
+      <div class="card-header"><h3><i class="fas fa-flask"></i> Bot Testi</h3></div>
       <div class="card-body">
         <p class="text-muted mb-3">Botun mesajlara nasıl yanıt vereceğini test edin.</p>
-
         <div class="form-group">
           <label class="form-label">Test Mesajı</label>
           <textarea id="testMessage" class="form-control" rows="3" placeholder="Bir mesaj yazın..."></textarea>
         </div>
-
-        <button class="btn btn-primary" id="testBtn">
-          <i class="fas fa-paper-plane"></i> Test Et
-        </button>
-
+        <button class="btn btn-primary" id="testBtn"><i class="fas fa-paper-plane"></i> Test Et</button>
         <div id="testResult" class="test-result" style="display: none;">
           <h4><i class="fas fa-robot"></i> Bot Yanıtı:</h4>
           <div class="test-response"></div>
-          <div class="test-meta"></div>
         </div>
       </div>
     </div>
@@ -320,19 +256,15 @@
   <div class="card modal-card">
     <div class="card-header">
       <h3><i class="fas fa-key"></i> <span id="keywordModalTitle">Anahtar Kelime Ekle</span></h3>
-      <button class="btn btn-sm btn-secondary" onclick="closeKeywordModal()">
-        <i class="fas fa-times"></i>
-      </button>
+      <button class="btn btn-sm btn-secondary" onclick="closeKeywordModal()"><i class="fas fa-times"></i></button>
     </div>
     <div class="card-body">
       <form id="keywordForm">
         <input type="hidden" id="keywordId">
-
         <div class="form-group">
           <label class="form-label">Anahtar Kelime</label>
           <input type="text" id="keywordText" class="form-control" required>
         </div>
-
         <div class="form-group">
           <label class="form-label">Eşleşme Tipi</label>
           <select id="keywordMatchType" class="form-control">
@@ -342,13 +274,10 @@
             <option value="regex">Regex</option>
           </select>
         </div>
-
         <div class="form-group">
           <label class="form-label">Yanıt</label>
           <textarea id="keywordResponse" class="form-control" rows="4" required></textarea>
-          <small class="form-text text-muted">{name} veya {isim} ile kişinin adını ekleyebilirsiniz</small>
         </div>
-
         <div class="form-group">
           <label class="form-label">Kapsam</label>
           <select id="keywordScope" class="form-control">
@@ -356,10 +285,7 @@
             <option value="">Tüm Botlar</option>
           </select>
         </div>
-
-        <button type="submit" class="btn btn-primary w-100">
-          <i class="fas fa-save"></i> Kaydet
-        </button>
+        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> Kaydet</button>
       </form>
     </div>
   </div>
@@ -370,9 +296,7 @@
   <div class="card modal-card">
     <div class="card-header">
       <h3><i class="fas fa-snowflake"></i> Botu Dondur</h3>
-      <button class="btn btn-sm btn-secondary" onclick="closeFreezeModal()">
-        <i class="fas fa-times"></i>
-      </button>
+      <button class="btn btn-sm btn-secondary" onclick="closeFreezeModal()"><i class="fas fa-times"></i></button>
     </div>
     <div class="card-body">
       <form id="freezeForm">
@@ -384,9 +308,7 @@
           <label class="form-label">Yönlendirme Telefonu (opsiyonel)</label>
           <input type="text" name="redirectPhone" class="form-control" placeholder="+905xxxxxxxxx">
         </div>
-        <button type="submit" class="btn btn-warning w-100">
-          <i class="fas fa-snowflake"></i> Dondur
-        </button>
+        <button type="submit" class="btn btn-warning w-100"><i class="fas fa-snowflake"></i> Dondur</button>
       </form>
     </div>
   </div>
@@ -395,181 +317,43 @@
 <style>
 .mb-3 { margin-bottom: 1rem; }
 .mt-3 { margin-top: 1rem; }
-
-.bot-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-}
-.summary-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.summary-label {
-  color: #94a3b8;
-  font-size: 0.85rem;
-}
-.stat-badge {
-  background: #334155;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-weight: 600;
-}
-.stat-badge.success {
-  background: #166534;
-  color: #4ade80;
-}
-
-/* Tabs */
+.bot-summary { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.summary-item { display: flex; align-items: center; gap: 0.5rem; }
+.summary-label { color: #94a3b8; font-size: 0.85rem; }
+.stat-badge { background: #334155; padding: 0.25rem 0.75rem; border-radius: 1rem; font-weight: 600; }
+.stat-badge.success { background: #166534; color: #4ade80; }
 .tabs-container { margin-top: 1rem; }
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  border-bottom: 2px solid #334155;
-  margin-bottom: 1rem;
-}
-.tab {
-  background: none;
-  border: none;
-  padding: 0.75rem 1.25rem;
-  color: #94a3b8;
-  cursor: pointer;
-  font-size: 0.9rem;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: all 0.2s;
-}
-.tab:hover {
-  color: #e2e8f0;
-}
-.tab.active {
-  color: #60a5fa;
-  border-bottom-color: #60a5fa;
-}
+.tabs { display: flex; gap: 0.5rem; border-bottom: 2px solid #334155; margin-bottom: 1rem; }
+.tab { background: none; border: none; padding: 0.75rem 1.25rem; color: #94a3b8; cursor: pointer; font-size: 0.9rem; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+.tab:hover { color: #e2e8f0; }
+.tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
 .tab i { margin-right: 0.5rem; }
-
-.tab-content {
-  display: none;
-}
-.tab-content.active {
-  display: block;
-}
-
-/* Character Grid */
-.character-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-}
-.character-card {
-  background: #1e293b;
-  border: 2px solid #334155;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.character-card:hover {
-  border-color: #60a5fa;
-}
-.character-card.selected {
-  border-color: #60a5fa;
-  background: #1e3a5f;
-}
-.character-icon {
-  font-size: 2rem;
-  color: #60a5fa;
-  margin-bottom: 0.5rem;
-}
-.character-name {
-  font-weight: 600;
-  color: #e2e8f0;
-}
-.character-desc {
-  font-size: 0.8rem;
-  color: #94a3b8;
-  margin-top: 0.25rem;
-}
-
-/* Test Result */
-.test-result {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #1e293b;
-  border-radius: 0.5rem;
-}
-.test-result h4 {
-  color: #60a5fa;
-  margin-bottom: 0.75rem;
-}
-.test-response {
-  background: #0f172a;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  white-space: pre-wrap;
-}
-.test-meta {
-  margin-top: 0.75rem;
-  font-size: 0.8rem;
-  color: #94a3b8;
-}
-
-/* Switch Toggle */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 20px;
-}
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.character-card { background: #1e293b; border: 2px solid #334155; border-radius: 0.5rem; padding: 1rem; cursor: pointer; transition: all 0.2s; }
+.character-card:hover { border-color: #60a5fa; }
+.character-card.selected { border-color: #60a5fa; background: #1e3a5f; }
+.character-icon { font-size: 2rem; color: #60a5fa; margin-bottom: 0.5rem; }
+.character-name { font-weight: 600; color: #e2e8f0; }
+.character-desc { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
+.test-result { margin-top: 1.5rem; padding: 1rem; background: #1e293b; border-radius: 0.5rem; }
+.test-result h4 { color: #60a5fa; margin-bottom: 0.75rem; }
+.test-response { background: #0f172a; padding: 1rem; border-radius: 0.5rem; white-space: pre-wrap; }
+.switch { position: relative; display: inline-block; width: 40px; height: 20px; }
 .switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #475569;
-  transition: .3s;
-  border-radius: 20px;
-}
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s;
-  border-radius: 50%;
-}
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #475569; transition: .3s; border-radius: 20px; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
 input:checked + .slider { background-color: #22c55e; }
 input:checked + .slider:before { transform: translateX(20px); }
-
 .row { display: flex; gap: 1rem; }
 .col-6 { flex: 1; }
 .flex-1 { flex: 1; }
 .w-100 { width: 100%; }
 .row-inactive { opacity: 0.5; }
-
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.8);
-  z-index: 1000;
-  padding: 2rem;
-  overflow-y: auto;
-}
-.modal-card {
-  max-width: 500px;
-  margin: 2rem auto;
-}
-.alert-success {
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  background: #166534;
-  border-radius: 0.5rem;
-  color: #bbf7d0;
-}
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; padding: 2rem; overflow-y: auto; }
+.modal-card { max-width: 500px; margin: 2rem auto; }
+.alert-success { margin-bottom: 1rem; padding: 0.75rem 1rem; background: #166534; border-radius: 0.5rem; color: #bbf7d0; }
 </style>
 
 <script>
@@ -581,7 +365,6 @@ document.querySelectorAll('.tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
     document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
-
     tab.classList.add('active');
     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
   });
@@ -607,15 +390,10 @@ if (saveCharBtn) {
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      if (data.success) {
-        showToast('Başarılı', 'Karakter kaydedildi', 'success');
-      } else {
-        showToast('Hata', data.error || 'Bir hata oluştu', 'error');
-      }
+      if (data.success) { showToast('Başarılı', 'Karakter kaydedildi', 'success'); }
+      else { showToast('Hata', data.error || 'Bir hata oluştu', 'error'); }
     })
-    .catch(function(err) {
-      showToast('Hata', 'Sunucu hatası', 'error');
-    });
+    .catch(function(err) { showToast('Hata', 'Sunucu hatası', 'error'); });
   });
 }
 
@@ -624,7 +402,6 @@ var humanForm = document.getElementById('humanizationForm');
 if (humanForm) {
   humanForm.addEventListener('submit', function(e) {
     e.preventDefault();
-
     var config = {
       enabled: document.getElementById('humanEnabled').checked,
       min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
@@ -633,11 +410,8 @@ if (humanForm) {
       cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
       long_message_threshold: parseInt(document.getElementById('longThreshold').value) || 150,
       long_message_extra_delay: parseInt(document.getElementById('longExtra').value) || 60,
-      typing_variance: parseInt(document.getElementById('typingVariance').value) || 20,
-      split_messages: document.getElementById('splitMessages').checked,
-      split_threshold: parseInt(document.getElementById('splitThreshold').value) || 240
+      split_messages: document.getElementById('splitMessages').checked
     };
-
     fetch('/api/clients/' + clientId + '/humanization', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -645,15 +419,10 @@ if (humanForm) {
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      if (data.success) {
-        showToast('Başarılı', 'İnsanlaştırma ayarları kaydedildi', 'success');
-      } else {
-        showToast('Hata', data.error || 'Bir hata oluştu', 'error');
-      }
+      if (data.success) { showToast('Başarılı', 'İnsanlaştırma ayarları kaydedildi', 'success'); }
+      else { showToast('Hata', data.error || 'Bir hata oluştu', 'error'); }
     })
-    .catch(function(err) {
-      showToast('Hata', 'Sunucu hatası', 'error');
-    });
+    .catch(function(err) { showToast('Hata', 'Sunucu hatası', 'error'); });
   });
 }
 
@@ -662,16 +431,10 @@ function clearHumanization() {
   fetch('/api/clients/' + clientId + '/humanization', { method: 'DELETE' })
   .then(function(res) { return res.json(); })
   .then(function(data) {
-    if (data.success) {
-      showToast('Başarılı', 'Global ayarlara dönüldü', 'success');
-      setTimeout(function() { location.reload(); }, 500);
-    } else {
-      showToast('Hata', data.error || 'Bir hata oluştu', 'error');
-    }
+    if (data.success) { showToast('Başarılı', 'Global ayarlara dönüldü', 'success'); setTimeout(function() { location.reload(); }, 500); }
+    else { showToast('Hata', data.error || 'Bir hata oluştu', 'error'); }
   })
-  .catch(function(err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
-  });
+  .catch(function(err) { showToast('Hata', 'Sunucu hatası', 'error'); });
 }
 
 // Keywords
@@ -685,9 +448,7 @@ function openKeywordModal(id) {
   document.getElementById('keywordModal').style.display = 'block';
 }
 
-function closeKeywordModal() {
-  document.getElementById('keywordModal').style.display = 'none';
-}
+function closeKeywordModal() { document.getElementById('keywordModal').style.display = 'none'; }
 
 function editKeyword(id) {
   fetch('/api/keywords?client_id=' + clientId)
@@ -703,9 +464,6 @@ function editKeyword(id) {
       document.getElementById('keywordScope').value = kw.client_id || '';
       document.getElementById('keywordModal').style.display = 'block';
     }
-  })
-  .catch(function(err) {
-    showToast('Hata', 'Veri yüklenemedi', 'error');
   });
 }
 
@@ -714,28 +472,13 @@ function deleteKeyword(id) {
   fetch('/api/keywords/' + id, { method: 'DELETE' })
   .then(function(res) { return res.json(); })
   .then(function(data) {
-    if (data.success) {
-      showToast('Başarılı', 'Anahtar kelime silindi', 'success');
-      var row = document.querySelector('tr[data-id="' + id + '"]');
-      if (row) row.remove();
-    } else {
-      showToast('Hata', data.error, 'error');
-    }
-  })
-  .catch(function(err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
+    if (data.success) { showToast('Başarılı', 'Anahtar kelime silindi', 'success'); var row = document.querySelector('tr[data-id="' + id + '"]'); if (row) row.remove(); }
+    else { showToast('Hata', data.error, 'error'); }
   });
 }
 
 function toggleKeyword(id, isActive) {
-  fetch('/api/keywords/' + id + '/toggle', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ is_active: isActive })
-  })
-  .catch(function(err) {
-    showToast('Hata', 'Durum güncellenemedi', 'error');
-  });
+  fetch('/api/keywords/' + id + '/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: isActive }) });
 }
 
 var keywordForm = document.getElementById('keywordForm');
@@ -743,33 +486,14 @@ if (keywordForm) {
   keywordForm.addEventListener('submit', function(e) {
     e.preventDefault();
     var id = document.getElementById('keywordId').value;
-    var formData = {
-      keyword: document.getElementById('keywordText').value,
-      match_type: document.getElementById('keywordMatchType').value,
-      response: document.getElementById('keywordResponse').value,
-      client_id: document.getElementById('keywordScope').value || null
-    };
-
+    var formData = { keyword: document.getElementById('keywordText').value, match_type: document.getElementById('keywordMatchType').value, response: document.getElementById('keywordResponse').value, client_id: document.getElementById('keywordScope').value || null };
     var url = id ? '/api/keywords/' + id : '/api/keywords';
     var method = id ? 'PUT' : 'POST';
-
-    fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    })
+    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
     .then(function(res) { return res.json(); })
     .then(function(result) {
-      if (result.success) {
-        showToast('Başarılı', 'Anahtar kelime kaydedildi', 'success');
-        closeKeywordModal();
-        setTimeout(function() { location.reload(); }, 500);
-      } else {
-        showToast('Hata', result.error, 'error');
-      }
-    })
-    .catch(function(err) {
-      showToast('Hata', 'Sunucu hatası', 'error');
+      if (result.success) { showToast('Başarılı', 'Anahtar kelime kaydedildi', 'success'); closeKeywordModal(); setTimeout(function() { location.reload(); }, 500); }
+      else { showToast('Hata', result.error, 'error'); }
     });
   });
 }
@@ -779,73 +503,35 @@ var testBtn = document.getElementById('testBtn');
 if (testBtn) {
   testBtn.addEventListener('click', function() {
     var message = document.getElementById('testMessage').value.trim();
-    if (!message) {
-      showToast('Uyarı', 'Lütfen bir mesaj yazın', 'warning');
-      return;
-    }
-
+    if (!message) { showToast('Uyarı', 'Lütfen bir mesaj yazın', 'warning'); return; }
     testBtn.disabled = true;
     testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Test Ediliyor...';
-
-    fetch('/api/test-personality', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: message, clientId: clientId })
-    })
+    fetch('/api/test-personality', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: message, clientId: clientId }) })
     .then(function(res) { return res.json(); })
     .then(function(data) {
       document.getElementById('testResult').style.display = 'block';
-      if (data.success) {
-        document.querySelector('.test-response').textContent = data.response;
-        document.querySelector('.test-meta').textContent = '';
-      } else {
-        document.querySelector('.test-response').textContent = 'Hata: ' + (data.error || 'Yanıt alınamadı');
-      }
+      if (data.success) { document.querySelector('.test-response').textContent = data.response; }
+      else { document.querySelector('.test-response').textContent = 'Hata: ' + (data.error || 'Yanıt alınamadı'); }
     })
-    .catch(function(err) {
-      document.getElementById('testResult').style.display = 'block';
-      document.querySelector('.test-response').textContent = 'Sunucu hatası';
-    })
-    .finally(function() {
-      testBtn.disabled = false;
-      testBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Test Et';
-    });
+    .catch(function(err) { document.getElementById('testResult').style.display = 'block'; document.querySelector('.test-response').textContent = 'Sunucu hatası'; })
+    .finally(function() { testBtn.disabled = false; testBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Test Et'; });
   });
 }
 
 // Freeze/Unfreeze
-function freezeClient(id) {
-  document.getElementById('freezeModal').style.display = 'block';
-}
-
-function closeFreezeModal() {
-  document.getElementById('freezeModal').style.display = 'none';
-}
+function freezeClient(id) { document.getElementById('freezeModal').style.display = 'block'; }
+function closeFreezeModal() { document.getElementById('freezeModal').style.display = 'none'; }
 
 var freezeForm = document.getElementById('freezeForm');
 if (freezeForm) {
   freezeForm.addEventListener('submit', function(e) {
     e.preventDefault();
     var formData = new FormData(e.target);
-    fetch('/api/clients/' + clientId + '/freeze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: formData.get('message'),
-        redirectPhone: formData.get('redirectPhone')
-      })
-    })
+    fetch('/api/clients/' + clientId + '/freeze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: formData.get('message'), redirectPhone: formData.get('redirectPhone') }) })
     .then(function(res) { return res.json(); })
     .then(function(result) {
-      if (result.success) {
-        showToast('Başarılı', 'Bot donduruldu', 'success');
-        setTimeout(function() { location.reload(); }, 500);
-      } else {
-        showToast('Hata', result.error || 'Bir hata oluştu', 'error');
-      }
-    })
-    .catch(function(err) {
-      showToast('Hata', 'Sunucu hatası', 'error');
+      if (result.success) { showToast('Başarılı', 'Bot donduruldu', 'success'); setTimeout(function() { location.reload(); }, 500); }
+      else { showToast('Hata', result.error || 'Bir hata oluştu', 'error'); }
     });
   });
 }
@@ -854,31 +540,17 @@ function unfreezeClient(id) {
   fetch('/api/clients/' + id + '/unfreeze', { method: 'POST' })
   .then(function(res) { return res.json(); })
   .then(function(result) {
-    if (result.success) {
-      showToast('Başarılı', 'Bot aktif edildi', 'success');
-      setTimeout(function() { location.reload(); }, 500);
-    } else {
-      showToast('Hata', result.error || 'Bir hata oluştu', 'error');
-    }
-  })
-  .catch(function(err) {
-    showToast('Hata', 'Sunucu hatası', 'error');
+    if (result.success) { showToast('Başarılı', 'Bot aktif edildi', 'success'); setTimeout(function() { location.reload(); }, 500); }
+    else { showToast('Hata', result.error || 'Bir hata oluştu', 'error'); }
   });
 }
 
-// ESC to close modals
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    closeKeywordModal();
-    closeFreezeModal();
-  }
-});
-
-// Auto-hide success alert
-setTimeout(function() {
-  var alert = document.getElementById('savedAlert');
-  if (alert) alert.style.display = 'none';
-}, 3000);
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeKeywordModal(); closeFreezeModal(); } });
+setTimeout(function() { var alert = document.getElementById('savedAlert'); if (alert) alert.style.display = 'none'; }, 3000);
 </script>
 
-<%- include('partials/footer') %>
+    </main>
+  </div>
+  <script src="/js/app.js"></script>
+</body>
+</html>
