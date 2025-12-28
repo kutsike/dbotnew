@@ -41,74 +41,7 @@
 
   <div class="card">
     <div class="card-header">
-      <h3><i class="fas fa-user-clock"></i> Mesaj Gecikme Simülasyonu (İnsansı Davranış)</h3>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label class="form-label">Okuma Süresi (ms)</label>
-        <input type="number" min="0" step="100" name="read_delay_ms" class="form-control" value="<%= settings.read_delay_ms || 3000 %>">
-        <small class="text-muted">Bot mesajı okumuş gibi bekler</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Yazma/Düşünme Süresi (ms)</label>
-        <input type="number" min="0" step="100" name="think_delay_ms" class="form-control" value="<%= settings.think_delay_ms || 2000 %>">
-        <small class="text-muted">Cevap yazmaya başlamadan önce</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">İnsan Yazma Hızı (karakter/saniye)</label>
-        <input type="number" min="5" step="1" name="typing_speed_cps" class="form-control" value="<%= settings.typing_speed_cps || 45 %>">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Yazıyor Göstergesi</label>
-        <select class="form-control" name="show_typing_indicator">
-          <option value="true" <%= (String(settings.show_typing_indicator||'true')==='true') ? 'selected' : '' %>>Açık</option>
-          <option value="false" <%= (String(settings.show_typing_indicator||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Rastgele Gecikme</label>
-        <select class="form-control" name="random_delay_enabled">
-          <option value="true" <%= (String(settings.random_delay_enabled||'true')==='true') ? 'selected' : '' %>>Açık</option>
-          <option value="false" <%= (String(settings.random_delay_enabled||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
-        </select>
-        <small class="text-muted">Her mesajda küçük varyasyon ekler</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Rastgele Gecikme Oranı (0.00 - 0.60)</label>
-        <input type="number" min="0" max="0.6" step="0.05" name="random_delay_percent" class="form-control" value="<%= settings.random_delay_percent || 0.30 %>">
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-feather"></i> İnsansı Davranış Özellikleri</h3>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label class="form-label">Mesaj Bölme</label>
-        <select class="form-control" name="split_messages">
-          <option value="true" <%= (String(settings.split_messages||'true')==='true') ? 'selected' : '' %>>Açık</option>
-          <option value="false" <%= (String(settings.split_messages||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
-        </select>
-        <small class="text-muted">Uzun yanıtları 2-3 parça göndererek daha doğal görünür</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Bölme Eşiği (karakter)</label>
-        <input type="number" min="120" step="10" name="split_threshold" class="form-control" value="<%= settings.split_threshold || 240 %>">
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-robot"></i> OpenAI (Opsiyonel)</h3>
+      <h3><i class="fas fa-robot"></i> AI Ayarları</h3>
     </div>
     <div class="card-body">
       <div class="form-group">
@@ -127,6 +60,18 @@
         </div>
         <pre id="testPersonalityOutput" style="margin-top:10px; white-space:pre-wrap;"></pre>
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-info-circle"></i> Bilgilendirme</h3>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">
+        <i class="fas fa-lightbulb"></i> <strong>İnsanlaştırma ayarları</strong> artık bot bazlı yapılmaktadır.
+        Her bot için ayrı ayrı insanlaştırma ayarları yapmak için <a href="/bots">Botlar</a> sayfasından ilgili bota tıklayın.
+      </p>
     </div>
   </div>
 

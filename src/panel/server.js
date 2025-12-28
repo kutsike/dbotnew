@@ -100,15 +100,53 @@ function startPanel({ manager, port, host }) {
   // Randevular
   app.get("/appointments", async (req, res) => {
     try {
+      const status = req.query.status || "all";
       const appointments = await manager.db.getAppointments();
       res.render("appointments", {
         title: "Randevular",
         page: "appointments",
+        status,
         appointments: appointments || [],
       });
     } catch (err) {
       console.error("Appointments hatası:", err);
-      res.render("appointments", { title: "Randevular", page: "appointments", appointments: [] });
+      res.render("appointments", { title: "Randevular", page: "appointments", status: "all", appointments: [] });
+    }
+  });
+
+  // Randevu Detay
+  app.get("/appointments/:id", async (req, res) => {
+    try {
+      const appointmentId = req.params.id;
+      const [rows] = await manager.db.pool.execute(
+        "SELECT * FROM appointments WHERE id = ?",
+        [appointmentId]
+      );
+      const appointment = rows[0];
+
+      if (!appointment) {
+        return res.redirect("/appointments");
+      }
+
+      // İlişkili profil
+      let profile = null;
+      if (appointment.profile_id) {
+        const [profiles] = await manager.db.pool.execute(
+          "SELECT * FROM profiles WHERE id = ?",
+          [appointment.profile_id]
+        );
+        profile = profiles[0] || null;
+      }
+
+      res.render("appointment-detail", {
+        title: appointment.full_name || "Randevu",
+        page: "appointments",
+        appointment,
+        profile
+      });
+    } catch (err) {
+      console.error("Randevu detay hatası:", err);
+      res.redirect("/appointments");
     }
   });
 
@@ -261,6 +299,38 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Profil Detay
+  app.get("/profiles/:id", async (req, res) => {
+    try {
+      const profileId = req.params.id;
+      const [rows] = await manager.db.pool.execute(
+        "SELECT * FROM profiles WHERE id = ?",
+        [profileId]
+      );
+      const profile = rows[0];
+
+      if (!profile) {
+        return res.redirect("/profiles");
+      }
+
+      // Son mesajlar
+      const [messages] = await manager.db.pool.execute(
+        "SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at DESC LIMIT 50",
+        [profile.chat_id]
+      );
+
+      res.render("profile-detail", {
+        title: profile.full_name || "Profil",
+        page: "profiles",
+        profile,
+        messages: messages || []
+      });
+    } catch (err) {
+      console.error("Profil detay hatası:", err);
+      res.redirect("/profiles");
+    }
+  });
+
   // Dualar
   app.get("/duas", async (req, res) => {
     try {
@@ -341,39 +411,13 @@ function startPanel({ manager, port, host }) {
     }
   });
 
-  // Humanization Settings (GET)
-  app.get("/humanization", async (req, res) => {
-    const configStr = await manager.db.getSetting("humanization_config");
-    let config = {
-      enabled: true, min_response_delay: 60, max_response_delay: 600,
-      wpm_reading: 200, cpm_typing: 300, long_message_threshold: 150,
-      long_message_extra_delay: 60, typing_variance: 20
-    };
-    try { if(configStr) Object.assign(config, JSON.parse(configStr)); } catch(e){}
-    
-    res.render("humanization", { 
-      title: "İnsanlaştırma Ayarları",
-      page: "humanization", 
-      config,
-      saved: req.query.saved === 'true'
-    });
+  // Humanization - Artık bot bazlı, yönlendir
+  app.get("/humanization", (req, res) => {
+    res.redirect("/bots");
   });
 
-  // Humanization Settings (POST)
-  app.post("/humanization", async (req, res) => {
-    const newConfig = {
-      enabled: req.body.enabled === "on",
-      min_response_delay: parseInt(req.body.min_response_delay) || 60,
-      max_response_delay: parseInt(req.body.max_response_delay) || 600,
-      wpm_reading: parseInt(req.body.wpm_reading) || 200,
-      cpm_typing: parseInt(req.body.cpm_typing) || 300,
-      long_message_threshold: parseInt(req.body.long_message_threshold) || 150,
-      long_message_extra_delay: parseInt(req.body.long_message_extra_delay) || 60,
-      typing_variance: parseInt(req.body.typing_variance) || 20,
-    };
-
-    await manager.db.setSetting("humanization_config", JSON.stringify(newConfig));
-    res.redirect("/humanization?saved=true");
+  app.post("/humanization", (req, res) => {
+    res.redirect("/bots");
   });
 
   // ========= API =========
@@ -593,6 +637,117 @@ function startPanel({ manager, port, host }) {
       }
       await manager.db.setSetting("characters_json", JSON.stringify(characters));
       if (activeCharacterId) await manager.db.setSetting("active_character_id", String(activeCharacterId));
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= PROFILES API =========
+
+  // Profil güncelle
+  app.put("/api/profiles/:id", async (req, res) => {
+    try {
+      const profileId = req.params.id;
+      const { full_name, city, mother_name, birth_date, status, subject, notes } = req.body || {};
+
+      const updates = [];
+      const values = [];
+
+      if (full_name !== undefined) { updates.push("full_name = ?"); values.push(full_name); }
+      if (city !== undefined) { updates.push("city = ?"); values.push(city); }
+      if (mother_name !== undefined) { updates.push("mother_name = ?"); values.push(mother_name); }
+      if (birth_date !== undefined) { updates.push("birth_date = ?"); values.push(birth_date); }
+      if (status !== undefined) { updates.push("status = ?"); values.push(status); }
+      if (subject !== undefined) { updates.push("subject = ?"); values.push(subject); }
+      if (notes !== undefined) { updates.push("notes = ?"); values.push(notes); }
+
+      if (updates.length > 0) {
+        updates.push("updated_at = NOW()");
+        values.push(profileId);
+        await manager.db.pool.execute(
+          "UPDATE profiles SET " + updates.join(", ") + " WHERE id = ?",
+          values
+        );
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Profil sil
+  app.delete("/api/profiles/:id", async (req, res) => {
+    try {
+      const profileId = req.params.id;
+      await manager.db.pool.execute("DELETE FROM profiles WHERE id = ?", [profileId]);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= APPOINTMENTS API =========
+
+  // Randevu güncelle
+  app.put("/api/appointments/:id", async (req, res) => {
+    try {
+      const appointmentId = req.params.id;
+      const { full_name, city, status, subject, notes, scheduled_at, duration } = req.body || {};
+
+      const updates = [];
+      const values = [];
+
+      if (full_name !== undefined) { updates.push("full_name = ?"); values.push(full_name); }
+      if (city !== undefined) { updates.push("city = ?"); values.push(city); }
+      if (status !== undefined) { updates.push("status = ?"); values.push(status); }
+      if (subject !== undefined) { updates.push("subject = ?"); values.push(subject); }
+      if (notes !== undefined) { updates.push("notes = ?"); values.push(notes); }
+      if (scheduled_at !== undefined) { updates.push("scheduled_at = ?"); values.push(scheduled_at || null); }
+      if (duration !== undefined) { updates.push("duration = ?"); values.push(duration); }
+
+      if (updates.length > 0) {
+        values.push(appointmentId);
+        await manager.db.pool.execute(
+          "UPDATE appointments SET " + updates.join(", ") + " WHERE id = ?",
+          values
+        );
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Randevu durumu güncelle
+  app.put("/api/appointments/:id/status", async (req, res) => {
+    try {
+      const appointmentId = req.params.id;
+      const { status } = req.body || {};
+
+      if (!status) {
+        return res.json({ success: false, error: "Durum belirtilmedi" });
+      }
+
+      const completedAt = status === "completed" ? "NOW()" : "NULL";
+      await manager.db.pool.execute(
+        "UPDATE appointments SET status = ?, completed_at = " + completedAt + " WHERE id = ?",
+        [status, appointmentId]
+      );
+
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Randevu sil
+  app.delete("/api/appointments/:id", async (req, res) => {
+    try {
+      const appointmentId = req.params.id;
+      await manager.db.pool.execute("DELETE FROM appointments WHERE id = ?", [appointmentId]);
       res.json({ success: true });
     } catch (err) {
       res.json({ success: false, error: err.message });

@@ -4,25 +4,33 @@
   <h2><i class="fas fa-users"></i> Profiller</h2>
   <div class="header-actions">
     <a href="/profiles?tab=active" class="btn <%= (tab === 'active') ? 'btn-primary' : 'btn-secondary' %>">Aktif</a>
-    <a href="/profiles?tab=completed" class="btn <%= (tab === 'completed') ? 'btn-primary' : 'btn-secondary' %>">Tamamlanan Müşteriler</a>
+    <a href="/profiles?tab=completed" class="btn <%= (tab === 'completed') ? 'btn-primary' : 'btn-secondary' %>">Tamamlanan</a>
+    <a href="/profiles?tab=all" class="btn <%= (tab === 'all') ? 'btn-primary' : 'btn-secondary' %>">Tümü</a>
   </div>
 </div>
 
 <%
-  const list = (tab === 'completed') ? (completedProfiles || []) : (activeProfiles || []);
+  let list;
+  if (tab === 'completed') {
+    list = completedProfiles || [];
+  } else if (tab === 'all') {
+    list = [...(activeProfiles || []), ...(completedProfiles || [])];
+  } else {
+    list = activeProfiles || [];
+  }
 %>
 
 <div class="card">
   <div class="card-body">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <span class="badge badge-info"><%= list.length %> Profil</span>
-      <span class="text-muted">
-        <%= (tab === 'completed') ? 'Bilgileri tamamlanmış / süreç bitmiş profiller' : 'Bilgi toplama / bekleyen profiller' %>
-      </span>
+      <div class="search-box">
+        <input type="text" id="searchInput" class="form-control" placeholder="Ara..." style="width: 200px;">
+      </div>
     </div>
 
     <% if (list && list.length > 0) { %>
-      <table class="table">
+      <table class="table" id="profilesTable">
         <thead>
           <tr>
             <th>İsim</th>
@@ -32,13 +40,14 @@
             <th>Doğum</th>
             <th>Durum</th>
             <th>Tarih</th>
+            <th>İşlem</th>
           </tr>
         </thead>
         <tbody>
-          <% list.forEach(p => { %>
-            <tr>
+          <% list.forEach(function(p) { %>
+            <tr class="profile-row">
               <td><strong><%= p.full_name || 'İsimsiz' %></strong></td>
-              <td><%= p.chat_id?.split('@')[0] || '-' %></td>
+              <td><%= p.chat_id ? p.chat_id.split('@')[0] : '-' %></td>
               <td><%= p.city || '-' %></td>
               <td><%= p.mother_name || '-' %></td>
               <td><%= p.birth_date || '-' %></td>
@@ -62,6 +71,11 @@
                 <% } %>
               </td>
               <td><%= new Date(p.created_at).toLocaleDateString('tr-TR') %></td>
+              <td>
+                <a href="/profiles/<%= p.id %>" class="btn btn-sm btn-primary">
+                  <i class="fas fa-eye"></i>
+                </a>
+              </td>
             </tr>
           <% }) %>
         </tbody>
@@ -75,5 +89,16 @@
     <% } %>
   </div>
 </div>
+
+<script>
+document.getElementById('searchInput').addEventListener('input', function(e) {
+  var search = e.target.value.toLowerCase();
+  var rows = document.querySelectorAll('.profile-row');
+  rows.forEach(function(row) {
+    var text = row.textContent.toLowerCase();
+    row.style.display = text.indexOf(search) > -1 ? '' : 'none';
+  });
+});
+</script>
 
 <%- include('partials/footer') %>
