@@ -13,79 +13,111 @@
   <div class="admin-layout">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
-        <i class="fas fa-mosque"></i>
-        <span>Hocanın Yardımcısı</span>
+        <div class="logo-icon">
+          <i class="fas fa-mosque"></i>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">Hocanın Yardımcısı</span>
+          <span class="logo-subtitle">Yönetim Paneli</span>
+        </div>
       </div>
+
       <nav>
-        <ul class="nav-links">
-          <li>
-            <a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>">
-              <i class="fas fa-chart-pie"></i>
-              <span>Dashboard</span>
-            </a>
-          </li>
-          <li>
-            <a href="/whatsapp" class="<%= page === 'whatsapp' ? 'active' : '' %>">
-              <i class="fas fa-message"></i>
-              <span>WhatsApp</span>
-            </a>
-          </li>
-          <li>
-            <a href="/chats" class="<%= page === 'chats' ? 'active' : '' %>">
-              <i class="fas fa-comments"></i>
-              <span>Sohbetler</span>
-            </a>
-          </li>
-          <li>
-            <a href="/humanization" class="<%= page === 'humanization' ? 'active' : '' %>">
-              <i class="fas fa-user-clock"></i>
-              <span>İnsanlaştırma</span>
-            </a>
-          </li>
-          <li>
-            <a href="/appointments" class="<%= page === 'appointments' ? 'active' : '' %>">
-              <i class="fas fa-calendar-check"></i>
-              <span>Randevular</span>
-            </a>
-          </li>
-          <li>
-            <a href="/bots" class="<%= page === 'bots' ? 'active' : '' %>">
-              <i class="fas fa-robot"></i>
-              <span>Botlar</span>
-            </a>
-          </li>
-          <li>
-            <a href="/profiles" class="<%= page === 'profiles' ? 'active' : '' %>">
-              <i class="fas fa-users"></i>
-              <span>Profiller</span>
-            </a>
-          </li>
-          <li>
-            <a href="/duas" class="<%= page === 'duas' ? 'active' : '' %>">
-              <i class="fas fa-pray"></i>
-              <span>Dualar</span>
-            </a>
-          </li>
-          <li>
-            <a href="/character" class="<%= page === 'character' ? 'active' : '' %>">
-              <i class="fas fa-user-astronaut"></i>
-              <span>Karakter</span>
-            </a>
-          </li>
-          <li>
-            <a href="/settings" class="<%= page === 'settings' ? 'active' : '' %>">
-              <i class="fas fa-cog"></i>
-              <span>Ayarlar</span>
-            </a>
-          </li>
-        </ul>
+        <div class="nav-section">
+          <span class="nav-section-title">Ana Menü</span>
+          <ul class="nav-links">
+            <li>
+              <a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>">
+                <i class="fas fa-chart-pie"></i>
+                <span>Dashboard</span>
+              </a>
+            </li>
+            <li>
+              <a href="/whatsapp" class="<%= page === 'whatsapp' ? 'active' : '' %>">
+                <i class="fab fa-whatsapp"></i>
+                <span>WhatsApp</span>
+              </a>
+            </li>
+            <li>
+              <a href="/chats" class="<%= page === 'chats' ? 'active' : '' %>">
+                <i class="fas fa-comments"></i>
+                <span>Sohbetler</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <span class="nav-section-title">Yönetim</span>
+          <ul class="nav-links">
+            <li>
+              <a href="/appointments" class="<%= page === 'appointments' ? 'active' : '' %>">
+                <i class="fas fa-calendar-check"></i>
+                <span>Randevular</span>
+              </a>
+            </li>
+            <li>
+              <a href="/profiles" class="<%= page === 'profiles' ? 'active' : '' %>">
+                <i class="fas fa-users"></i>
+                <span>Profiller</span>
+              </a>
+            </li>
+            <li>
+              <a href="/bots" class="<%= page === 'bots' ? 'active' : '' %>">
+                <i class="fas fa-robot"></i>
+                <span>Botlar</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <span class="nav-section-title">Konfigürasyon</span>
+          <ul class="nav-links">
+            <li>
+              <a href="/humanization" class="<%= page === 'humanization' ? 'active' : '' %>">
+                <i class="fas fa-user-clock"></i>
+                <span>İnsanlaştırma</span>
+              </a>
+            </li>
+            <li>
+              <a href="/duas" class="<%= page === 'duas' ? 'active' : '' %>">
+                <i class="fas fa-pray"></i>
+                <span>Dualar</span>
+              </a>
+            </li>
+            <li>
+              <a href="/character" class="<%= page === 'character' ? 'active' : '' %>">
+                <i class="fas fa-user-astronaut"></i>
+                <span>Karakter</span>
+              </a>
+            </li>
+            <li>
+              <a href="/settings" class="<%= page === 'settings' ? 'active' : '' %>">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+              </a>
+            </li>
+          </ul>
+        </div>
       </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-status">
+          <div class="status-indicator online"></div>
+          <span>Sistem Aktif</span>
+        </div>
+      </div>
     </aside>
+
     <main class="main-content">
       <div class="topbar">
         <button class="menu-toggle" id="menuToggle" aria-label="Menü">
           <i class="fas fa-bars"></i>
         </button>
         <div class="topbar-title"><%= title %></div>
+        <div class="topbar-actions">
+          <div class="topbar-time" id="currentTime"></div>
+        </div>
       </div>
       <div id="toastContainer" class="toast-container"></div>

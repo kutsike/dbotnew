@@ -1,5 +1,44 @@
     </main>
   </div>
+
   <script src="/js/app.js"></script>
+  <script>
+    // Sidebar Toggle
+    const sidebar = document.getElementById('sidebar');
+    const menuToggle = document.getElementById('menuToggle');
+
+    if (menuToggle) {
+      menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+      });
+    }
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+      if (window.innerWidth <= 900) {
+        if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+          sidebar.classList.remove('open');
+        }
+      }
+    });
+
+    // Current Time Display
+    function updateTime() {
+      const now = new Date();
+      const options = {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: 'numeric',
+        month: 'short'
+      };
+      const timeEl = document.getElementById('currentTime');
+      if (timeEl) {
+        timeEl.textContent = now.toLocaleString('tr-TR', options);
+      }
+    }
+
+    updateTime();
+    setInterval(updateTime, 60000);
+  </script>
 </body>
 </html>

@@ -9,50 +9,53 @@
 
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-icon green">
-      <i class="fas fa-robot"></i>
+    <div class="stat-card-header">
+      <div class="stat-card-icon green">
+        <i class="fas fa-robot"></i>
+      </div>
     </div>
-    <div class="stat-info">
-      <h4>Toplam Bot</h4>
-      <div class="value" id="total-bots"><%= stats.totalBots || 0 %></div>
-    </div>
+    <div class="stat-card-value" id="total-bots"><%= stats.totalBots || 0 %></div>
+    <div class="stat-card-label">Toplam Bot</div>
   </div>
-  
+
   <div class="stat-card">
-    <div class="stat-icon blue">
-      <i class="fas fa-check-circle"></i>
+    <div class="stat-card-header">
+      <div class="stat-card-icon blue">
+        <i class="fas fa-check-circle"></i>
+      </div>
     </div>
-    <div class="stat-info">
-      <h4>Aktif Bot</h4>
-      <div class="value" id="active-bots"><%= stats.activeBots || 0 %></div>
-    </div>
+    <div class="stat-card-value" id="active-bots"><%= stats.activeBots || 0 %></div>
+    <div class="stat-card-label">Aktif Bot</div>
   </div>
-  
+
   <div class="stat-card">
-    <div class="stat-icon purple">
-      <i class="fas fa-users"></i>
+    <div class="stat-card-header">
+      <div class="stat-card-icon purple">
+        <i class="fas fa-users"></i>
+      </div>
     </div>
-    <div class="stat-info">
-      <h4>Toplam Profil</h4>
-      <div class="value" id="total-profiles"><%= stats.totalProfiles || 0 %></div>
-    </div>
+    <div class="stat-card-value" id="total-profiles"><%= stats.totalProfiles || 0 %></div>
+    <div class="stat-card-label">Toplam Profil</div>
   </div>
-  
+
   <div class="stat-card">
-    <div class="stat-icon orange">
-      <i class="fas fa-clock"></i>
+    <div class="stat-card-header">
+      <div class="stat-card-icon orange">
+        <i class="fas fa-calendar-check"></i>
+      </div>
     </div>
-    <div class="stat-info">
-      <h4>Bekleyen</h4>
-      <div class="value" id="waiting-profiles"><%= stats.waitingProfiles || 0 %></div>
-    </div>
+    <div class="stat-card-value" id="waiting-profiles"><%= stats.waitingProfiles || 0 %></div>
+    <div class="stat-card-label">Bekleyen Randevu</div>
   </div>
 </div>
 
-<div class="d-flex gap-3">
-  <div class="card" style="flex: 1;">
+<div class="dashboard-grid">
+  <div class="card">
     <div class="card-header">
       <h3><i class="fas fa-robot"></i> Bot Durumları</h3>
+      <a href="/bots" class="btn btn-sm btn-ghost">
+        Tümünü Gör <i class="fas fa-arrow-right"></i>
+      </a>
     </div>
     <div class="card-body">
       <% if (clients && clients.length > 0) { %>
@@ -65,10 +68,17 @@
             </tr>
           </thead>
           <tbody>
-            <% clients.forEach(client => { %>
+            <% clients.slice(0, 5).forEach(client => { %>
               <tr>
-                <td><%= client.name || client.id %></td>
-                <td><%= client.phone || '-' %></td>
+                <td>
+                  <div class="d-flex align-center gap-2">
+                    <div class="bot-mini-avatar">
+                      <i class="fas fa-robot"></i>
+                    </div>
+                    <strong><%= client.name || client.id %></strong>
+                  </div>
+                </td>
+                <td class="text-muted"><%= client.phone || '-' %></td>
                 <td>
                   <% if (client.status === 'ready') { %>
                     <span class="badge badge-success"><i class="fas fa-check"></i> Aktif</span>
@@ -89,28 +99,37 @@
           <i class="fas fa-robot"></i>
           <h4>Bot Yok</h4>
           <p>Henüz bot eklenmemiş.</p>
+          <a href="/bots" class="btn btn-primary mt-3">
+            <i class="fas fa-plus"></i> Bot Ekle
+          </a>
         </div>
       <% } %>
     </div>
   </div>
-  
-  <div class="card" style="flex: 1;">
+
+  <div class="card">
     <div class="card-header">
       <h3><i class="fas fa-calendar-check"></i> Son Randevular</h3>
+      <a href="/appointments" class="btn btn-sm btn-ghost">
+        Tümünü Gör <i class="fas fa-arrow-right"></i>
+      </a>
     </div>
     <div class="card-body">
       <% if (appointments && appointments.length > 0) { %>
         <div class="appointment-list">
-          <% appointments.forEach(apt => { %>
-            <div class="appointment-item">
+          <% appointments.slice(0, 5).forEach(apt => { %>
+            <a href="/appointments/<%= apt.id %>" class="appointment-item">
+              <div class="appointment-avatar">
+                <%= (apt.full_name || 'İ').charAt(0).toUpperCase() %>
+              </div>
               <div class="appointment-info">
                 <h4><%= apt.full_name || 'İsimsiz' %></h4>
                 <p><%= apt.subject || 'Konu belirtilmemiş' %></p>
               </div>
-              <span class="badge badge-<%= apt.status === 'pending' ? 'warning' : apt.status === 'confirmed' ? 'info' : 'success' %>">
-                <%= apt.status === 'pending' ? 'Bekliyor' : apt.status === 'confirmed' ? 'Onaylandı' : apt.status %>
+              <span class="badge badge-<%= apt.status === 'pending' ? 'warning' : apt.status === 'confirmed' ? 'info' : apt.status === 'completed' ? 'success' : 'secondary' %>">
+                <%= apt.status === 'pending' ? 'Bekliyor' : apt.status === 'confirmed' ? 'Onaylandı' : apt.status === 'completed' ? 'Tamamlandı' : apt.status %>
               </span>
-            </div>
+            </a>
           <% }) %>
         </div>
       <% } else { %>
@@ -120,6 +139,65 @@
           <p>Henüz randevu talebi yok.</p>
         </div>
       <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-comments"></i> Son Sohbetler</h3>
+      <a href="/chats" class="btn btn-sm btn-ghost">
+        Tümünü Gör <i class="fas fa-arrow-right"></i>
+      </a>
+    </div>
+    <div class="card-body">
+      <% if (recentChats && recentChats.length > 0) { %>
+        <div class="chat-list">
+          <% recentChats.slice(0, 5).forEach(chat => { %>
+            <div class="chat-item">
+              <div class="chat-avatar">
+                <%= (chat.name || chat.chatId || 'U').charAt(0).toUpperCase() %>
+              </div>
+              <div class="chat-info">
+                <h4><%= chat.name || chat.chatId?.split('@')[0] || 'Bilinmeyen' %></h4>
+                <p><%= chat.lastMessage || 'Mesaj yok' %></p>
+              </div>
+              <span class="chat-time"><%= chat.time || '' %></span>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="empty-state">
+          <i class="fas fa-comments"></i>
+          <h4>Sohbet Yok</h4>
+          <p>Henüz sohbet bulunmuyor.</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-bolt"></i> Hızlı İşlemler</h3>
+    </div>
+    <div class="card-body">
+      <div class="quick-actions">
+        <a href="/bots" class="action-btn whatsapp">
+          <i class="fas fa-plus"></i>
+          <span>Bot Ekle</span>
+        </a>
+        <a href="/appointments" class="action-btn schedule">
+          <i class="fas fa-calendar-plus"></i>
+          <span>Randevular</span>
+        </a>
+        <a href="/chats" class="action-btn message">
+          <i class="fas fa-paper-plane"></i>
+          <span>Sohbetler</span>
+        </a>
+        <a href="/settings" class="action-btn call">
+          <i class="fas fa-cog"></i>
+          <span>Ayarlar</span>
+        </a>
+      </div>
     </div>
   </div>
 </div>

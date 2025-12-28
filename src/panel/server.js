@@ -47,12 +47,26 @@ function startPanel({ manager, port, host }) {
       const stats = await manager.db.getStats();
       const clients = await manager.db.getClients();
       const appointments = await manager.db.getAppointments({ status: "pending" });
+      const profiles = await manager.db.getProfiles();
+
+      // Son sohbetleri profiles'dan al
+      const recentChats = (profiles || [])
+        .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0))
+        .slice(0, 5)
+        .map(p => ({
+          chatId: p.chat_id,
+          name: p.full_name || p.phone || null,
+          lastMessage: p.last_message || null,
+          time: p.last_message_at ? new Date(p.last_message_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : null
+        }));
+
       res.render("dashboard", {
         title: "Dashboard",
         page: "dashboard",
         stats,
         clients,
         appointments: (appointments || []).slice(0, 5),
+        recentChats
       });
     } catch (err) {
       console.error("Dashboard hatası:", err);
@@ -62,6 +76,7 @@ function startPanel({ manager, port, host }) {
         stats: {},
         clients: [],
         appointments: [],
+        recentChats: []
       });
     }
   });
