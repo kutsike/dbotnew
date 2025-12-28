@@ -634,9 +634,67 @@
         }
 
         @media (max-width: 900px) {
-            .wa-left-panel { min-width: 100%; max-width: 100%; }
-            .wa-right-panel { display: none; }
-            .wa-right-panel.active { display: flex; position: absolute; left: 0; right: 0; }
+            .wa-top-bar { display: none; }
+            .wa-app-container {
+                margin: 0;
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .wa-left-panel {
+                min-width: 100%;
+                max-width: 100%;
+                width: 100%;
+                border-right: none;
+            }
+            .wa-right-panel {
+                display: none;
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 100;
+            }
+            .wa-right-panel.mobile-active {
+                display: flex;
+            }
+            .wa-profile-panel.open {
+                width: 100%;
+            }
+            .wa-messages-container {
+                padding: 10px 15px;
+            }
+            .wa-message {
+                max-width: 85%;
+            }
+            .wa-back-btn {
+                display: flex !important;
+            }
+            .wa-chat-header-left {
+                margin-left: 0;
+            }
+        }
+
+        /* Mobil için geri butonu */
+        .wa-back-btn {
+            display: none;
+            width: 40px;
+            height: 40px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            color: var(--wa-icon);
+            margin-right: 10px;
+        }
+        .wa-back-btn:hover {
+            background-color: var(--wa-bg-hover);
+            color: var(--wa-icon-hover);
+        }
+        .wa-back-btn i {
+            font-size: 20px;
         }
     </style>
 </head>
@@ -714,6 +772,9 @@
                 <!-- Chat Arayüzü -->
                 <div id="chatInterface" style="display: none; flex-direction: column; height: 100%;">
                     <div class="wa-chat-header">
+                        <div class="wa-back-btn" onclick="goBackToList()">
+                            <i class="bi bi-arrow-left"></i>
+                        </div>
                         <div class="wa-chat-header-left" onclick="toggleProfilePanel()">
                             <img id="headerAvatar" src="" class="wa-avatar">
                             <div class="wa-chat-header-info">
@@ -817,6 +878,17 @@
             document.getElementById('profilePanel').classList.toggle('open');
         }
 
+        // Mobil: Chat listesine geri dön
+        function goBackToList() {
+            document.getElementById('mainPanel').classList.remove('mobile-active');
+            document.getElementById('profilePanel').classList.remove('open');
+        }
+
+        // Mobil kontrol
+        function isMobile() {
+            return window.innerWidth <= 900;
+        }
+
         // Input değişikliğini izle
         document.getElementById('messageInput').addEventListener('input', function() {
             const hasText = this.value.trim().length > 0;
@@ -831,6 +903,11 @@
 
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('chatInterface').style.display = 'flex';
+
+            // Mobilde sağ paneli göster
+            if (isMobile()) {
+                document.getElementById('mainPanel').classList.add('mobile-active');
+            }
 
             const avatarSrc = profileUrl && profileUrl !== 'null'
                 ? profileUrl
