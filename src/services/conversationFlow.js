@@ -89,6 +89,11 @@ class ConversationFlow {
     return this.warmAddresses[Math.floor(Math.random() * this.warmAddresses.length)];
   }
 
+  // Ayet/dua gösterilsin mi? (yaklaşık 3-5 mesajda 1)
+  shouldShowVerse() {
+    return Math.random() < 0.25; // %25 ihtimal = ortalama 4 mesajda 1
+  }
+
   // Rastgele sohbet sorusu
   getConversationQuestion() {
     return this.conversationQuestions[Math.floor(Math.random() * this.conversationQuestions.length)];
@@ -172,10 +177,8 @@ class ConversationFlow {
 
     // === SELAMLAMA ===
     if (this.isGreeting(msg)) {
-      const verse = this.getVerse("umut");
       const reply = this.addHumanTouch(
         `Aleyküm selam ${this.getWarmAddress()}, hoş geldin. ` +
-        `Rabbim "${verse.ayet}" buyuruyor (${verse.kaynak}). ` +
         `Nasılsın, gönlünde ne var?`
       );
       return { reply, action: "greeting" };
@@ -202,105 +205,135 @@ class ConversationFlow {
 
     // === SORU SORUYORSA ===
     if (this.isQuestion(msg)) {
+      const showVerse = this.shouldShowVerse();
       if (this.aiChat) {
-        const aiReply = await this._answerWithVerse(msg, warmName, topic);
+        const aiReply = await this._answerQuestion(msg, warmName, topic, showVerse);
         if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "answer" };
       }
       // AI yoksa
-      const verse = this.getVerse(topic);
       const question = this.getConversationQuestion();
+      if (showVerse) {
+        const verse = this.getVerse(topic);
+        const reply = this.addHumanTouch(
+          `${warmName}, Rabbimiz "${verse.ayet}" buyuruyor (${verse.kaynak}). ` +
+          `${question}`
+        );
+        return { reply, action: "answer" };
+      }
       const reply = this.addHumanTouch(
-        `${warmName}, Rabbimiz "${verse.ayet}" buyuruyor (${verse.kaynak}). ` +
-        `Sabır ve dua ile yaklaş. ${question}`
+        `${warmName}, sabır ve dua ile yaklaş. İnsallah hayırlısı olur. ${question}`
       );
       return { reply, action: "answer" };
     }
 
     // === DERT ANLATIYORSA ===
+    const showVerse = this.shouldShowVerse();
     if (this.aiChat) {
-      const aiReply = await this._empathizeWithVerse(msg, warmName, topic);
+      const aiReply = await this._empathize(msg, warmName, topic, showVerse);
       if (aiReply) return { reply: this.addHumanTouch(aiReply), action: "empathy" };
     }
 
     // AI yoksa
-    const verse = this.getVerse(topic);
     const question = this.getConversationQuestion();
+    if (showVerse) {
+      const verse = this.getVerse(topic);
+      const reply = this.addHumanTouch(
+        `Anlıyorum ${warmName}. "${verse.ayet}" (${verse.kaynak}). ` +
+        `${question}`
+      );
+      return { reply, action: "empathy" };
+    }
     const reply = this.addHumanTouch(
-      `Anlıyorum ${warmName}. Allah Teala "${verse.ayet}" buyuruyor (${verse.kaynak}). ` +
-      `Bu ayet tam senin durumun için. ${question}`
+      `Anlıyorum ${warmName}, zor bi durum. Yalnız değilsin, Allah yardımcın olsun. ${question}`
     );
     return { reply, action: "empathy" };
   }
 
-  // AI: Soruya ayet/dua ile cevap ver
-  async _answerWithVerse(msg, warmName, topic) {
+  // AI: Soruya cevap ver (bazen ayet/dua ile)
+  async _answerQuestion(msg, warmName, topic, showVerse = false) {
     if (!this.aiChat?.openai) return null;
-    const verse = this.getVerse(topic);
-    const prayer = this.getPrayer(topic);
     const question = this.getConversationQuestion();
 
-    try {
-      const resp = await this.aiChat.openai.chat.completions.create({
-        model: this.aiChat.model,
-        messages: [{
-          role: "system",
-          content: `Sen manevi rehber ve dini danışmansın.
-
-MUTLAKA KULLAN:
-- Bu ayeti mesajına dahil et: "${verse.ayet}" (${verse.kaynak})
-- Bu duayı öner: "${prayer}"
-- Sohbeti sürdürmek için bu soruyu sor: "${question}"
+    let systemContent = `Sen manevi rehber ve samimi bir arkadaşsın.
 
 KURALLAR:
 - "${warmName}" diye hitap et
-- Ayeti kişinin durumuna bağla, umut ver
-- 3-4 cümle max
+- 2-3 cümle max, kısa ve öz
 - Samimi ve sıcak ol
-- Duanın anlamını kısaca açıkla`
-        }, {
-          role: "user",
-          content: msg
-        }],
-        temperature: 0.8,
-        max_tokens: 200
-      });
-      return resp.choices[0]?.message?.content?.trim() || null;
-    } catch { return null; }
-  }
+- Sonunda bu soruyu sor: "${question}"`;
 
-  // AI: Empati + ayet + dua + soru
-  async _empathizeWithVerse(msg, warmName, topic) {
-    if (!this.aiChat?.openai) return null;
-    const verse = this.getVerse(topic);
-    const prayer = this.getPrayer(topic);
-    const question = this.getConversationQuestion();
+    if (showVerse) {
+      const verse = this.getVerse(topic);
+      const prayer = this.getPrayer(topic);
+      systemContent = `Sen manevi rehber ve dini danışmansın.
 
-    try {
-      const resp = await this.aiChat.openai.chat.completions.create({
-        model: this.aiChat.model,
-        messages: [{
-          role: "system",
-          content: `Sen manevi rehber ve dini danışmansın. Biri derdini anlatıyor.
-
-MUTLAKA KULLAN:
-- Bu ayeti mesajına dahil et ve kişinin durumuna bağla: "${verse.ayet}" (${verse.kaynak})
+BU MESAJDA AYET/DUA KULLAN:
+- Bu ayeti dahil et: "${verse.ayet}" (${verse.kaynak})
 - Bu duayı öner: "${prayer}"
 - Sonunda bu soruyu sor: "${question}"
 
 KURALLAR:
 - "${warmName}" diye hitap et
-- Önce empati göster, dinlediğini hissettir
+- Ayeti kişinin durumuna bağla
+- 3-4 cümle max
+- Samimi ol`;
+    }
+
+    try {
+      const resp = await this.aiChat.openai.chat.completions.create({
+        model: this.aiChat.model,
+        messages: [
+          { role: "system", content: systemContent },
+          { role: "user", content: msg }
+        ],
+        temperature: 0.8,
+        max_tokens: showVerse ? 200 : 120
+      });
+      return resp.choices[0]?.message?.content?.trim() || null;
+    } catch { return null; }
+  }
+
+  // AI: Empati göster (bazen ayet/dua ile)
+  async _empathize(msg, warmName, topic, showVerse = false) {
+    if (!this.aiChat?.openai) return null;
+    const question = this.getConversationQuestion();
+
+    let systemContent = `Sen dertlere ortak olan samimi bir arkadaşsın.
+
+KURALLAR:
+- "${warmName}" diye hitap et
+- Empati göster, dinlediğini hissettir
+- 2-3 cümle max
+- Yalnız olmadığını söyle
+- Sonunda bu soruyu sor: "${question}"`;
+
+    if (showVerse) {
+      const verse = this.getVerse(topic);
+      const prayer = this.getPrayer(topic);
+      systemContent = `Sen manevi rehber ve dini danışmansın. Biri derdini anlatıyor.
+
+BU MESAJDA AYET/DUA KULLAN:
+- Bu ayeti dahil et ve duruma bağla: "${verse.ayet}" (${verse.kaynak})
+- Bu duayı öner: "${prayer}"
+- Sonunda bu soruyu sor: "${question}"
+
+KURALLAR:
+- "${warmName}" diye hitap et
+- Önce empati göster
 - Ayeti kişinin durumuna özel yorumla
-- Duanın manasını kısaca söyle
 - 4-5 cümle max
-- Umut ver, yalnız olmadığını hissettir
-- Samimi ol`
-        }, {
-          role: "user",
-          content: msg
-        }],
+- Umut ver`;
+    }
+
+    try {
+      const resp = await this.aiChat.openai.chat.completions.create({
+        model: this.aiChat.model,
+        messages: [
+          { role: "system", content: systemContent },
+          { role: "user", content: msg }
+        ],
         temperature: 0.85,
-        max_tokens: 250
+        max_tokens: showVerse ? 220 : 130
       });
       return resp.choices[0]?.message?.content?.trim() || null;
     } catch { return null; }
