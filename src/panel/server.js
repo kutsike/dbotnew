@@ -164,6 +164,16 @@ function startPanel({ manager, port, host }) {
         character_id: client.character_id || null
       };
 
+      // Triggers (keyword'lerin farklı bir görünümü - bot-detail'de kullanılıyor)
+      const triggers = botKeywords.map(k => ({
+        id: k.id,
+        keyword: k.keyword,
+        response: k.response,
+        match_type: k.match_type,
+        is_active: k.is_active,
+        category: k.category
+      }));
+
       // İstatistikler
       const [profileCount] = await manager.db.pool.execute(
         "SELECT COUNT(*) as count FROM profiles WHERE client_id = ?", [clientId]
@@ -189,6 +199,7 @@ function startPanel({ manager, port, host }) {
         keywords: botKeywords,
         characters,
         botSettings,
+        triggers,
         stats,
         saved: req.query.saved === 'true'
       });
