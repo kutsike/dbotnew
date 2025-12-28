@@ -159,8 +159,9 @@ class ConversationFlow {
   // Selamlama mı?
   isGreeting(msg) {
     const lower = this.normalizeTR(msg);
-    const greetings = ["selam", "merhaba", "mrb", "slm", "sa", "as", "selamun", "hey", "iyi günler"];
-    return greetings.some(g => lower.startsWith(g)) || (msg.length < 25 && greetings.some(g => lower.includes(g)));
+    const greetings = ["selam", "merhaba", "mrb", "slm", "selamun", "aleyküm", "aleykum", "as ", "sa "];
+    // Selam içeriyorsa selamlama (veda kelimeleri olsa bile)
+    return greetings.some(g => lower.includes(g));
   }
 
   // Soru mu?
