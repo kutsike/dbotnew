@@ -1041,6 +1041,122 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // URL'den içerik çek
+  app.post("/api/bots/:id/knowledge/fetch-url", async (req, res) => {
+    try {
+      const { url, contentType, category } = req.body || {};
+
+      if (!url) {
+        return res.json({ success: false, error: "URL zorunludur" });
+      }
+
+      // URL'yi fetch et
+      const https = require('https');
+      const http = require('http');
+      const protocol = url.startsWith('https') ? https : http;
+
+      const fetchUrl = (targetUrl) => {
+        return new Promise((resolve, reject) => {
+          const request = protocol.get(targetUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'text/html,application/json,text/plain'
+            },
+            timeout: 15000
+          }, (response) => {
+            // Redirect
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+              const newUrl = response.headers.location.startsWith('http')
+                ? response.headers.location
+                : new URL(response.headers.location, targetUrl).href;
+              return fetchUrl(newUrl).then(resolve).catch(reject);
+            }
+
+            let data = '';
+            response.on('data', chunk => data += chunk);
+            response.on('end', () => resolve({ data, contentType: response.headers['content-type'] }));
+          });
+          request.on('error', reject);
+          request.on('timeout', () => { request.destroy(); reject(new Error('Timeout')); });
+        });
+      };
+
+      const { data: htmlContent, contentType: responseType } = await fetchUrl(url);
+      let items = [];
+
+      // İçerik tipine göre parse et
+      if (contentType === 'json' || responseType?.includes('json')) {
+        // JSON
+        try {
+          const jsonData = JSON.parse(htmlContent);
+          const dataArray = Array.isArray(jsonData) ? jsonData : (jsonData.items || jsonData.data || jsonData.faq || []);
+          items = dataArray.map(item => ({
+            question: item.question || item.title || item.q || '',
+            answer: item.answer || item.content || item.a || item.body || '',
+            category: category || 'faq'
+          })).filter(item => item.question && item.answer);
+        } catch (e) {
+          return res.json({ success: false, error: "JSON parse hatası" });
+        }
+      } else {
+        // HTML - FAQ pattern'leri ara
+        const faqPatterns = [
+          // h2/h3 + p pattern
+          /<h[23][^>]*>(.*?)<\/h[23]>\s*<p[^>]*>(.*?)<\/p>/gis,
+          // details/summary pattern
+          /<summary[^>]*>(.*?)<\/summary>\s*(?:<div[^>]*>)?(.*?)(?:<\/div>)?<\/details>/gis,
+          // question/answer class pattern
+          /<[^>]*class="[^"]*question[^"]*"[^>]*>(.*?)<\/[^>]+>\s*<[^>]*class="[^"]*answer[^"]*"[^>]*>(.*?)<\/[^>]+>/gis,
+          // dt/dd pattern
+          /<dt[^>]*>(.*?)<\/dt>\s*<dd[^>]*>(.*?)<\/dd>/gis,
+          // accordion pattern
+          /<[^>]*(?:accordion|collapse)[^>]*>.*?<[^>]*>(.*?)<\/[^>]+>.*?<[^>]*>(.*?)<\/[^>]+>/gis
+        ];
+
+        for (const pattern of faqPatterns) {
+          let match;
+          while ((match = pattern.exec(htmlContent)) !== null) {
+            const question = match[1].replace(/<[^>]+>/g, '').trim();
+            const answer = match[2].replace(/<[^>]+>/g, '').trim();
+            if (question && answer && question.length > 5 && answer.length > 10) {
+              items.push({ question, answer, category: category || 'faq' });
+            }
+          }
+          if (items.length > 0) break; // İlk başarılı pattern'de dur
+        }
+
+        // Eğer hala bulunamadıysa, düz metin olarak dene
+        if (items.length === 0 && contentType === 'text') {
+          const lines = htmlContent.split('\n').filter(l => l.trim());
+          for (const line of lines) {
+            const parts = line.split('|');
+            if (parts.length >= 2) {
+              items.push({
+                question: parts[0].trim(),
+                answer: parts[1].trim(),
+                category: category || 'faq'
+              });
+            }
+          }
+        }
+      }
+
+      if (items.length === 0) {
+        return res.json({ success: false, error: "Sayfada içe aktarılabilir içerik bulunamadı. FAQ sayfası formatı desteklenmeyebilir." });
+      }
+
+      // Duplicate temizle
+      const uniqueItems = items.filter((item, index, self) =>
+        index === self.findIndex(t => t.question === item.question)
+      );
+
+      res.json({ success: true, items: uniqueItems.slice(0, 100) }); // Max 100 kayıt
+
+    } catch (err) {
+      res.json({ success: false, error: "URL erişim hatası: " + err.message });
+    }
+  });
+
   // ========= BOT TEST API =========
 
   // Bot testi

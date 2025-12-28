@@ -312,15 +312,16 @@
           <div class="import-option">
             <i class="fas fa-file-csv"></i>
             <span>CSV Yükle</span>
-            <small>CSV dosyası yükleyin (soru, cevap, kategori)</small>
+            <small>CSV dosyası yükleyin</small>
             <input type="file" id="csvUpload" accept=".csv" style="display:none" onchange="importCSV(this)">
             <button class="btn btn-secondary btn-sm" onclick="document.getElementById('csvUpload').click()">Dosya Seç</button>
+            <button class="btn btn-link btn-sm" onclick="showCsvExample()" style="font-size:0.7rem;">Örnek Gör</button>
           </div>
           <div class="import-option">
             <i class="fas fa-link"></i>
             <span>URL'den Al</span>
-            <small>Web sitesinden FAQ çek (yakında)</small>
-            <button class="btn btn-secondary btn-sm" disabled>Yakında</button>
+            <small>Web sitesinden içerik çek</small>
+            <button class="btn btn-secondary btn-sm" onclick="showUrlImport()">URL Gir</button>
           </div>
         </div>
       </div>
@@ -648,6 +649,108 @@ Kargo ücreti ne kadar? | 150 TL üzeri siparişlerde kargo ücretsizdir.
   </div>
 </div>
 
+<!-- URL İçe Aktarma Modal -->
+<div id="urlImportModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card modal-lg">
+    <div class="card-header">
+      <h3><i class="fas fa-link"></i> URL'den İçe Aktarma</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeUrlImportModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-3">Web sitesinden FAQ veya içerik çekmek için URL girin.</p>
+
+      <div class="form-group">
+        <label class="form-label">Web Sitesi URL'si</label>
+        <input type="url" id="urlImportUrl" class="form-control" placeholder="https://example.com/faq">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">İçerik Tipi</label>
+        <select id="urlImportType" class="form-control">
+          <option value="auto">Otomatik Algıla</option>
+          <option value="faq">FAQ Sayfası</option>
+          <option value="text">Düz Metin</option>
+          <option value="json">JSON API</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Kategori</label>
+        <select id="urlImportCategory" class="form-control">
+          <option value="faq">SSS</option>
+          <option value="product">Ürün/Hizmet</option>
+          <option value="policy">Politika</option>
+          <option value="contact">İletişim</option>
+          <option value="other">Diğer</option>
+        </select>
+      </div>
+
+      <div class="url-import-info">
+        <h4><i class="fas fa-info-circle"></i> Desteklenen Formatlar</h4>
+        <ul>
+          <li><strong>FAQ Sayfası:</strong> &lt;h2&gt;Soru&lt;/h2&gt;&lt;p&gt;Cevap&lt;/p&gt; formatındaki sayfalar</li>
+          <li><strong>JSON API:</strong> <code>[{"question": "...", "answer": "..."}]</code> formatı</li>
+          <li><strong>Düz Metin:</strong> Her satır <code>Soru | Cevap</code> formatında</li>
+        </ul>
+      </div>
+
+      <button class="btn btn-primary w-100" onclick="processUrlImport()" id="urlImportBtn">
+        <i class="fas fa-download"></i> İçeriği Çek ve İçe Aktar
+      </button>
+
+      <div id="urlImportPreview" class="url-import-preview" style="display:none;">
+        <h4>Önizleme (<span id="urlPreviewCount">0</span> kayıt bulundu)</h4>
+        <div id="urlPreviewContent"></div>
+        <button class="btn btn-success w-100 mt-2" onclick="confirmUrlImport()">
+          <i class="fas fa-check"></i> Tümünü İçe Aktar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CSV Örnek Modal -->
+<div id="csvExampleModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card modal-lg">
+    <div class="card-header">
+      <h3><i class="fas fa-file-csv"></i> CSV Dosya Formatı</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeCsvExampleModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-3">CSV dosyanızı aşağıdaki formatta hazırlayın:</p>
+
+      <h4>Örnek CSV İçeriği:</h4>
+      <pre class="code-example csv-example">soru,cevap,kategori,etiketler
+"Çalışma saatleriniz nedir?","Hafta içi 09:00-18:00, Cumartesi 10:00-14:00 arası hizmet veriyoruz.","faq","saat,mesai,çalışma"
+"Kargo ücreti ne kadar?","150 TL üzeri siparişlerde kargo ücretsizdir. Altındaki siparişlerde 29.90 TL kargo ücreti alınır.","faq","kargo,ücret,teslimat"
+"İade nasıl yapılır?","Ürünleri 14 gün içinde faturası ile birlikte iade edebilirsiniz. Kargo bedeli tarafımızca karşılanır.","policy","iade,değişim,garanti"
+"Ödeme yöntemleri nelerdir?","Kredi kartı, banka kartı, havale/EFT ve kapıda ödeme seçeneklerimiz mevcuttur.","faq","ödeme,kredi kartı,havale"
+"Ürünler orijinal mi?","Tüm ürünlerimiz %100 orijinal ve garantilidir.","product","orijinal,garanti"</pre>
+
+      <div class="csv-rules mt-3">
+        <h4><i class="fas fa-list-check"></i> Kurallar:</h4>
+        <ul>
+          <li><strong>İlk satır</strong> başlık satırıdır (zorunlu): <code>soru,cevap,kategori,etiketler</code></li>
+          <li><strong>soru</strong> ve <strong>cevap</strong> alanları zorunludur</li>
+          <li><strong>kategori</strong> opsiyoneldir: faq, product, policy, contact, other</li>
+          <li><strong>etiketler</strong> opsiyoneldir, virgülle ayrılmış kelimeler</li>
+          <li>Virgül veya tırnak içeren metinleri <code>"çift tırnak"</code> içine alın</li>
+          <li>Dosya kodlaması <strong>UTF-8</strong> olmalıdır</li>
+        </ul>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary flex-1" onclick="downloadCsvTemplate()">
+          <i class="fas fa-download"></i> Örnek CSV İndir
+        </button>
+        <button class="btn btn-secondary flex-1" onclick="closeCsvExampleModal(); document.getElementById('csvUpload').click();">
+          <i class="fas fa-upload"></i> CSV Yükle
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Dondurma Modal -->
 <div id="freezeModal" class="modal-overlay" style="display: none;">
   <div class="card modal-card">
@@ -783,6 +886,28 @@ input:checked + .slider:before { transform: translateX(20px); }
 .row-inactive { opacity: 0.5; }
 .alert-success { margin-bottom: 1rem; padding: 0.75rem 1rem; background: #166534; border-radius: 0.5rem; color: #bbf7d0; }
 .code-example { background: #0f172a; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; color: #94a3b8; overflow-x: auto; }
+
+/* URL Import */
+.url-import-info { background: #1e293b; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+.url-import-info h4 { color: #60a5fa; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.url-import-info ul { margin: 0; padding-left: 1.25rem; font-size: 0.8rem; color: #94a3b8; }
+.url-import-info li { margin-bottom: 0.25rem; }
+.url-import-preview { margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 0.5rem; }
+.url-import-preview h4 { color: #22c55e; margin-bottom: 0.75rem; }
+.preview-item { padding: 0.5rem; background: #0f172a; border-radius: 0.25rem; margin-bottom: 0.5rem; font-size: 0.8rem; }
+.preview-item strong { color: #e2e8f0; }
+.preview-item p { color: #94a3b8; margin: 0.25rem 0 0 0; }
+
+/* CSV Example */
+.csv-example { white-space: pre; font-size: 0.75rem; max-height: 200px; overflow: auto; }
+.csv-rules { background: #1e293b; padding: 1rem; border-radius: 0.5rem; }
+.csv-rules h4 { color: #f59e0b; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.csv-rules ul { margin: 0; padding-left: 1.25rem; font-size: 0.8rem; color: #94a3b8; }
+.csv-rules li { margin-bottom: 0.35rem; }
+.csv-rules code { background: #334155; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.75rem; }
+
+.d-flex { display: flex; }
+.gap-2 { gap: 0.5rem; }
 </style>
 
 <script>
@@ -1086,6 +1211,115 @@ function importCSV(input) {
   input.value = '';
 }
 
+// URL Import
+var urlImportData = [];
+
+function showUrlImport() {
+  document.getElementById('urlImportModal').style.display = 'block';
+  document.getElementById('urlImportPreview').style.display = 'none';
+  document.getElementById('urlImportUrl').value = '';
+  urlImportData = [];
+}
+
+function closeUrlImportModal() {
+  document.getElementById('urlImportModal').style.display = 'none';
+}
+
+function processUrlImport() {
+  var url = document.getElementById('urlImportUrl').value.trim();
+  var contentType = document.getElementById('urlImportType').value;
+  var category = document.getElementById('urlImportCategory').value;
+
+  if (!url) {
+    showToast('Uyarı', 'Lütfen bir URL girin', 'warning');
+    return;
+  }
+
+  var btn = document.getElementById('urlImportBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> İçerik çekiliyor...';
+
+  fetch('/api/bots/' + clientId + '/knowledge/fetch-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: url, contentType: contentType, category: category })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-download"></i> İçeriği Çek ve İçe Aktar';
+
+    if (data.success && data.items && data.items.length > 0) {
+      urlImportData = data.items;
+      document.getElementById('urlPreviewCount').textContent = data.items.length;
+
+      var previewHtml = data.items.slice(0, 5).map(function(item) {
+        return '<div class="preview-item"><strong>' + item.question + '</strong><p>' + item.answer.substring(0, 100) + (item.answer.length > 100 ? '...' : '') + '</p></div>';
+      }).join('');
+
+      if (data.items.length > 5) {
+        previewHtml += '<p class="text-muted">... ve ' + (data.items.length - 5) + ' kayıt daha</p>';
+      }
+
+      document.getElementById('urlPreviewContent').innerHTML = previewHtml;
+      document.getElementById('urlImportPreview').style.display = 'block';
+    } else {
+      showToast('Uyarı', data.error || 'İçerik bulunamadı veya parse edilemedi', 'warning');
+    }
+  })
+  .catch(function(err) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-download"></i> İçeriği Çek ve İçe Aktar';
+    showToast('Hata', 'Bağlantı hatası: ' + err.message, 'error');
+  });
+}
+
+function confirmUrlImport() {
+  if (urlImportData.length === 0) {
+    showToast('Uyarı', 'İçe aktarılacak veri yok', 'warning');
+    return;
+  }
+
+  fetch('/api/bots/' + clientId + '/knowledge/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: urlImportData })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) {
+      showToast('Başarılı', result.imported + ' bilgi içe aktarıldı', 'success');
+      closeUrlImportModal();
+      loadKnowledgeBase();
+    } else {
+      showToast('Hata', result.error, 'error');
+    }
+  });
+}
+
+// CSV Example
+function showCsvExample() {
+  document.getElementById('csvExampleModal').style.display = 'block';
+}
+
+function closeCsvExampleModal() {
+  document.getElementById('csvExampleModal').style.display = 'none';
+}
+
+function downloadCsvTemplate() {
+  var csvContent = 'soru,cevap,kategori,etiketler\n';
+  csvContent += '"Çalışma saatleriniz nedir?","Hafta içi 09:00-18:00, Cumartesi 10:00-14:00 arası hizmet veriyoruz.","faq","saat,mesai,çalışma"\n';
+  csvContent += '"Kargo ücreti ne kadar?","150 TL üzeri siparişlerde kargo ücretsizdir.","faq","kargo,ücret,teslimat"\n';
+  csvContent += '"İade nasıl yapılır?","Ürünleri 14 gün içinde faturası ile birlikte iade edebilirsiniz.","policy","iade,değişim,garanti"\n';
+  csvContent += '"Ödeme yöntemleri nelerdir?","Kredi kartı, banka kartı, havale/EFT ve kapıda ödeme seçeneklerimiz mevcuttur.","faq","ödeme,kredi kartı,havale"\n';
+
+  var blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'bilgi_tabani_sablonu.csv';
+  link.click();
+}
+
 // Keywords
 function openKeywordModal(id) {
   document.getElementById('keywordId').value = id || '';
@@ -1227,7 +1461,7 @@ function unfreezeClient(id) {
   });
 }
 
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeKeywordModal(); closeFreezeModal(); closeKnowledgeModal(); closeTextImportModal(); } });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeKeywordModal(); closeFreezeModal(); closeKnowledgeModal(); closeTextImportModal(); closeUrlImportModal(); closeCsvExampleModal(); } });
 setTimeout(function() { var alert = document.getElementById('savedAlert'); if (alert) alert.style.display = 'none'; }, 3000);
 
 // Init
