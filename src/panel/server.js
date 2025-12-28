@@ -1430,7 +1430,7 @@ function startPanel({ manager, port, host }) {
   // Tüm sohbetleri temizle (gelişmiş)
   app.post("/api/system/clear-chats", async (req, res) => {
     try {
-      const { clientId, deleteAll, deleteFromWhatsApp } = req.body || {};
+      const { clientId, timeRange, deleteFromWhatsApp } = req.body || {};
       let deletedCount = 0;
       let deletedFromWA = 0;
 
@@ -1440,8 +1440,20 @@ function startPanel({ manager, port, host }) {
         deletedFromWA = waResult.deleted || 0;
       }
 
+      // Tarih aralığını SQL INTERVAL'e çevir
+      const timeRangeMap = {
+        '1h': 'INTERVAL 1 HOUR',
+        '24h': 'INTERVAL 24 HOUR',
+        '7d': 'INTERVAL 7 DAY',
+        '30d': 'INTERVAL 30 DAY',
+        '90d': 'INTERVAL 90 DAY',
+        'all': null // Tüm mesajlar
+      };
+
+      const interval = timeRangeMap[timeRange] || timeRangeMap['30d'];
+
       // Veritabanından silme
-      if (deleteAll) {
+      if (interval === null) {
         // Tüm mesajları sil
         if (clientId) {
           const [result] = await manager.db.pool.execute(
@@ -1453,22 +1465,32 @@ function startPanel({ manager, port, host }) {
           deletedCount = result.affectedRows || 0;
         }
       } else {
-        // Sadece 30 günden eski mesajları sil
+        // Belirli tarih aralığındaki mesajları sil
         if (clientId) {
           const [result] = await manager.db.pool.execute(
-            "DELETE FROM messages WHERE client_id = ? AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)",
+            `DELETE FROM messages WHERE client_id = ? AND created_at >= DATE_SUB(NOW(), ${interval})`,
             [clientId]
           );
           deletedCount = result.affectedRows || 0;
         } else {
           const [result] = await manager.db.pool.execute(
-            "DELETE FROM messages WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)"
+            `DELETE FROM messages WHERE created_at >= DATE_SUB(NOW(), ${interval})`
           );
           deletedCount = result.affectedRows || 0;
         }
       }
 
-      let message = `${deletedCount} mesaj veritabanından silindi`;
+      // Tarih aralığı açıklaması
+      const timeRangeLabels = {
+        '1h': 'son 1 saatteki',
+        '24h': 'son 24 saatteki',
+        '7d': 'son 1 haftadaki',
+        '30d': 'son 1 aydaki',
+        '90d': 'son 3 aydaki',
+        'all': 'tüm'
+      };
+
+      let message = `${deletedCount} ${timeRangeLabels[timeRange] || ''} mesaj veritabanından silindi`;
       if (deleteFromWhatsApp) {
         message += `, ${deletedFromWA} mesaj WhatsApp'tan silindi`;
       }

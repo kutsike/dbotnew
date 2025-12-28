@@ -312,17 +312,17 @@
           </select>
           <small class="text-muted">Belirli bir bot seçerek sadece o bot'un mesajlarını silebilirsiniz</small>
         </div>
-        <div class="setting-item" style="padding: 1rem 0;">
-          <div class="setting-info">
-            <div class="setting-title">Tüm Mesajları Sil</div>
-            <div class="setting-desc">Sadece 30 günden eski değil, TÜM mesajları sil</div>
-          </div>
-          <div class="setting-action">
-            <label class="switch">
-              <input type="checkbox" id="deleteAllMessages">
-              <span class="slider"></span>
-            </label>
-          </div>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label class="form-label">Tarih Aralığı</label>
+          <select id="deleteTimeRange" class="form-control form-select">
+            <option value="1h">Son 1 Saat</option>
+            <option value="24h">Son 24 Saat</option>
+            <option value="7d">Son 1 Hafta</option>
+            <option value="30d" selected>Son 1 Ay</option>
+            <option value="90d">Son 3 Ay</option>
+            <option value="all">Tüm Mesajlar</option>
+          </select>
+          <small class="text-muted">Silinecek mesajların tarih aralığını seçin</small>
         </div>
         <div class="setting-item" style="padding: 1rem 0;">
           <div class="setting-info">
@@ -1091,10 +1091,20 @@
   // Gelişmiş mesaj silme
   async function clearSelectedChats() {
     const clientId = document.getElementById('clearBotSelect').value;
-    const deleteAll = document.getElementById('deleteAllMessages').checked;
+    const timeRange = document.getElementById('deleteTimeRange').value;
     const deleteFromWhatsApp = document.getElementById('deleteFromWhatsApp').checked;
 
-    let warningText = deleteAll ? 'TÜM mesajları' : '30 günden eski mesajları';
+    // Tarih aralığı açıklamaları
+    const timeRangeLabels = {
+      '1h': 'son 1 saatteki',
+      '24h': 'son 24 saatteki',
+      '7d': 'son 1 haftadaki',
+      '30d': 'son 1 aydaki',
+      '90d': 'son 3 aydaki',
+      'all': 'TÜM'
+    };
+
+    let warningText = timeRangeLabels[timeRange] + ' mesajları';
     if (clientId) {
       warningText += ' (seçili bot için)';
     } else {
@@ -1125,7 +1135,7 @@
       const res = await fetch('/api/system/clear-chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, deleteAll, deleteFromWhatsApp })
+        body: JSON.stringify({ clientId, timeRange, deleteFromWhatsApp })
       });
       const data = await res.json();
       showToast(data.success ? data.message : 'Hata: ' + data.error, data.success ? 'success' : 'error');
