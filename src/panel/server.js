@@ -599,6 +599,55 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // ========= BOT SETTINGS API =========
+
+  // Bot ayarlarını kaydet (karakter seçimi vs.)
+  app.post("/api/bots/:id/settings", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const { character_id, name } = req.body || {};
+
+      // character_id güncelle
+      if (character_id !== undefined) {
+        await manager.db.pool.execute(
+          "UPDATE clients SET character_id = ? WHERE id = ?",
+          [character_id || null, clientId]
+        );
+      }
+
+      // name güncelle
+      if (name !== undefined) {
+        await manager.db.pool.execute(
+          "UPDATE clients SET name = ? WHERE id = ?",
+          [name, clientId]
+        );
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bot ayarlarını getir
+  app.get("/api/bots/:id/settings", async (req, res) => {
+    try {
+      const clientId = req.params.id;
+      const [rows] = await manager.db.pool.execute(
+        "SELECT id, name, character_id FROM clients WHERE id = ?",
+        [clientId]
+      );
+
+      if (!rows[0]) {
+        return res.json({ success: false, error: "Bot bulunamadı" });
+      }
+
+      res.json({ success: true, settings: rows[0] });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
   // ========= KEYWORDS API =========
 
   // Tüm anahtar kelimeleri getir
