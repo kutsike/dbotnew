@@ -290,10 +290,56 @@
             <i class="fas fa-download"></i>
             <span>Verileri Dışa Aktar</span>
           </div>
-          <div class="quick-action-btn danger" onclick="clearAllChats()">
+          <div class="quick-action-btn danger" onclick="showClearChatsModal()">
             <i class="fas fa-trash-alt"></i>
-            <span>Tüm Sohbetleri Sil</span>
+            <span>Mesaj Silme</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mesaj Silme Bölümü -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-trash-alt"></i>
+        <h3>Mesaj Silme İşlemleri</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="form-group">
+          <label class="form-label">Bot Seçimi</label>
+          <select id="clearBotSelect" class="form-control form-select">
+            <option value="">Tüm Botlar</option>
+          </select>
+          <small class="text-muted">Belirli bir bot seçerek sadece o bot'un mesajlarını silebilirsiniz</small>
+        </div>
+        <div class="setting-item" style="padding: 1rem 0;">
+          <div class="setting-info">
+            <div class="setting-title">Tüm Mesajları Sil</div>
+            <div class="setting-desc">Sadece 30 günden eski değil, TÜM mesajları sil</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="deleteAllMessages">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item" style="padding: 1rem 0;">
+          <div class="setting-info">
+            <div class="setting-title">WhatsApp'tan da Sil</div>
+            <div class="setting-desc">Mesajları WhatsApp sohbetlerinden de temizle</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="deleteFromWhatsApp">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button class="btn btn-warning" onclick="clearSelectedChats()">
+            <i class="fas fa-eraser"></i> Mesajları Temizle
+          </button>
         </div>
       </div>
     </div>
@@ -435,6 +481,57 @@
             <input type="time" id="workEnd" class="form-control" value="18:00">
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Botu İmha Et -->
+    <div class="settings-section" style="border: 2px solid rgba(239, 68, 68, 0.3);">
+      <div class="settings-section-header" style="background: rgba(239, 68, 68, 0.1);">
+        <i class="fas fa-skull-crossbones" style="color: #ef4444;"></i>
+        <h3 style="color: #ef4444;">Botu İmha Et</h3>
+      </div>
+      <div class="settings-section-body">
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+          <p style="color: #ef4444; margin: 0; font-weight: 500;">
+            <i class="fas fa-exclamation-triangle"></i> DİKKAT: Bu işlem geri alınamaz!
+          </p>
+          <small style="color: var(--text-muted);">
+            Bot imha edildiğinde: Tüm mesajlar silinir, WhatsApp oturumu kapatılır, session dosyaları temizlenir.
+          </small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">İmha Edilecek Bot</label>
+          <select id="destroyBotSelect" class="form-control form-select">
+            <option value="">Bot Seçin...</option>
+          </select>
+        </div>
+        <div class="setting-item" style="padding: 1rem 0;">
+          <div class="setting-info">
+            <div class="setting-title">WhatsApp Sohbetlerini de Temizle</div>
+            <div class="setting-desc">Bot'un tüm WhatsApp sohbetlerini de temizle</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="destroyDeleteFromWA">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item" style="padding: 1rem 0;">
+          <div class="setting-info">
+            <div class="setting-title">WhatsApp Hesabından Çıkış</div>
+            <div class="setting-desc">WhatsApp hesabından çıkış yap (QR kod ile tekrar bağlanılması gerekir)</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="destroyLogoutWA" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="destroyBot()" style="width: 100%; margin-top: 1rem;">
+          <i class="fas fa-skull"></i> Botu İmha Et
+        </button>
       </div>
     </div>
   </div>
@@ -961,6 +1058,142 @@
     }
   }
 
+  // Bot listesini yükle
+  async function loadBotList() {
+    try {
+      const res = await fetch('/api/system/bots');
+      const data = await res.json();
+      if (data.success && data.clients) {
+        const clearSelect = document.getElementById('clearBotSelect');
+        const destroySelect = document.getElementById('destroyBotSelect');
+
+        // Clear bot select
+        if (clearSelect) {
+          clearSelect.innerHTML = '<option value="">Tüm Botlar</option>';
+          data.clients.forEach(function(bot) {
+            clearSelect.innerHTML += '<option value="' + bot.id + '">' + (bot.name || bot.id) + ' (' + (bot.phone || 'Bağlı değil') + ')</option>';
+          });
+        }
+
+        // Destroy bot select
+        if (destroySelect) {
+          destroySelect.innerHTML = '<option value="">Bot Seçin...</option>';
+          data.clients.forEach(function(bot) {
+            destroySelect.innerHTML += '<option value="' + bot.id + '">' + (bot.name || bot.id) + ' (' + (bot.phone || 'Bağlı değil') + ')</option>';
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Bot listesi yüklenemedi:', e);
+    }
+  }
+
+  // Gelişmiş mesaj silme
+  async function clearSelectedChats() {
+    const clientId = document.getElementById('clearBotSelect').value;
+    const deleteAll = document.getElementById('deleteAllMessages').checked;
+    const deleteFromWhatsApp = document.getElementById('deleteFromWhatsApp').checked;
+
+    let warningText = deleteAll ? 'TÜM mesajları' : '30 günden eski mesajları';
+    if (clientId) {
+      warningText += ' (seçili bot için)';
+    } else {
+      warningText += ' (tüm botlar için)';
+    }
+    if (deleteFromWhatsApp) {
+      warningText += '\n\n⚠️ WhatsApp sohbetleri de temizlenecek!';
+    }
+
+    const confirmed1 = await showConfirmDialog(
+      'Mesaj Silme',
+      warningText + ' silmek istiyor musunuz?\n\nBu işlem GERİ ALINAMAZ!',
+      'Devam Et',
+      'danger'
+    );
+    if (!confirmed1) return;
+
+    const confirmed2 = await showConfirmDialog(
+      'Son Onay',
+      'Emin misiniz? Bu işlem kalıcıdır.',
+      'Evet, Sil',
+      'danger'
+    );
+    if (!confirmed2) return;
+
+    showToast('Mesajlar siliniyor...', 'info');
+    try {
+      const res = await fetch('/api/system/clear-chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, deleteAll, deleteFromWhatsApp })
+      });
+      const data = await res.json();
+      showToast(data.success ? data.message : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  // Mesaj silme modalını göster
+  function showClearChatsModal() {
+    switchTab('general');
+    // Mesaj silme bölümüne scroll
+    document.querySelector('#tab-general .settings-section:nth-child(2)').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Botu imha et
+  async function destroyBot() {
+    const clientId = document.getElementById('destroyBotSelect').value;
+    if (!clientId) {
+      showToast('Lütfen bir bot seçin', 'error');
+      return;
+    }
+
+    const deleteFromWhatsApp = document.getElementById('destroyDeleteFromWA').checked;
+    const logoutWhatsApp = document.getElementById('destroyLogoutWA').checked;
+
+    const confirmed1 = await showConfirmDialog(
+      '🔥 Bot İmha',
+      'Bu bot tamamen silinecek!\n\n' +
+      '• Tüm mesajlar silinecek\n' +
+      '• Tüm profiller silinecek\n' +
+      (deleteFromWhatsApp ? '• WhatsApp sohbetleri temizlenecek\n' : '') +
+      (logoutWhatsApp ? '• WhatsApp hesabından çıkış yapılacak\n' : '') +
+      '• Session dosyaları silinecek\n\n' +
+      'Bu işlem GERİ ALINAMAZ!',
+      'İmha Et',
+      'danger'
+    );
+    if (!confirmed1) return;
+
+    const confirmed2 = await showConfirmDialog(
+      '⚠️ SON UYARI',
+      'Bu işlemi onaylıyor musunuz?\n\nBot: ' + clientId + '\n\nBu işlem tamamen kalıcıdır!',
+      'EVET, BOTU İMHA ET',
+      'danger'
+    );
+    if (!confirmed2) return;
+
+    showToast('Bot imha ediliyor...', 'info');
+    try {
+      const res = await fetch('/api/system/destroy-bot/' + clientId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteFromWhatsApp, logoutWhatsApp })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        loadBotList(); // Listeyi güncelle
+        document.getElementById('destroyBotSelect').value = '';
+      } else {
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
   // Kontrollü onay dialog'u
   function showConfirmDialog(title, message, confirmText, type) {
     return new Promise(function(resolve) {
@@ -1443,6 +1676,7 @@
   refreshBehaviorLog();
   loadSecuritySettings();
   loadActiveSessions();
+  loadBotList();
   setInterval(loadSystemStats, 30000);
 </script>
 

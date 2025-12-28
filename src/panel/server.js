@@ -1426,13 +1426,136 @@ function startPanel({ manager, port, host }) {
     }
   });
 
-  // Tüm sohbetleri temizle
+  // Tüm sohbetleri temizle (gelişmiş)
   app.post("/api/system/clear-chats", async (req, res) => {
     try {
-      // Mesajları temizle
-      await manager.db.pool.execute("DELETE FROM messages WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
+      const { clientId, deleteAll, deleteFromWhatsApp } = req.body || {};
+      let deletedCount = 0;
+      let deletedFromWA = 0;
 
-      res.json({ success: true, message: "30 günden eski mesajlar temizlendi" });
+      // WhatsApp'tan silme işlemi
+      if (deleteFromWhatsApp && manager.clearMessagesFromWhatsApp) {
+        const waResult = await manager.clearMessagesFromWhatsApp(clientId || null);
+        deletedFromWA = waResult.deleted || 0;
+      }
+
+      // Veritabanından silme
+      if (deleteAll) {
+        // Tüm mesajları sil
+        if (clientId) {
+          const [result] = await manager.db.pool.execute(
+            "DELETE FROM messages WHERE client_id = ?", [clientId]
+          );
+          deletedCount = result.affectedRows || 0;
+        } else {
+          const [result] = await manager.db.pool.execute("DELETE FROM messages");
+          deletedCount = result.affectedRows || 0;
+        }
+      } else {
+        // Sadece 30 günden eski mesajları sil
+        if (clientId) {
+          const [result] = await manager.db.pool.execute(
+            "DELETE FROM messages WHERE client_id = ? AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)",
+            [clientId]
+          );
+          deletedCount = result.affectedRows || 0;
+        } else {
+          const [result] = await manager.db.pool.execute(
+            "DELETE FROM messages WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)"
+          );
+          deletedCount = result.affectedRows || 0;
+        }
+      }
+
+      let message = `${deletedCount} mesaj veritabanından silindi`;
+      if (deleteFromWhatsApp) {
+        message += `, ${deletedFromWA} mesaj WhatsApp'tan silindi`;
+      }
+
+      res.json({ success: true, message, deletedCount, deletedFromWA });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bot bazlı mesaj silme
+  app.post("/api/system/clear-bot-chats/:clientId", async (req, res) => {
+    try {
+      const clientId = req.params.clientId;
+      const { deleteFromWhatsApp } = req.body || {};
+
+      let deletedFromWA = 0;
+
+      // WhatsApp'tan silme
+      if (deleteFromWhatsApp && manager.clearMessagesFromWhatsApp) {
+        const waResult = await manager.clearMessagesFromWhatsApp(clientId);
+        deletedFromWA = waResult.deleted || 0;
+      }
+
+      // Veritabanından silme
+      const [result] = await manager.db.pool.execute(
+        "DELETE FROM messages WHERE client_id = ?", [clientId]
+      );
+      const deletedCount = result.affectedRows || 0;
+
+      res.json({
+        success: true,
+        message: `${deletedCount} mesaj silindi` + (deleteFromWhatsApp ? `, ${deletedFromWA} WhatsApp'tan silindi` : ''),
+        deletedCount,
+        deletedFromWA
+      });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Botu imha et (tamamen sil)
+  app.post("/api/system/destroy-bot/:clientId", async (req, res) => {
+    try {
+      const clientId = req.params.clientId;
+      const { deleteFromWhatsApp, logoutWhatsApp } = req.body || {};
+
+      // 1. WhatsApp'tan mesajları sil (opsiyonel)
+      if (deleteFromWhatsApp && manager.clearMessagesFromWhatsApp) {
+        await manager.clearMessagesFromWhatsApp(clientId);
+      }
+
+      // 2. WhatsApp hesabından çıkış yap
+      if (logoutWhatsApp && manager.logoutWhatsApp) {
+        await manager.logoutWhatsApp(clientId);
+      }
+
+      // 3. Veritabanından bot mesajlarını sil
+      await manager.db.pool.execute("DELETE FROM messages WHERE client_id = ?", [clientId]);
+
+      // 4. Bot profillerini sil (opsiyonel)
+      await manager.db.pool.execute("DELETE FROM profiles WHERE client_id = ?", [clientId]);
+
+      // 5. Bot'u sistemden kaldır
+      await manager.removeClient(clientId);
+
+      // 6. Session dosyalarını temizle
+      const fs = require('fs');
+      const path = require('path');
+      const sessionPath = path.join(manager.config.dataDir, 'sessions', `session-${clientId}`);
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+      }
+
+      res.json({
+        success: true,
+        message: `Bot "${clientId}" tamamen imha edildi`
+      });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Bot listesi (silme işlemleri için)
+  app.get("/api/system/bots", async (req, res) => {
+    try {
+      const clients = await manager.db.getClients();
+      res.json({ success: true, clients: clients || [] });
     } catch (err) {
       res.json({ success: false, error: err.message });
     }
