@@ -144,7 +144,7 @@ async analyzeUserCharacter(profile) {
   /**
    * Sohbet geçmişini formatlı şekilde al
    */
-  async getFormattedHistory(chatId, limit = 8) {
+  async getFormattedHistory(chatId, limit = 12) {
     try {
       const history = await this.db.getChatHistory(chatId, limit);
       return history.map(h => ({
@@ -157,14 +157,75 @@ async analyzeUserCharacter(profile) {
   }
 
   /**
+   * Konuşma özetini oluştur (uzun konuşmalar için)
+   */
+  async getSummaryContext(chatId, profile) {
+    try {
+      const history = await this.db.getChatHistory(chatId, 30);
+
+      if (history.length === 0) return null;
+
+      // Önceki mesajlardan önemli bilgileri çıkar
+      const context = {
+        askedQuestions: [],
+        receivedAnswers: [],
+        topics: []
+      };
+
+      for (const msg of history) {
+        const lower = msg.content.toLowerCase();
+
+        // Bot'un sorduğu sorular
+        if (msg.direction === 'outgoing') {
+          if (lower.includes('ismin') || lower.includes('adın')) context.askedQuestions.push('full_name');
+          if (lower.includes('şehir') || lower.includes('neredesin')) context.askedQuestions.push('city');
+          if (lower.includes('numara') || lower.includes('telefon')) context.askedQuestions.push('phone');
+          if (lower.includes('yaş') || lower.includes('doğum')) context.askedQuestions.push('birth_date');
+          if (lower.includes('anne')) context.askedQuestions.push('mother_name');
+          if (lower.includes('derdin') || lower.includes('sorun')) context.askedQuestions.push('subject');
+        }
+      }
+
+      return context;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
    * Ana sohbet işleyici - insansı cevaplar
    */
   async answerIslamicQuestion(message, context = {}) {
     const { chatId, profile } = context;
-    
-    // Geçmiş mesajları al (Hafıza)
-    const historyMessages = await this.getFormattedHistory(chatId, 8);
-    const systemPrompt = await this.buildSystemPrompt(profile);
+
+    // Geçmiş mesajları al (Hafıza - artırıldı)
+    const historyMessages = await this.getFormattedHistory(chatId, 12);
+
+    // Konuşma özetini al
+    const summary = await this.getSummaryContext(chatId, profile);
+
+    // Sistem promptu oluştur
+    let systemPrompt = await this.buildSystemPrompt(profile);
+
+    // Eğer daha önce sorulmuş sorular varsa, sistem promptuna ekle
+    if (summary && summary.askedQuestions.length > 0) {
+      systemPrompt += `\n\n## ÖNEMLİ: DAHA ÖNCE SORULAN SORULAR\nBu bilgileri zaten sordun, TEKRAR SORMA:\n`;
+
+      const questionLabels = {
+        'full_name': 'İsim',
+        'city': 'Şehir',
+        'phone': 'Telefon',
+        'birth_date': 'Yaş/Doğum tarihi',
+        'mother_name': 'Anne ismi',
+        'subject': 'Derdi/konusu'
+      };
+
+      for (const q of summary.askedQuestions) {
+        systemPrompt += `- ${questionLabels[q] || q}\n`;
+      }
+
+      systemPrompt += `\nBu bilgileri tekrar sormak yerine, kullanıcının son mesajına doğal bir şekilde cevap ver ve sohbeti ilerlet.`;
+    }
 
     // Kullanıcı adını al
     const userName = profile?.full_name?.split(/\s+/)[0] || "kardeşim";
@@ -182,8 +243,8 @@ async analyzeUserCharacter(profile) {
         ],
         temperature: 0.8,
         max_tokens: 150, // Kısa cevaplar için düşürüldü
-        presence_penalty: 0.4,
-        frequency_penalty: 0.4
+        presence_penalty: 0.6, // Tekrarları azaltmak için artırıldı
+        frequency_penalty: 0.6  // Tekrarları azaltmak için artırıldı
       });
 
       let answer = (response.choices[0].message.content || "").trim();
@@ -200,15 +261,15 @@ async analyzeUserCharacter(profile) {
       return { reply: answer, action: "ai_response" };
     } catch (err) {
       console.error("AI Chat Hatası:", err.message);
-      
+
       // Hata durumunda insansı fallback mesajları
       const fallbacks = [
         `${userName} kardeşim, bir saniye bekler misin? Şu an biraz yoğunuz, hemen döneceğim.`,
         `Pardon ${userName} kardeşim, bir aksaklık oldu. Birazdan tekrar yazar mısın?`,
         `${userName} kardeşim, sistemde ufak bir sorun var. Bir dakika sonra tekrar dener misin?`
       ];
-      
-      return { 
+
+      return {
         reply: fallbacks[Math.floor(Math.random() * fallbacks.length)],
         action: "ai_error"
       };

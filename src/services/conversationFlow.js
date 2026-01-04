@@ -266,6 +266,94 @@ class ConversationFlow {
     return q[fieldKey] || q.subject;
   }
 
+  /**
+   * Geçmiş mesajlarda belirli bir soru sorulmuş mu kontrol et
+   */
+  async hasAskedQuestion(chatId, fieldKey, lookbackMinutes = 60) {
+    try {
+      const history = await this.db.getChatHistory(chatId, 20);
+      const lookbackTime = Date.now() - (lookbackMinutes * 60 * 1000);
+
+      // Soru kalıpları
+      const questionPatterns = {
+        full_name: ["ismin", "adın", "nasıl hitap"],
+        city: ["şehir", "neredesin", "hangi şehir"],
+        phone: ["numara", "telefon", "iletişim"],
+        birth_date: ["yaş", "doğum", "kaç yaşında"],
+        mother_name: ["anne", "anne ismi", "anne adı"],
+        subject: ["derdin", "sıkıntın", "sorun", "anlat"]
+      };
+
+      const patterns = questionPatterns[fieldKey] || [];
+      if (patterns.length === 0) return false;
+
+      // Son mesajlarda bu soru sorulmuş mu?
+      for (const msg of history) {
+        const msgTime = new Date(msg.created_at).getTime();
+        if (msgTime < lookbackTime) continue;
+
+        if (msg.direction === 'outgoing') {
+          const content = String(msg.content || '').toLowerCase();
+          for (const pattern of patterns) {
+            if (content.includes(pattern)) {
+              return true;
+            }
+          }
+        }
+      }
+
+      return false;
+    } catch (e) {
+      console.error('[ConversationFlow] Geçmiş kontrol hatası:', e.message);
+      return false;
+    }
+  }
+
+  /**
+   * Kullanıcının bir soruya cevap verip vermediğini kontrol et
+   */
+  async hasUserResponded(chatId, fieldKey) {
+    try {
+      const history = await this.db.getChatHistory(chatId, 10);
+
+      // Son 3 incoming mesaja bak
+      const lastUserMessages = history
+        .filter(m => m.direction === 'incoming')
+        .slice(-3)
+        .map(m => String(m.content || ''));
+
+      // İlgili alana göre cevap arama
+      for (const msg of lastUserMessages) {
+        const lower = this.normalizeTR(msg);
+
+        switch (fieldKey) {
+          case 'full_name':
+            if (/^[a-z\s]{2,30}$/i.test(msg.trim())) return true;
+            break;
+          case 'city':
+            if (this.cities.some(c => lower.includes(c))) return true;
+            break;
+          case 'phone':
+            if (/5\d{9}/.test(msg.replace(/\s+/g, ''))) return true;
+            break;
+          case 'birth_date':
+            if (/\d{2,4}/.test(msg) || /yaş/.test(lower)) return true;
+            break;
+          case 'mother_name':
+            if (/^[a-z\s]{2,20}$/i.test(msg.trim())) return true;
+            break;
+          case 'subject':
+            if (msg.length > 15) return true;
+            break;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // --- ANA İŞLEM ---
   async processMessage(chatId, clientId, message, context = {}) {
     const { name, profile } = context;
@@ -326,20 +414,40 @@ class ConversationFlow {
     if (missing.length > 0) {
       const nextField = missing[0];
 
-      // Tekrar sorma kontrolü - AYNI SORUYU TEKRAR SORMA
-      // Eğer zaten bu soru sorulmuşsa VE kısa cevap gelmediyse biraz bekle
+      // ===== YENİ: GELİŞMİŞ TEKRAR SORMA ÖNLEMESİ =====
       const now = Date.now();
       const lastAt = profile?.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
 
-      // Eğer son 2 dakika içinde aynı soruyu sorduysan ve cevap alamadıysan
-      if (profile?.last_question_key === nextField.key && (now - lastAt < 120000)) {
-        // Kısa cevap geldiyse (shortAnswer) sıradaki soruya geç
-        if (!shortAnswer) {
+      // 1. Geçmişte bu soru sorulmuş mu? (Son 60 dakika)
+      const alreadyAsked = await this.hasAskedQuestion(chatId, nextField.key, 60);
+
+      // 2. Kullanıcı cevap vermiş mi?
+      const userResponded = await this.hasUserResponded(chatId, nextField.key);
+
+      // 3. Aynı soru 2 dakika içinde sorulduysa
+      const recentlyAsked = profile?.last_question_key === nextField.key && (now - lastAt < 120000);
+
+      // Eğer soru zaten sorulduysa VE kullanıcı cevap vermediyse
+      if (alreadyAsked && !userResponded) {
+        // Eğer 2 dakikadan daha yeni sorulduysa, hiç sorma
+        if (recentlyAsked) {
           return { reply: null, action: "skip_repeat" };
         }
+
+        // Eğer 60 dakika içinde sorulduysa, sadece AI'ya devret (tekrar sorma)
+        if (this.aiChat) {
+          try {
+            const aiResponse = await this.aiChat.answerIslamicQuestion(message, { chatId, profile });
+            return aiResponse;
+          } catch (e) {
+            return { reply: null, action: "skip_repeat" };
+          }
+        }
+
+        return { reply: null, action: "skip_repeat" };
       }
 
-      // Yeni soru sor
+      // Yeni soru sor (ilk kez veya cevap verildi)
       await this.db.updateProfile(chatId, clientId, {
         last_question_key: nextField.key,
         last_question_at: new Date()
