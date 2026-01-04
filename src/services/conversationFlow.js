@@ -453,9 +453,24 @@ class ConversationFlow {
         last_question_at: new Date()
       });
 
-      // KISA VE DOĞAL SORULAR (Abartısız)
+      // DERİN MANEVİYAT MODU: AI ile uzun, tasavvufi sorular sor
+      if (this.aiChat) {
+        try {
+          const aiQuestion = await this._generateReligousConversation(profile, nextField, message);
+          if (aiQuestion) {
+            return {
+              reply: aiQuestion,
+              action: "collecting_" + nextField.key
+            };
+          }
+        } catch (e) {
+          console.error('[ConversationFlow] AI soru oluşturma hatası:', e.message);
+        }
+      }
+
+      // Yedek: Manuel derin maneviyat soruları
       return {
-        reply: this._shortQuestion(nextField.key, warmName),
+        reply: this._manualReligiousQuestion(nextField.key, warmName),
         action: "collecting_" + nextField.key
       };
     }
@@ -463,7 +478,7 @@ class ConversationFlow {
     return { reply: "Teşekkürler kardeşim, notlarımıza aldık.", action: "default" };
   }
 
-  // --- KISA VE DOĞAL SORULAR (Abartısız) ---
+  // --- KISA VE DOĞAL SORULAR (Yedek - kullanılmıyor artık) ---
   _shortQuestion(fieldKey, warmName) {
     const questions = {
       full_name: `İsmini öğrenebilir miyim ${warmName}?`,
