@@ -1,0 +1,308 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <h2><i class="fas fa-key"></i> Anahtar Kelime Yanıtları</h2>
+  <div class="header-actions">
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <i class="fas fa-plus"></i> Yeni Ekle
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3><i class="fas fa-list"></i> Tanımlı Anahtar Kelimeler</h3>
+    <span class="badge badge-primary"><%= (keywords || []).length %> adet</span>
+  </div>
+  <div class="card-body">
+    <% if (keywords && keywords.length > 0) { %>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Anahtar Kelime</th>
+            <th>Eşleşme Tipi</th>
+            <th>Yanıt</th>
+            <th>Öncelik</th>
+            <th>Durum</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% keywords.forEach(kw => { %>
+            <tr>
+              <td>
+                <strong class="text-primary"><%= kw.keyword %></strong>
+              </td>
+              <td>
+                <span class="badge badge-secondary">
+                  <% if (kw.match_type === 'contains') { %>
+                    <i class="fas fa-search"></i> İçerir
+                  <% } else if (kw.match_type === 'exact') { %>
+                    <i class="fas fa-equals"></i> Tam Eşleşme
+                  <% } else if (kw.match_type === 'starts_with') { %>
+                    <i class="fas fa-arrow-right"></i> Başlar
+                  <% } else if (kw.match_type === 'ends_with') { %>
+                    <i class="fas fa-arrow-left"></i> Biter
+                  <% } else if (kw.match_type === 'regex') { %>
+                    <i class="fas fa-code"></i> Regex
+                  <% } %>
+                </span>
+              </td>
+              <td>
+                <div class="response-preview"><%= (kw.response || '').substring(0, 80) %><%= (kw.response || '').length > 80 ? '...' : '' %></div>
+              </td>
+              <td>
+                <span class="badge badge-info"><%= kw.priority || 0 %></span>
+              </td>
+              <td>
+                <% if (kw.is_active) { %>
+                  <span class="badge badge-success"><i class="fas fa-check"></i> Aktif</span>
+                <% } else { %>
+                  <span class="badge badge-danger"><i class="fas fa-times"></i> Pasif</span>
+                <% } %>
+              </td>
+              <td>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-sm btn-secondary" onclick="editKeyword(<%= kw.id %>, '<%= kw.keyword.replace(/'/g, "\\'") %>', '<%= kw.match_type %>', `<%= (kw.response || '').replace(/`/g, '\\`') %>`, <%= kw.priority || 0 %>, <%= kw.is_active ? 1 : 0 %>)" title="Düzenle">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-sm <%= kw.is_active ? 'btn-warning' : 'btn-success' %>" onclick="toggleKeyword(<%= kw.id %>, <%= kw.is_active ? 0 : 1 %>)" title="<%= kw.is_active ? 'Pasif Yap' : 'Aktif Yap' %>">
+                    <i class="fas fa-<%= kw.is_active ? 'pause' : 'play' %>"></i>
+                  </button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteKeyword(<%= kw.id %>)" title="Sil">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div class="empty-state">
+        <i class="fas fa-key"></i>
+        <h4>Anahtar Kelime Yok</h4>
+        <p>Henüz anahtar kelime tanımlanmamış. "Yeni Ekle" butonuyla başlayabilirsiniz.</p>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <h3><i class="fas fa-info-circle"></i> Nasıl Çalışır?</h3>
+  </div>
+  <div class="card-body">
+    <div class="info-grid">
+      <div class="info-item">
+        <label><i class="fas fa-search"></i> İçerir</label>
+        <span>Mesajda kelime geçiyorsa eşleşir. Örn: "fiyat" -> "fiyat nedir?" ile eşleşir</span>
+      </div>
+      <div class="info-item">
+        <label><i class="fas fa-equals"></i> Tam Eşleşme</label>
+        <span>Mesaj birebir aynıysa eşleşir. Örn: "merhaba" -> sadece "merhaba" ile eşleşir</span>
+      </div>
+      <div class="info-item">
+        <label><i class="fas fa-arrow-right"></i> Başlar</label>
+        <span>Mesaj bu kelimeyle başlıyorsa eşleşir. Örn: "selam" -> "selam nasılsın" ile eşleşir</span>
+      </div>
+      <div class="info-item">
+        <label><i class="fas fa-arrow-left"></i> Biter</label>
+        <span>Mesaj bu kelimeyle bitiyorsa eşleşir. Örn: "?" -> "nasılsın?" ile eşleşir</span>
+      </div>
+      <div class="info-item">
+        <label><i class="fas fa-code"></i> Regex</label>
+        <span>Düzenli ifade ile eşleşme. Gelişmiş kullanıcılar için.</span>
+      </div>
+      <div class="info-item">
+        <label><i class="fas fa-sort-numeric-up"></i> Öncelik</label>
+        <span>Yüksek öncelikli kurallar önce kontrol edilir (0-100 arası)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ekleme/Düzenleme Modal -->
+<div class="modal" id="keywordModal">
+  <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3 id="modalTitle"><i class="fas fa-key"></i> Anahtar Kelime Ekle</h3>
+      <button class="close-btn" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="keywordId">
+
+      <div class="form-group">
+        <label class="form-label">Anahtar Kelime *</label>
+        <input type="text" id="keywordText" class="form-control" placeholder="Örn: fiyat, merhaba, randevu...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Eşleşme Tipi</label>
+        <select id="matchType" class="form-control">
+          <option value="contains">İçerir (mesajda geçiyorsa)</option>
+          <option value="exact">Tam Eşleşme (birebir aynı)</option>
+          <option value="starts_with">Başlar (mesaj bununla başlıyorsa)</option>
+          <option value="ends_with">Biter (mesaj bununla bitiyorsa)</option>
+          <option value="regex">Regex (düzenli ifade)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Yanıt Mesajı *</label>
+        <textarea id="responseText" class="form-control" rows="4" placeholder="Bu kelime algılandığında gönderilecek yanıt..."></textarea>
+        <small class="text-muted">Değişkenler: {name} = Kişi adı, {time} = Saat</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Öncelik (0-100)</label>
+        <input type="number" id="priority" class="form-control" value="0" min="0" max="100">
+        <small class="text-muted">Yüksek değer = Önce kontrol edilir</small>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">İptal</button>
+      <button class="btn btn-primary" onclick="saveKeyword()">
+        <i class="fas fa-save"></i> Kaydet
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+.response-preview {
+  max-width: 300px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.info-item {
+  background: var(--bg-tertiary);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+}
+
+.info-item label {
+  display: block;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: var(--space-xs);
+}
+
+.info-item span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+</style>
+
+<script>
+const clientId = '<%= clientId || "default" %>';
+
+function openAddModal() {
+  document.getElementById('modalTitle').innerHTML = '<i class="fas fa-key"></i> Anahtar Kelime Ekle';
+  document.getElementById('keywordId').value = '';
+  document.getElementById('keywordText').value = '';
+  document.getElementById('matchType').value = 'contains';
+  document.getElementById('responseText').value = '';
+  document.getElementById('priority').value = '0';
+  document.getElementById('keywordModal').classList.add('active');
+}
+
+function editKeyword(id, keyword, matchType, response, priority, isActive) {
+  document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> Anahtar Kelime Düzenle';
+  document.getElementById('keywordId').value = id;
+  document.getElementById('keywordText').value = keyword;
+  document.getElementById('matchType').value = matchType;
+  document.getElementById('responseText').value = response;
+  document.getElementById('priority').value = priority;
+  document.getElementById('keywordModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('keywordModal').classList.remove('active');
+}
+
+async function saveKeyword() {
+  const id = document.getElementById('keywordId').value;
+  const keyword = document.getElementById('keywordText').value.trim();
+  const matchType = document.getElementById('matchType').value;
+  const response = document.getElementById('responseText').value.trim();
+  const priority = parseInt(document.getElementById('priority').value) || 0;
+
+  if (!keyword || !response) {
+    alert('Anahtar kelime ve yanıt zorunludur!');
+    return;
+  }
+
+  try {
+    const url = id ? `/api/keywords/${id}` : '/api/keywords';
+    const method = id ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, keyword, match_type: matchType, response, priority })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+async function toggleKeyword(id, isActive) {
+  try {
+    const res = await fetch(`/api/keywords/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: isActive })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+async function deleteKeyword(id) {
+  if (!confirm('Bu anahtar kelimeyi silmek istediğinize emin misiniz?')) return;
+
+  try {
+    const res = await fetch(`/api/keywords/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+// Modal dışına tıklayınca kapat
+document.getElementById('keywordModal').addEventListener('click', (e) => {
+  if (e.target.id === 'keywordModal') closeModal();
+});
+</script>
+
+<%- include('partials/footer') %>

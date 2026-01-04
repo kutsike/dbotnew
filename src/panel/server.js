@@ -272,6 +272,28 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Anahtar Kelimeler Sayfası
+  app.get("/keywords", async (req, res) => {
+    try {
+      const clientId = req.query.client || "default";
+      const keywords = await manager.db.getKeywordResponses(clientId);
+      res.render("keywords", {
+        title: "Anahtar Kelimeler",
+        page: "keywords",
+        keywords: keywords || [],
+        clientId
+      });
+    } catch (err) {
+      console.error("Keywords hatası:", err);
+      res.render("keywords", {
+        title: "Anahtar Kelimeler",
+        page: "keywords",
+        keywords: [],
+        clientId: "default"
+      });
+    }
+  });
+
   // Karakter
   app.get("/character", async (req, res) => {
     try {
@@ -691,6 +713,44 @@ function startPanel({ manager, port, host }) {
   app.delete("/api/bots/:id/keywords/:kwId", async (req, res) => {
     try {
       await manager.db.deleteKeywordResponse(req.params.kwId);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // ========= KEYWORD API (Basit) =========
+
+  // Keyword ekle
+  app.post("/api/keywords", async (req, res) => {
+    try {
+      const { clientId, keyword, match_type, response, priority } = req.body;
+      await manager.db.addKeywordResponse(clientId || "default", {
+        keyword,
+        match_type: match_type || "contains",
+        response,
+        priority: priority || 0
+      });
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Keyword güncelle
+  app.put("/api/keywords/:id", async (req, res) => {
+    try {
+      await manager.db.updateKeywordResponse(req.params.id, req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // Keyword sil
+  app.delete("/api/keywords/:id", async (req, res) => {
+    try {
+      await manager.db.deleteKeywordResponse(req.params.id);
       res.json({ success: true });
     } catch (err) {
       res.json({ success: false, error: err.message });

@@ -1,14 +1,15 @@
 "use strict";
 
 /**
- * ConversationFlow v10.0 - Dini Rehber + Otomatik Profil
+ * ConversationFlow v11.0 - Anahtar Kelime Sistemi
  *
  * DAVRANIŞLAR:
- * 1. Dini terimlerle konuş (inşallah, maşallah, Allah'ın izniyle)
- * 2. Cümle sonları dini ifadelerle bitsin
- * 3. Kişinin sorununa odaklan
- * 4. Mesajlardan profil bilgisi çıkar
- * 5. 4+ metrik toplandığında otomatik kart oluştur
+ * 1. Anahtar kelime eşleşmesi (öncelikli)
+ * 2. Dini terimlerle konuş (inşallah, maşallah, Allah'ın izniyle)
+ * 3. Cümle sonları dini ifadelerle bitsin
+ * 4. Kişinin sorununa odaklan
+ * 5. Mesajlardan profil bilgisi çıkar
+ * 6. 4+ metrik toplandığında otomatik kart oluştur
  */
 
 class ConversationFlow {
@@ -353,6 +354,31 @@ class ConversationFlow {
     // Mesaj sayısını artır
     const msgCount = (this.messageCount.get(chatId) || 0) + 1;
     this.messageCount.set(chatId, msgCount);
+
+    // === ANAHTAR KELİME KONTROLÜ (ÖNCELİKLİ) ===
+    try {
+      if (this.db?.findMatchingKeyword) {
+        const keywordMatch = await this.db.findMatchingKeyword(clientId, msg);
+        if (keywordMatch) {
+          // Değişkenleri değiştir
+          let response = keywordMatch.response;
+          const warmName = currentProfile?.full_name?.split(" ")[0] || name || "kardeşim";
+          response = response.replace(/\{name\}/gi, warmName);
+          response = response.replace(/\{time\}/gi, new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+
+          console.log(`🔑 Keyword eşleşti: "${keywordMatch.keyword}" -> yanıt gönderiliyor`);
+
+          return {
+            reply: this.addHumanTouch(response),
+            action: "keyword_match",
+            keyword: keywordMatch.keyword,
+            extracted: {}
+          };
+        }
+      }
+    } catch (e) {
+      console.log("Keyword kontrol hatası:", e.message);
+    }
 
     // === MESAJDAN PROFİL BİLGİSİ ÇIKAR ===
     const extracted = this.extractProfileInfo(msg, currentProfile);
