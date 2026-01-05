@@ -128,6 +128,9 @@ function startPanel({ manager, port, host }) {
     }
   });
 
+  // Bot Settings (redirect to bots)
+  app.get("/bot-settings", (req, res) => res.redirect("/bots"));
+
   // Profiller
   app.get("/profiles", async (req, res) => {
     try {
