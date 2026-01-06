@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> | Hocanın Yardımcısı</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="admin-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <i class="fas fa-mosque"></i>
+        <span>Hocanın Yardımcısı</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a></li>
+          <li><a href="/whatsapp" class="<%= page === 'whatsapp' ? 'active' : '' %>"><i class="fas fa-message"></i><span>WhatsApp</span></a></li>
+          <li><a href="/chats" class="<%= page === 'chats' ? 'active' : '' %>"><i class="fas fa-comments"></i><span>Sohbetler</span></a></li>
+          <li><a href="/appointments" class="<%= page === 'appointments' ? 'active' : '' %>"><i class="fas fa-calendar-check"></i><span>Randevular</span></a></li>
+          <li><a href="/bots" class="<%= page === 'bots' ? 'active' : '' %>"><i class="fas fa-robot"></i><span>Botlar</span></a></li>
+          <li><a href="/profiles" class="<%= page === 'profiles' ? 'active' : '' %>"><i class="fas fa-users"></i><span>Profiller</span></a></li>
+          <li><a href="/keywords" class="<%= page === 'keywords' ? 'active' : '' %>"><i class="fas fa-key"></i><span>Anahtar Kelimeler</span></a></li>
+          <li><a href="/duas" class="<%= page === 'duas' ? 'active' : '' %>"><i class="fas fa-pray"></i><span>Dualar</span></a></li>
+          <li><a href="/character" class="<%= page === 'character' ? 'active' : '' %>"><i class="fas fa-user-astronaut"></i><span>Karakter</span></a></li>
+          <li><a href="/settings" class="<%= page === 'settings' ? 'active' : '' %>"><i class="fas fa-cog"></i><span>Ayarlar</span></a></li>
+        </ul>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menü"><i class="fas fa-bars"></i></button>
+        <div class="topbar-title"><%= title %></div>
+      </div>
+      <div id="toastContainer" class="toast-container"></div>
+
+<div class="content-header">
+  <div style="display: flex; align-items: center; gap: 1rem;">
+    <a href="/bots" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i></a>
+    <h2><i class="fas fa-robot"></i> <%= client.name || client.id %></h2>
+    <% if (client.status === 'ready') { %>
+      <span class="badge badge-success"><i class="fas fa-check"></i> AKTİF</span>
+    <% } else if (client.frozen) { %>
+      <span class="badge badge-info"><i class="fas fa-snowflake"></i> Dondurulmuş</span>
+    <% } else { %>
+      <span class="badge badge-secondary"><%= client.status %></span>
+    <% } %>
+  </div>
+  <div class="header-actions">
+    <% if (client.frozen) { %>
+      <button class="btn btn-success" onclick="unfreezeClient('<%= client.id %>')"><i class="fas fa-fire"></i> Aktif Et</button>
+    <% } else { %>
+      <button class="btn btn-warning" onclick="freezeClient('<%= client.id %>')"><i class="fas fa-snowflake"></i> Dondur</button>
+    <% } %>
+  </div>
+</div>
+
+<% if (saved) { %>
+<div class="alert alert-success" id="savedAlert"><i class="fas fa-check-circle"></i> Ayarlar kaydedildi!</div>
+<% } %>
+
+<!-- Bot Bilgileri -->
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="bot-summary">
+      <div class="summary-item"><span class="summary-label">ID:</span><code><%= client.id %></code></div>
+      <div class="summary-item"><span class="summary-label">Telefon:</span><span><%= client.phone || '-' %></span></div>
+      <div class="summary-item"><span class="summary-label">Profil:</span><span class="stat-badge"><%= stats.profiles %></span></div>
+      <div class="summary-item"><span class="summary-label">Mesaj:</span><span class="stat-badge"><%= stats.messages %></span></div>
+      <div class="summary-item"><span class="summary-label">Bugün:</span><span class="stat-badge success"><%= stats.todayMessages %></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Sekmeler -->
+<div class="tabs-container">
+  <div class="tabs">
+    <button class="tab active" data-tab="identity"><i class="fas fa-id-card"></i> Kimlik & Sektör</button>
+    <button class="tab" data-tab="personality"><i class="fas fa-brain"></i> Kişilik</button>
+    <button class="tab" data-tab="knowledge"><i class="fas fa-book"></i> Bilgi Tabanı</button>
+    <button class="tab" data-tab="keywords"><i class="fas fa-key"></i> Tetikleyiciler</button>
+    <button class="tab" data-tab="humanization"><i class="fas fa-user-clock"></i> İnsanlaştırma</button>
+    <button class="tab" data-tab="test"><i class="fas fa-flask"></i> Test</button>
+  </div>
+
+  <!-- KİMLİK & SEKTÖR SEKMESİ -->
+  <div class="tab-content active" id="tab-identity">
+    <div class="settings-row">
+      <!-- Bot Kimliği -->
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-id-card"></i> Bot Kimliği</h3></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Bot Adı</label>
+            <input type="text" id="botName" class="form-control" value="<%= client.name || '' %>" placeholder="Örn: Asistan Ayşe">
+            <small class="text-muted">Kullanıcılara görünecek isim</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bot Rolü / Unvanı</label>
+            <input type="text" id="botRole" class="form-control" value="<%= client.role || '' %>" placeholder="Örn: Müşteri Temsilcisi, Danışman">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Şirket / Kurum Adı</label>
+            <input type="text" id="botCompany" class="form-control" value="<%= client.company || '' %>" placeholder="Örn: ABC Şirketi">
+          </div>
+        </div>
+      </div>
+
+      <!-- Sektör Seçimi -->
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-industry"></i> Sektör Seçimi</h3></div>
+        <div class="card-body">
+          <p class="text-muted mb-3">Bot'un çalışacağı sektörü seçin. Bu, yanıtların tonunu ve içeriğini etkiler.</p>
+          <div class="sector-grid" id="sectorGrid">
+            <div class="sector-card <%= (client.sector || '') === '' ? 'selected' : '' %>" data-sector="">
+              <i class="fas fa-globe"></i>
+              <span>Genel</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'religious' ? 'selected' : '' %>" data-sector="religious">
+              <i class="fas fa-mosque"></i>
+              <span>Dini Hizmetler</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'health' ? 'selected' : '' %>" data-sector="health">
+              <i class="fas fa-heartbeat"></i>
+              <span>Sağlık</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'ecommerce' ? 'selected' : '' %>" data-sector="ecommerce">
+              <i class="fas fa-shopping-cart"></i>
+              <span>E-Ticaret</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'realestate' ? 'selected' : '' %>" data-sector="realestate">
+              <i class="fas fa-home"></i>
+              <span>Emlak</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'education' ? 'selected' : '' %>" data-sector="education">
+              <i class="fas fa-graduation-cap"></i>
+              <span>Eğitim</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'finance' ? 'selected' : '' %>" data-sector="finance">
+              <i class="fas fa-coins"></i>
+              <span>Finans</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'legal' ? 'selected' : '' %>" data-sector="legal">
+              <i class="fas fa-balance-scale"></i>
+              <span>Hukuk</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'restaurant' ? 'selected' : '' %>" data-sector="restaurant">
+              <i class="fas fa-utensils"></i>
+              <span>Restoran</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'travel' ? 'selected' : '' %>" data-sector="travel">
+              <i class="fas fa-plane"></i>
+              <span>Seyahat</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'tech' ? 'selected' : '' %>" data-sector="tech">
+              <i class="fas fa-laptop-code"></i>
+              <span>Teknoloji</span>
+            </div>
+            <div class="sector-card <%= client.sector === 'beauty' ? 'selected' : '' %>" data-sector="beauty">
+              <i class="fas fa-spa"></i>
+              <span>Güzellik & Bakım</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary mt-3" onclick="saveIdentity()"><i class="fas fa-save"></i> Kimlik Bilgilerini Kaydet</button>
+  </div>
+
+  <!-- KİŞİLİK SEKMESİ -->
+  <div class="tab-content" id="tab-personality">
+    <div class="settings-row">
+      <!-- Karakter Seçimi -->
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-user-astronaut"></i> Hazır Karakter</h3></div>
+        <div class="card-body">
+          <p class="text-muted mb-3">Hazır bir karakter seçin veya özel ayarlar yapın.</p>
+          <div class="character-grid">
+            <div class="character-card <%= !botSettings.character_id ? 'selected' : '' %>" data-character-id="">
+              <div class="character-icon"><i class="fas fa-globe"></i></div>
+              <div class="character-name">Global Karakter</div>
+              <div class="character-desc">Sistem ayarlarındaki aktif karakter</div>
+            </div>
+            <% characters.forEach(function(char) { %>
+              <div class="character-card <%= botSettings.character_id === char.id ? 'selected' : '' %>" data-character-id="<%= char.id %>">
+                <div class="character-icon"><i class="fas fa-user"></i></div>
+                <div class="character-name"><%= char.name %></div>
+                <div class="character-desc"><%= (char.description || char.personality || '').substring(0, 50) %>...</div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kişilik Özellikleri -->
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-sliders-h"></i> Kişilik Ayarları</h3></div>
+        <div class="card-body">
+          <div class="personality-slider">
+            <label class="form-label">Resmiyet Seviyesi</label>
+            <div class="slider-labels"><span>Samimi</span><span>Resmi</span></div>
+            <input type="range" id="formalityLevel" class="form-range" min="1" max="5" value="<%= client.formality_level || 3 %>">
+          </div>
+          <div class="personality-slider">
+            <label class="form-label">Sıcaklık</label>
+            <div class="slider-labels"><span>Soğuk</span><span>Sıcak</span></div>
+            <input type="range" id="warmthLevel" class="form-range" min="1" max="5" value="<%= client.warmth_level || 4 %>">
+          </div>
+          <div class="personality-slider">
+            <label class="form-label">Detay Seviyesi</label>
+            <div class="slider-labels"><span>Kısa</span><span>Detaylı</span></div>
+            <input type="range" id="detailLevel" class="form-range" min="1" max="5" value="<%= client.detail_level || 3 %>">
+          </div>
+          <div class="personality-slider">
+            <label class="form-label">Emoji Kullanımı</label>
+            <div class="slider-labels"><span>Hiç</span><span>Çok</span></div>
+            <input type="range" id="emojiLevel" class="form-range" min="1" max="5" value="<%= client.emoji_level || 2 %>">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Özel Sistem Promptu -->
+    <div class="card mt-3">
+      <div class="card-header">
+        <h3><i class="fas fa-terminal"></i> Özel Sistem Promptu</h3>
+        <label class="switch">
+          <input type="checkbox" id="useCustomPrompt" <%= client.use_custom_prompt ? 'checked' : '' %>>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-2">Bot'un nasıl davranacağını detaylı olarak tanımlayın. Boş bırakılırsa sektör ve kişilik ayarlarına göre otomatik oluşturulur.</p>
+        <textarea id="customPrompt" class="form-control code-textarea" rows="8" placeholder="Sen bir ... asistanısın. Görevin ..."><%= client.custom_prompt || '' %></textarea>
+        <div class="prompt-helpers mt-2">
+          <span class="text-muted">Değişkenler:</span>
+          <code onclick="insertVariable('{bot_name}')">{bot_name}</code>
+          <code onclick="insertVariable('{company}')">{company}</code>
+          <code onclick="insertVariable('{user_name}')">{user_name}</code>
+          <code onclick="insertVariable('{sector}')">{sector}</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Karşılama ve Kapanış Mesajları -->
+    <div class="settings-row mt-3">
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-door-open"></i> Karşılama Mesajı</h3></div>
+        <div class="card-body">
+          <textarea id="greetingMessage" class="form-control" rows="3" placeholder="Merhaba! Size nasıl yardımcı olabilirim?"><%= client.greeting_message || '' %></textarea>
+          <small class="text-muted">İlk mesaj gönderildiğinde kullanılır. {name} ile kullanıcı adı eklenebilir.</small>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-door-closed"></i> Kapanış / Devir Mesajı</h3></div>
+        <div class="card-body">
+          <textarea id="handoffMessage" class="form-control" rows="3" placeholder="Sizi yetkili bir temsilcimize yönlendiriyorum."><%= client.handoff_message || '' %></textarea>
+          <small class="text-muted">Sohbet devredildiğinde veya bot cevaplayamadığında kullanılır.</small>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary mt-3" onclick="savePersonality()"><i class="fas fa-save"></i> Kişilik Ayarlarını Kaydet</button>
+  </div>
+
+  <!-- BİLGİ TABANI SEKMESİ -->
+  <div class="tab-content" id="tab-knowledge">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-book"></i> Bilgi Tabanı (FAQ)</h3>
+        <button class="btn btn-primary btn-sm" onclick="openKnowledgeModal()"><i class="fas fa-plus"></i> Yeni Bilgi Ekle</button>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Bot'un bildiği konuları ve cevapları ekleyin. Bu bilgiler AI tarafından kullanılacaktır.</p>
+
+        <!-- Kategori Filtreleri -->
+        <div class="knowledge-filters mb-3">
+          <button class="filter-btn active" data-filter="all">Tümü</button>
+          <button class="filter-btn" data-filter="faq">SSS</button>
+          <button class="filter-btn" data-filter="product">Ürün/Hizmet</button>
+          <button class="filter-btn" data-filter="policy">Politika</button>
+          <button class="filter-btn" data-filter="contact">İletişim</button>
+          <button class="filter-btn" data-filter="other">Diğer</button>
+        </div>
+
+        <div class="knowledge-list" id="knowledgeList">
+          <!-- JavaScript ile doldurulacak -->
+          <div class="empty-state">
+            <i class="fas fa-book-open"></i>
+            <p>Henüz bilgi eklenmemiş.</p>
+            <button class="btn btn-primary btn-sm" onclick="openKnowledgeModal()"><i class="fas fa-plus"></i> İlk Bilgiyi Ekle</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toplu İçe Aktarma -->
+    <div class="card mt-3">
+      <div class="card-header"><h3><i class="fas fa-file-import"></i> Toplu İçe Aktarma</h3></div>
+      <div class="card-body">
+        <div class="import-options">
+          <div class="import-option">
+            <i class="fas fa-paste"></i>
+            <span>Metin Yapıştır</span>
+            <small>Soru-Cevap formatında metin yapıştırın</small>
+            <button class="btn btn-secondary btn-sm" onclick="showTextImport()">Yapıştır</button>
+          </div>
+          <div class="import-option">
+            <i class="fas fa-file-csv"></i>
+            <span>CSV Yükle</span>
+            <small>CSV dosyası yükleyin</small>
+            <input type="file" id="csvUpload" accept=".csv" style="display:none" onchange="importCSV(this)">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('csvUpload').click()">Dosya Seç</button>
+            <button class="btn btn-link btn-sm" onclick="showCsvExample()" style="font-size:0.7rem;">Örnek Gör</button>
+          </div>
+          <div class="import-option">
+            <i class="fas fa-link"></i>
+            <span>URL'den Al</span>
+            <small>Web sitesinden içerik çek</small>
+            <button class="btn btn-secondary btn-sm" onclick="showUrlImport()">URL Gir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TETİKLEYİCİLER (ANAHTAR KELİMELER) SEKMESİ -->
+  <div class="tab-content" id="tab-keywords">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-key"></i> Anahtar Kelime Tetikleyicileri</h3>
+        <button class="btn btn-primary btn-sm" onclick="openKeywordModal()"><i class="fas fa-plus"></i> Yeni Ekle</button>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Belirli kelimeler veya kalıplar algılandığında otomatik yanıtlar tanımlayın.</p>
+
+        <% if (keywords && keywords.length > 0) { %>
+          <table class="table">
+            <thead>
+              <tr><th>Tetikleyici</th><th>Tip</th><th>Kategori</th><th>Öncelik</th><th>Durum</th><th>İşlem</th></tr>
+            </thead>
+            <tbody id="keywordsTable">
+              <% keywords.forEach(function(kw) { %>
+                <tr class="<%= kw.is_active ? '' : 'row-inactive' %>" data-id="<%= kw.id %>">
+                  <td><strong><%= kw.keyword %></strong></td>
+                  <td>
+                    <% if (kw.match_type === 'exact') { %><span class="badge badge-info">Tam</span>
+                    <% } else if (kw.match_type === 'contains') { %><span class="badge badge-primary">İçerir</span>
+                    <% } else if (kw.match_type === 'starts_with') { %><span class="badge badge-warning">Başlar</span>
+                    <% } else if (kw.match_type === 'regex') { %><span class="badge badge-danger">Regex</span>
+                    <% } else { %><span class="badge badge-secondary"><%= kw.match_type %></span><% } %>
+                  </td>
+                  <td><span class="badge badge-secondary"><%= kw.category || 'Genel' %></span></td>
+                  <td><%= kw.priority || 0 %></td>
+                  <td>
+                    <label class="switch">
+                      <input type="checkbox" <%= kw.is_active ? 'checked' : '' %> onchange="toggleKeyword(<%= kw.id %>, this.checked)">
+                      <span class="slider"></span>
+                    </label>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-secondary" onclick="editKeyword(<%= kw.id %>)"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteKeyword(<%= kw.id %>)"><i class="fas fa-trash"></i></button>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <div class="empty-state">
+            <i class="fas fa-key"></i>
+            <p>Henüz tetikleyici eklenmemiş.</p>
+            <button class="btn btn-primary btn-sm" onclick="openKeywordModal()"><i class="fas fa-plus"></i> Tetikleyici Ekle</button>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Özel Komutlar -->
+    <div class="card mt-3">
+      <div class="card-header"><h3><i class="fas fa-terminal"></i> Özel Komutlar</h3></div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Kullanıcıların kullanabileceği özel komutlar (! veya / ile başlayan).</p>
+        <div class="command-list">
+          <div class="command-item">
+            <code>!yardım</code>
+            <span>Yardım menüsünü gösterir</span>
+            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          </div>
+          <div class="command-item">
+            <code>!randevu</code>
+            <span>Randevu alma sürecini başlatır</span>
+            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          </div>
+          <div class="command-item">
+            <code>!insan</code>
+            <span>Gerçek bir insanla konuşma isteği</span>
+            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- İNSANLAŞTIRMA SEKMESİ -->
+  <div class="tab-content" id="tab-humanization">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-user-clock"></i> İnsanlaştırma Ayarları</h3>
+        <span class="badge badge-<%= humanizationConfig._source === 'bot' ? 'primary' : 'secondary' %>">
+          <%= humanizationConfig._source === 'bot' ? 'Bot Özel' : (humanizationConfig._source === 'global' ? 'Global' : 'Varsayılan') %>
+        </span>
+      </div>
+      <div class="card-body">
+        <form id="humanizationForm">
+          <div class="form-group">
+            <label class="form-check-label">
+              <input type="checkbox" id="humanEnabled" <%= humanizationConfig.enabled ? 'checked' : '' %>> İnsanlaştırma Aktif
+            </label>
+            <small class="text-muted d-block">Bot'un daha insan gibi davranmasını sağlar (yazma göstergesi, bekleme süreleri vb.)</small>
+          </div>
+          <div class="row mt-3">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Min Bekleme (sn)</label>
+                <input type="number" id="minDelay" class="form-control" value="<%= humanizationConfig.min_response_delay %>" min="0">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Max Bekleme (sn)</label>
+                <input type="number" id="maxDelay" class="form-control" value="<%= humanizationConfig.max_response_delay %>" min="0">
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Okuma Hızı (WPM)</label>
+                <input type="number" id="wpmReading" class="form-control" value="<%= humanizationConfig.wpm_reading %>" min="50">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Yazma Hızı (CPM)</label>
+                <input type="number" id="cpmTyping" class="form-control" value="<%= humanizationConfig.cpm_typing %>" min="50">
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Uzun Mesaj Eşiği (karakter)</label>
+                <input type="number" id="longThreshold" class="form-control" value="<%= humanizationConfig.long_message_threshold %>" min="50">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Uzun Mesaj Ek Bekleme (sn)</label>
+                <input type="number" id="longExtra" class="form-control" value="<%= humanizationConfig.long_message_extra_delay %>" min="0">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-check-label">
+              <input type="checkbox" id="splitMessages" <%= humanizationConfig.split_messages !== false ? 'checked' : '' %>> Uzun mesajları böl
+            </label>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-1"><i class="fas fa-save"></i> Kaydet</button>
+            <button type="button" class="btn btn-secondary" onclick="clearHumanization()"><i class="fas fa-undo"></i> Global Ayarlara Dön</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEST SEKMESİ -->
+  <div class="tab-content" id="tab-test">
+    <div class="card">
+      <div class="card-header"><h3><i class="fas fa-flask"></i> Bot Testi</h3></div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Bot'un mesajlara nasıl yanıt vereceğini test edin.</p>
+
+        <!-- Simülasyon Seçenekleri -->
+        <div class="test-options mb-3">
+          <label class="form-check-label">
+            <input type="checkbox" id="testWithKnowledge" checked> Bilgi tabanını kullan
+          </label>
+          <label class="form-check-label">
+            <input type="checkbox" id="testWithKeywords" checked> Tetikleyicileri kontrol et
+          </label>
+          <label class="form-check-label">
+            <input type="checkbox" id="testWithAI" checked> AI yanıt üret
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Test Mesajı</label>
+          <textarea id="testMessage" class="form-control" rows="3" placeholder="Bir mesaj yazın..."></textarea>
+        </div>
+        <button class="btn btn-primary" id="testBtn"><i class="fas fa-paper-plane"></i> Test Et</button>
+
+        <div id="testResult" class="test-result" style="display: none;">
+          <div class="test-meta">
+            <span class="test-badge" id="testSource">-</span>
+            <span class="test-time" id="testTime">-</span>
+          </div>
+          <h4><i class="fas fa-robot"></i> Bot Yanıtı:</h4>
+          <div class="test-response"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Anahtar Kelime Modal -->
+<div id="keywordModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card">
+    <div class="card-header">
+      <h3><i class="fas fa-key"></i> <span id="keywordModalTitle">Tetikleyici Ekle</span></h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeKeywordModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <form id="keywordForm">
+        <input type="hidden" id="keywordId">
+        <div class="form-group">
+          <label class="form-label">Tetikleyici Kelime/Kalıp</label>
+          <input type="text" id="keywordText" class="form-control" required placeholder="Örn: fiyat, merhaba, sipariş">
+        </div>
+        <div class="row">
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Eşleşme Tipi</label>
+              <select id="keywordMatchType" class="form-control">
+                <option value="contains">İçerir</option>
+                <option value="exact">Tam Eşleşme</option>
+                <option value="starts_with">İle Başlar</option>
+                <option value="ends_with">İle Biter</option>
+                <option value="regex">Regex</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Kategori</label>
+              <select id="keywordCategory" class="form-control">
+                <option value="">Genel</option>
+                <option value="greeting">Selamlama</option>
+                <option value="price">Fiyat</option>
+                <option value="support">Destek</option>
+                <option value="appointment">Randevu</option>
+                <option value="complaint">Şikayet</option>
+                <option value="other">Diğer</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Yanıt</label>
+          <textarea id="keywordResponse" class="form-control" rows="4" required placeholder="Bu mesaja verilecek yanıt..."></textarea>
+        </div>
+        <div class="row">
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Öncelik (0-100)</label>
+              <input type="number" id="keywordPriority" class="form-control" value="0" min="0" max="100">
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Kapsam</label>
+              <select id="keywordScope" class="form-control">
+                <option value="<%= client.id %>">Sadece Bu Bot</option>
+                <option value="">Tüm Botlar</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> Kaydet</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Bilgi Tabanı Modal -->
+<div id="knowledgeModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card modal-lg">
+    <div class="card-header">
+      <h3><i class="fas fa-book"></i> <span id="knowledgeModalTitle">Bilgi Ekle</span></h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeKnowledgeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <form id="knowledgeForm">
+        <input type="hidden" id="knowledgeId">
+        <div class="form-group">
+          <label class="form-label">Soru / Konu Başlığı</label>
+          <input type="text" id="knowledgeQuestion" class="form-control" required placeholder="Örn: Çalışma saatleriniz nedir?">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cevap / Bilgi İçeriği</label>
+          <textarea id="knowledgeAnswer" class="form-control" rows="6" required placeholder="Detaylı cevap..."></textarea>
+        </div>
+        <div class="row">
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Kategori</label>
+              <select id="knowledgeCategory" class="form-control">
+                <option value="faq">SSS</option>
+                <option value="product">Ürün/Hizmet</option>
+                <option value="policy">Politika</option>
+                <option value="contact">İletişim</option>
+                <option value="other">Diğer</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Anahtar Kelimeler</label>
+              <input type="text" id="knowledgeTags" class="form-control" placeholder="virgülle ayırın">
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> Kaydet</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Metin İçe Aktarma Modal -->
+<div id="textImportModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card modal-lg">
+    <div class="card-header">
+      <h3><i class="fas fa-paste"></i> Metin İçe Aktarma</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeTextImportModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-2">Her satıra bir soru-cevap çifti yazın. Soru ve cevabı <code>|</code> ile ayırın.</p>
+      <pre class="code-example">Çalışma saatleriniz nedir? | Hafta içi 09:00-18:00 arası hizmet veriyoruz.
+Kargo ücreti ne kadar? | 150 TL üzeri siparişlerde kargo ücretsizdir.
+İade yapabilir miyim? | Ürünleri 14 gün içinde iade edebilirsiniz.</pre>
+      <textarea id="textImportContent" class="form-control code-textarea" rows="10" placeholder="Soru | Cevap formatında yapıştırın..."></textarea>
+      <button class="btn btn-primary mt-3 w-100" onclick="processTextImport()"><i class="fas fa-upload"></i> İçe Aktar</button>
+    </div>
+  </div>
+</div>
+
+<!-- URL İçe Aktarma Modal -->
+<div id="urlImportModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card modal-lg">
+    <div class="card-header">
+      <h3><i class="fas fa-link"></i> URL'den İçe Aktarma</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeUrlImportModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-3">Web sitesinden FAQ veya içerik çekmek için URL girin.</p>
+
+      <div class="form-group">
+        <label class="form-label">Web Sitesi URL'si</label>
+        <input type="url" id="urlImportUrl" class="form-control" placeholder="https://example.com/faq">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">İçerik Tipi</label>
+        <select id="urlImportType" class="form-control">
+          <option value="auto">Otomatik Algıla</option>
+          <option value="faq">FAQ Sayfası</option>
+          <option value="text">Düz Metin</option>
+          <option value="json">JSON API</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Kategori</label>
+        <select id="urlImportCategory" class="form-control">
+          <option value="faq">SSS</option>
+          <option value="product">Ürün/Hizmet</option>
+          <option value="policy">Politika</option>
+          <option value="contact">İletişim</option>
+          <option value="other">Diğer</option>
+        </select>
+      </div>
+
+      <div class="url-import-info">
+        <h4><i class="fas fa-info-circle"></i> Desteklenen Formatlar</h4>
+        <ul>
+          <li><strong>FAQ Sayfası:</strong> &lt;h2&gt;Soru&lt;/h2&gt;&lt;p&gt;Cevap&lt;/p&gt; formatındaki sayfalar</li>
+          <li><strong>JSON API:</strong> <code>[{"question": "...", "answer": "..."}]</code> formatı</li>
+          <li><strong>Düz Metin:</strong> Her satır <code>Soru | Cevap</code> formatında</li>
+        </ul>
+      </div>
+
+      <button class="btn btn-primary w-100" onclick="processUrlImport()" id="urlImportBtn">
+        <i class="fas fa-download"></i> İçeriği Çek ve İçe Aktar
+      </button>
+
+      <div id="urlImportPreview" class="url-import-preview" style="display:none;">
+        <h4>Önizleme (<span id="urlPreviewCount">0</span> kayıt bulundu)</h4>
+        <div id="urlPreviewContent"></div>
+        <button class="btn btn-success w-100 mt-2" onclick="confirmUrlImport()">
+          <i class="fas fa-check"></i> Tümünü İçe Aktar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CSV Örnek Modal -->
+<div id="csvExampleModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card modal-lg">
+    <div class="card-header">
+      <h3><i class="fas fa-file-csv"></i> CSV Dosya Formatı</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeCsvExampleModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-3">CSV dosyanızı aşağıdaki formatta hazırlayın:</p>
+
+      <h4>Örnek CSV İçeriği:</h4>
+      <pre class="code-example csv-example">soru,cevap,kategori,etiketler
+"Çalışma saatleriniz nedir?","Hafta içi 09:00-18:00, Cumartesi 10:00-14:00 arası hizmet veriyoruz.","faq","saat,mesai,çalışma"
+"Kargo ücreti ne kadar?","150 TL üzeri siparişlerde kargo ücretsizdir. Altındaki siparişlerde 29.90 TL kargo ücreti alınır.","faq","kargo,ücret,teslimat"
+"İade nasıl yapılır?","Ürünleri 14 gün içinde faturası ile birlikte iade edebilirsiniz. Kargo bedeli tarafımızca karşılanır.","policy","iade,değişim,garanti"
+"Ödeme yöntemleri nelerdir?","Kredi kartı, banka kartı, havale/EFT ve kapıda ödeme seçeneklerimiz mevcuttur.","faq","ödeme,kredi kartı,havale"
+"Ürünler orijinal mi?","Tüm ürünlerimiz %100 orijinal ve garantilidir.","product","orijinal,garanti"</pre>
+
+      <div class="csv-rules mt-3">
+        <h4><i class="fas fa-list-check"></i> Kurallar:</h4>
+        <ul>
+          <li><strong>İlk satır</strong> başlık satırıdır (zorunlu): <code>soru,cevap,kategori,etiketler</code></li>
+          <li><strong>soru</strong> ve <strong>cevap</strong> alanları zorunludur</li>
+          <li><strong>kategori</strong> opsiyoneldir: faq, product, policy, contact, other</li>
+          <li><strong>etiketler</strong> opsiyoneldir, virgülle ayrılmış kelimeler</li>
+          <li>Virgül veya tırnak içeren metinleri <code>"çift tırnak"</code> içine alın</li>
+          <li>Dosya kodlaması <strong>UTF-8</strong> olmalıdır</li>
+        </ul>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary flex-1" onclick="downloadCsvTemplate()">
+          <i class="fas fa-download"></i> Örnek CSV İndir
+        </button>
+        <button class="btn btn-secondary flex-1" onclick="closeCsvExampleModal(); document.getElementById('csvUpload').click();">
+          <i class="fas fa-upload"></i> CSV Yükle
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dondurma Modal -->
+<div id="freezeModal" class="modal-overlay" style="display: none;">
+  <div class="card modal-card">
+    <div class="card-header">
+      <h3><i class="fas fa-snowflake"></i> Botu Dondur</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeFreezeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="card-body">
+      <form id="freezeForm">
+        <div class="form-group">
+          <label class="form-label">Dondurma Mesajı</label>
+          <textarea name="message" class="form-control" rows="3" placeholder="Şu an müsait değilim..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Yönlendirme Telefonu (opsiyonel)</label>
+          <input type="text" name="redirectPhone" class="form-control" placeholder="+905xxxxxxxxx">
+        </div>
+        <button type="submit" class="btn btn-warning w-100"><i class="fas fa-snowflake"></i> Dondur</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.mb-3 { margin-bottom: 1rem; }
+.mt-3 { margin-top: 1rem; }
+.mt-2 { margin-top: 0.5rem; }
+.d-block { display: block; }
+.bot-summary { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.summary-item { display: flex; align-items: center; gap: 0.5rem; }
+.summary-label { color: #94a3b8; font-size: 0.85rem; }
+.stat-badge { background: #334155; padding: 0.25rem 0.75rem; border-radius: 1rem; font-weight: 600; }
+.stat-badge.success { background: #166534; color: #4ade80; }
+.tabs-container { margin-top: 1rem; }
+.tabs { display: flex; gap: 0.5rem; border-bottom: 2px solid #334155; margin-bottom: 1rem; overflow-x: auto; }
+.tab { background: none; border: none; padding: 0.75rem 1rem; color: #94a3b8; cursor: pointer; font-size: 0.85rem; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; white-space: nowrap; }
+.tab:hover { color: #e2e8f0; }
+.tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+.tab i { margin-right: 0.5rem; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.settings-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1rem; }
+@media (max-width: 900px) { .settings-row { grid-template-columns: 1fr; } }
+
+/* Sector Grid */
+.sector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.75rem; }
+.sector-card { display: flex; flex-direction: column; align-items: center; padding: 1rem 0.5rem; background: #1e293b; border: 2px solid #334155; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+.sector-card:hover { border-color: #60a5fa; transform: translateY(-2px); }
+.sector-card.selected { border-color: #60a5fa; background: #1e3a5f; }
+.sector-card i { font-size: 1.5rem; color: #60a5fa; margin-bottom: 0.5rem; }
+.sector-card span { font-size: 0.75rem; color: #e2e8f0; }
+
+/* Character Grid */
+.character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+.character-card { background: #1e293b; border: 2px solid #334155; border-radius: 0.5rem; padding: 1rem; cursor: pointer; transition: all 0.2s; }
+.character-card:hover { border-color: #60a5fa; }
+.character-card.selected { border-color: #60a5fa; background: #1e3a5f; }
+.character-icon { font-size: 2rem; color: #60a5fa; margin-bottom: 0.5rem; }
+.character-name { font-weight: 600; color: #e2e8f0; }
+.character-desc { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
+
+/* Personality Sliders */
+.personality-slider { margin-bottom: 1.5rem; }
+.personality-slider .form-label { margin-bottom: 0.25rem; }
+.slider-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-bottom: 0.25rem; }
+.form-range { width: 100%; height: 6px; background: #334155; border-radius: 3px; -webkit-appearance: none; }
+.form-range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #60a5fa; border-radius: 50%; cursor: pointer; }
+
+/* Code Textarea */
+.code-textarea { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.85rem; background: #0f172a; }
+.prompt-helpers code { background: #334155; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 0.5rem; }
+.prompt-helpers code:hover { background: #475569; }
+
+/* Knowledge Base */
+.knowledge-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.filter-btn { padding: 0.4rem 0.75rem; border: 1px solid #334155; background: transparent; color: #94a3b8; border-radius: 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+.filter-btn:hover { border-color: #60a5fa; color: #60a5fa; }
+.filter-btn.active { background: #60a5fa; border-color: #60a5fa; color: #fff; }
+
+.knowledge-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.knowledge-item { display: flex; align-items: flex-start; gap: 1rem; padding: 1rem; background: #1e293b; border-radius: 0.5rem; border-left: 3px solid #60a5fa; }
+.knowledge-item.category-faq { border-left-color: #22c55e; }
+.knowledge-item.category-product { border-left-color: #f59e0b; }
+.knowledge-item.category-policy { border-left-color: #ef4444; }
+.knowledge-item.category-contact { border-left-color: #8b5cf6; }
+.knowledge-icon { font-size: 1.25rem; color: #60a5fa; }
+.knowledge-content { flex: 1; }
+.knowledge-question { font-weight: 600; color: #e2e8f0; margin-bottom: 0.25rem; }
+.knowledge-answer { font-size: 0.85rem; color: #94a3b8; max-height: 60px; overflow: hidden; }
+.knowledge-meta { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.knowledge-tag { font-size: 0.7rem; background: #334155; padding: 0.15rem 0.5rem; border-radius: 0.75rem; color: #94a3b8; }
+.knowledge-actions { display: flex; gap: 0.5rem; }
+
+/* Import Options */
+.import-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+.import-option { display: flex; flex-direction: column; align-items: center; padding: 1.5rem; background: #1e293b; border-radius: 0.5rem; text-align: center; gap: 0.5rem; }
+.import-option i { font-size: 2rem; color: #60a5fa; }
+.import-option span { font-weight: 600; color: #e2e8f0; }
+.import-option small { font-size: 0.75rem; color: #64748b; }
+
+/* Command List */
+.command-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.command-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; background: #1e293b; border-radius: 0.5rem; }
+.command-item code { background: #334155; padding: 0.25rem 0.75rem; border-radius: 4px; color: #60a5fa; }
+.command-item span { flex: 1; color: #94a3b8; font-size: 0.85rem; }
+
+/* Test */
+.test-options { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.test-options .form-check-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #94a3b8; }
+.test-result { margin-top: 1.5rem; padding: 1rem; background: #1e293b; border-radius: 0.5rem; }
+.test-result h4 { color: #60a5fa; margin-bottom: 0.75rem; }
+.test-response { background: #0f172a; padding: 1rem; border-radius: 0.5rem; white-space: pre-wrap; }
+.test-meta { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
+.test-badge { background: #334155; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; }
+.test-time { color: #64748b; font-size: 0.75rem; }
+
+/* Modal */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; padding: 2rem; overflow-y: auto; }
+.modal-card { max-width: 500px; margin: 2rem auto; }
+.modal-card.modal-lg { max-width: 700px; }
+
+/* Misc */
+.switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #475569; transition: .3s; border-radius: 20px; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+input:checked + .slider { background-color: #22c55e; }
+input:checked + .slider:before { transform: translateX(20px); }
+.row { display: flex; gap: 1rem; }
+.col-6 { flex: 1; }
+.flex-1 { flex: 1; }
+.w-100 { width: 100%; }
+.row-inactive { opacity: 0.5; }
+.alert-success { margin-bottom: 1rem; padding: 0.75rem 1rem; background: #166534; border-radius: 0.5rem; color: #bbf7d0; }
+.code-example { background: #0f172a; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; color: #94a3b8; overflow-x: auto; }
+
+/* URL Import */
+.url-import-info { background: #1e293b; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+.url-import-info h4 { color: #60a5fa; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.url-import-info ul { margin: 0; padding-left: 1.25rem; font-size: 0.8rem; color: #94a3b8; }
+.url-import-info li { margin-bottom: 0.25rem; }
+.url-import-preview { margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 0.5rem; }
+.url-import-preview h4 { color: #22c55e; margin-bottom: 0.75rem; }
+.preview-item { padding: 0.5rem; background: #0f172a; border-radius: 0.25rem; margin-bottom: 0.5rem; font-size: 0.8rem; }
+.preview-item strong { color: #e2e8f0; }
+.preview-item p { color: #94a3b8; margin: 0.25rem 0 0 0; }
+
+/* CSV Example */
+.csv-example { white-space: pre; font-size: 0.75rem; max-height: 200px; overflow: auto; }
+.csv-rules { background: #1e293b; padding: 1rem; border-radius: 0.5rem; }
+.csv-rules h4 { color: #f59e0b; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.csv-rules ul { margin: 0; padding-left: 1.25rem; font-size: 0.8rem; color: #94a3b8; }
+.csv-rules li { margin-bottom: 0.35rem; }
+.csv-rules code { background: #334155; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.75rem; }
+
+.d-flex { display: flex; }
+.gap-2 { gap: 0.5rem; }
+</style>
+
+<script>
+var clientId = '<%= client.id %>';
+var selectedCharacterId = '<%= botSettings.character_id || "" %>';
+var selectedSector = '<%= client.sector || "" %>';
+var knowledgeBase = [];
+
+// Tab Switching
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Sector Selection
+document.querySelectorAll('.sector-card').forEach(function(card) {
+  card.addEventListener('click', function() {
+    document.querySelectorAll('.sector-card').forEach(function(c) { c.classList.remove('selected'); });
+    card.classList.add('selected');
+    selectedSector = card.dataset.sector;
+  });
+});
+
+// Character Selection
+document.querySelectorAll('.character-card').forEach(function(card) {
+  card.addEventListener('click', function() {
+    document.querySelectorAll('.character-card').forEach(function(c) { c.classList.remove('selected'); });
+    card.classList.add('selected');
+    selectedCharacterId = card.dataset.characterId;
+  });
+});
+
+// Save Identity
+function saveIdentity() {
+  var data = {
+    name: document.getElementById('botName').value,
+    role: document.getElementById('botRole').value,
+    company: document.getElementById('botCompany').value,
+    sector: selectedSector
+  };
+  fetch('/api/bots/' + clientId + '/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) { showToast('Başarılı', 'Kimlik bilgileri kaydedildi', 'success'); }
+    else { showToast('Hata', result.error || 'Bir hata oluştu', 'error'); }
+  })
+  .catch(function(err) { showToast('Hata', 'Sunucu hatası', 'error'); });
+}
+
+// Save Personality
+function savePersonality() {
+  var data = {
+    character_id: selectedCharacterId || null,
+    formality_level: parseInt(document.getElementById('formalityLevel').value),
+    warmth_level: parseInt(document.getElementById('warmthLevel').value),
+    detail_level: parseInt(document.getElementById('detailLevel').value),
+    emoji_level: parseInt(document.getElementById('emojiLevel').value),
+    use_custom_prompt: document.getElementById('useCustomPrompt').checked,
+    custom_prompt: document.getElementById('customPrompt').value,
+    greeting_message: document.getElementById('greetingMessage').value,
+    handoff_message: document.getElementById('handoffMessage').value
+  };
+  fetch('/api/bots/' + clientId + '/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) { showToast('Başarılı', 'Kişilik ayarları kaydedildi', 'success'); }
+    else { showToast('Hata', result.error || 'Bir hata oluştu', 'error'); }
+  })
+  .catch(function(err) { showToast('Hata', 'Sunucu hatası', 'error'); });
+}
+
+// Insert Variable
+function insertVariable(variable) {
+  var textarea = document.getElementById('customPrompt');
+  var start = textarea.selectionStart;
+  var end = textarea.selectionEnd;
+  var text = textarea.value;
+  textarea.value = text.substring(0, start) + variable + text.substring(end);
+  textarea.selectionStart = textarea.selectionEnd = start + variable.length;
+  textarea.focus();
+}
+
+// Humanization Form
+var humanForm = document.getElementById('humanizationForm');
+if (humanForm) {
+  humanForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var config = {
+      enabled: document.getElementById('humanEnabled').checked,
+      min_response_delay: parseInt(document.getElementById('minDelay').value) || 60,
+      max_response_delay: parseInt(document.getElementById('maxDelay').value) || 600,
+      wpm_reading: parseInt(document.getElementById('wpmReading').value) || 200,
+      cpm_typing: parseInt(document.getElementById('cpmTyping').value) || 300,
+      long_message_threshold: parseInt(document.getElementById('longThreshold').value) || 150,
+      long_message_extra_delay: parseInt(document.getElementById('longExtra').value) || 60,
+      split_messages: document.getElementById('splitMessages').checked
+    };
+    fetch('/api/clients/' + clientId + '/humanization', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) { showToast('Başarılı', 'İnsanlaştırma ayarları kaydedildi', 'success'); }
+      else { showToast('Hata', data.error || 'Bir hata oluştu', 'error'); }
+    })
+    .catch(function(err) { showToast('Hata', 'Sunucu hatası', 'error'); });
+  });
+}
+
+function clearHumanization() {
+  if (!confirm('Bu botun özel ayarları silinecek ve global ayarlara dönülecek. Emin misiniz?')) return;
+  fetch('/api/clients/' + clientId + '/humanization', { method: 'DELETE' })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.success) { showToast('Başarılı', 'Global ayarlara dönüldü', 'success'); setTimeout(function() { location.reload(); }, 500); }
+    else { showToast('Hata', data.error || 'Bir hata oluştu', 'error'); }
+  })
+  .catch(function(err) { showToast('Hata', 'Sunucu hatası', 'error'); });
+}
+
+// Knowledge Base
+function loadKnowledgeBase() {
+  fetch('/api/bots/' + clientId + '/knowledge')
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.success) {
+      knowledgeBase = data.knowledge || [];
+      renderKnowledgeList();
+    }
+  })
+  .catch(function(err) { console.error(err); });
+}
+
+function renderKnowledgeList(filter) {
+  var container = document.getElementById('knowledgeList');
+  var filtered = filter && filter !== 'all' ? knowledgeBase.filter(function(k) { return k.category === filter; }) : knowledgeBase;
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-book-open"></i><p>Henüz bilgi eklenmemiş.</p><button class="btn btn-primary btn-sm" onclick="openKnowledgeModal()"><i class="fas fa-plus"></i> İlk Bilgiyi Ekle</button></div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(function(k) {
+    return '<div class="knowledge-item category-' + (k.category || 'other') + '">' +
+      '<div class="knowledge-icon"><i class="fas fa-question-circle"></i></div>' +
+      '<div class="knowledge-content">' +
+        '<div class="knowledge-question">' + k.question + '</div>' +
+        '<div class="knowledge-answer">' + k.answer.substring(0, 150) + (k.answer.length > 150 ? '...' : '') + '</div>' +
+        '<div class="knowledge-meta">' +
+          '<span class="knowledge-tag">' + (k.category || 'Diğer') + '</span>' +
+          (k.tags ? k.tags.split(',').map(function(t) { return '<span class="knowledge-tag">' + t.trim() + '</span>'; }).join('') : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="knowledge-actions">' +
+        '<button class="btn btn-sm btn-secondary" onclick="editKnowledge(' + k.id + ')"><i class="fas fa-edit"></i></button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteKnowledge(' + k.id + ')"><i class="fas fa-trash"></i></button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Knowledge Filters
+document.querySelectorAll('.filter-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    renderKnowledgeList(btn.dataset.filter);
+  });
+});
+
+function openKnowledgeModal(id) {
+  document.getElementById('knowledgeId').value = id || '';
+  document.getElementById('knowledgeModalTitle').textContent = id ? 'Bilgi Düzenle' : 'Bilgi Ekle';
+  document.getElementById('knowledgeQuestion').value = '';
+  document.getElementById('knowledgeAnswer').value = '';
+  document.getElementById('knowledgeCategory').value = 'faq';
+  document.getElementById('knowledgeTags').value = '';
+  document.getElementById('knowledgeModal').style.display = 'block';
+}
+
+function closeKnowledgeModal() { document.getElementById('knowledgeModal').style.display = 'none'; }
+
+function editKnowledge(id) {
+  var k = knowledgeBase.find(function(item) { return item.id === id; });
+  if (k) {
+    document.getElementById('knowledgeId').value = k.id;
+    document.getElementById('knowledgeModalTitle').textContent = 'Bilgi Düzenle';
+    document.getElementById('knowledgeQuestion').value = k.question;
+    document.getElementById('knowledgeAnswer').value = k.answer;
+    document.getElementById('knowledgeCategory').value = k.category || 'other';
+    document.getElementById('knowledgeTags').value = k.tags || '';
+    document.getElementById('knowledgeModal').style.display = 'block';
+  }
+}
+
+function deleteKnowledge(id) {
+  if (!confirm('Bu bilgiyi silmek istediğinize emin misiniz?')) return;
+  fetch('/api/bots/' + clientId + '/knowledge/' + id, { method: 'DELETE' })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.success) { showToast('Başarılı', 'Bilgi silindi', 'success'); loadKnowledgeBase(); }
+    else { showToast('Hata', data.error, 'error'); }
+  });
+}
+
+var knowledgeForm = document.getElementById('knowledgeForm');
+if (knowledgeForm) {
+  knowledgeForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var id = document.getElementById('knowledgeId').value;
+    var formData = {
+      question: document.getElementById('knowledgeQuestion').value,
+      answer: document.getElementById('knowledgeAnswer').value,
+      category: document.getElementById('knowledgeCategory').value,
+      tags: document.getElementById('knowledgeTags').value
+    };
+    var url = id ? '/api/bots/' + clientId + '/knowledge/' + id : '/api/bots/' + clientId + '/knowledge';
+    var method = id ? 'PUT' : 'POST';
+    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.success) { showToast('Başarılı', 'Bilgi kaydedildi', 'success'); closeKnowledgeModal(); loadKnowledgeBase(); }
+      else { showToast('Hata', result.error, 'error'); }
+    });
+  });
+}
+
+// Text Import
+function showTextImport() { document.getElementById('textImportModal').style.display = 'block'; }
+function closeTextImportModal() { document.getElementById('textImportModal').style.display = 'none'; }
+
+function processTextImport() {
+  var content = document.getElementById('textImportContent').value;
+  var lines = content.split('\n').filter(function(l) { return l.trim(); });
+  var items = [];
+  lines.forEach(function(line) {
+    var parts = line.split('|');
+    if (parts.length >= 2) {
+      items.push({ question: parts[0].trim(), answer: parts[1].trim(), category: 'faq' });
+    }
+  });
+  if (items.length === 0) { showToast('Uyarı', 'Geçerli veri bulunamadı', 'warning'); return; }
+
+  fetch('/api/bots/' + clientId + '/knowledge/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: items })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) {
+      showToast('Başarılı', result.imported + ' bilgi içe aktarıldı', 'success');
+      closeTextImportModal();
+      loadKnowledgeBase();
+    } else { showToast('Hata', result.error, 'error'); }
+  });
+}
+
+function importCSV(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var lines = e.target.result.split('\n');
+    var items = [];
+    lines.forEach(function(line, i) {
+      if (i === 0) return; // Header
+      var parts = line.split(',');
+      if (parts.length >= 2) {
+        items.push({ question: parts[0].trim().replace(/^"|"$/g, ''), answer: parts[1].trim().replace(/^"|"$/g, ''), category: parts[2] ? parts[2].trim().replace(/^"|"$/g, '') : 'faq' });
+      }
+    });
+    if (items.length === 0) { showToast('Uyarı', 'Geçerli veri bulunamadı', 'warning'); return; }
+
+    fetch('/api/bots/' + clientId + '/knowledge/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.success) { showToast('Başarılı', result.imported + ' bilgi içe aktarıldı', 'success'); loadKnowledgeBase(); }
+      else { showToast('Hata', result.error, 'error'); }
+    });
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// URL Import
+var urlImportData = [];
+
+function showUrlImport() {
+  document.getElementById('urlImportModal').style.display = 'block';
+  document.getElementById('urlImportPreview').style.display = 'none';
+  document.getElementById('urlImportUrl').value = '';
+  urlImportData = [];
+}
+
+function closeUrlImportModal() {
+  document.getElementById('urlImportModal').style.display = 'none';
+}
+
+function processUrlImport() {
+  var url = document.getElementById('urlImportUrl').value.trim();
+  var contentType = document.getElementById('urlImportType').value;
+  var category = document.getElementById('urlImportCategory').value;
+
+  if (!url) {
+    showToast('Uyarı', 'Lütfen bir URL girin', 'warning');
+    return;
+  }
+
+  var btn = document.getElementById('urlImportBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> İçerik çekiliyor...';
+
+  fetch('/api/bots/' + clientId + '/knowledge/fetch-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: url, contentType: contentType, category: category })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-download"></i> İçeriği Çek ve İçe Aktar';
+
+    if (data.success && data.items && data.items.length > 0) {
+      urlImportData = data.items;
+      document.getElementById('urlPreviewCount').textContent = data.items.length;
+
+      var previewHtml = data.items.slice(0, 5).map(function(item) {
+        return '<div class="preview-item"><strong>' + item.question + '</strong><p>' + item.answer.substring(0, 100) + (item.answer.length > 100 ? '...' : '') + '</p></div>';
+      }).join('');
+
+      if (data.items.length > 5) {
+        previewHtml += '<p class="text-muted">... ve ' + (data.items.length - 5) + ' kayıt daha</p>';
+      }
+
+      document.getElementById('urlPreviewContent').innerHTML = previewHtml;
+      document.getElementById('urlImportPreview').style.display = 'block';
+    } else {
+      showToast('Uyarı', data.error || 'İçerik bulunamadı veya parse edilemedi', 'warning');
+    }
+  })
+  .catch(function(err) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-download"></i> İçeriği Çek ve İçe Aktar';
+    showToast('Hata', 'Bağlantı hatası: ' + err.message, 'error');
+  });
+}
+
+function confirmUrlImport() {
+  if (urlImportData.length === 0) {
+    showToast('Uyarı', 'İçe aktarılacak veri yok', 'warning');
+    return;
+  }
+
+  fetch('/api/bots/' + clientId + '/knowledge/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: urlImportData })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) {
+      showToast('Başarılı', result.imported + ' bilgi içe aktarıldı', 'success');
+      closeUrlImportModal();
+      loadKnowledgeBase();
+    } else {
+      showToast('Hata', result.error, 'error');
+    }
+  });
+}
+
+// CSV Example
+function showCsvExample() {
+  document.getElementById('csvExampleModal').style.display = 'block';
+}
+
+function closeCsvExampleModal() {
+  document.getElementById('csvExampleModal').style.display = 'none';
+}
+
+function downloadCsvTemplate() {
+  var csvContent = 'soru,cevap,kategori,etiketler\n';
+  csvContent += '"Çalışma saatleriniz nedir?","Hafta içi 09:00-18:00, Cumartesi 10:00-14:00 arası hizmet veriyoruz.","faq","saat,mesai,çalışma"\n';
+  csvContent += '"Kargo ücreti ne kadar?","150 TL üzeri siparişlerde kargo ücretsizdir.","faq","kargo,ücret,teslimat"\n';
+  csvContent += '"İade nasıl yapılır?","Ürünleri 14 gün içinde faturası ile birlikte iade edebilirsiniz.","policy","iade,değişim,garanti"\n';
+  csvContent += '"Ödeme yöntemleri nelerdir?","Kredi kartı, banka kartı, havale/EFT ve kapıda ödeme seçeneklerimiz mevcuttur.","faq","ödeme,kredi kartı,havale"\n';
+
+  var blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'bilgi_tabani_sablonu.csv';
+  link.click();
+}
+
+// Keywords
+function openKeywordModal(id) {
+  document.getElementById('keywordId').value = id || '';
+  document.getElementById('keywordModalTitle').textContent = id ? 'Tetikleyici Düzenle' : 'Tetikleyici Ekle';
+  document.getElementById('keywordText').value = '';
+  document.getElementById('keywordMatchType').value = 'contains';
+  document.getElementById('keywordCategory').value = '';
+  document.getElementById('keywordResponse').value = '';
+  document.getElementById('keywordPriority').value = '0';
+  document.getElementById('keywordScope').value = clientId;
+  document.getElementById('keywordModal').style.display = 'block';
+}
+
+function closeKeywordModal() { document.getElementById('keywordModal').style.display = 'none'; }
+
+function editKeyword(id) {
+  fetch('/api/keywords?client_id=' + clientId)
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    var kw = data.keywords.find(function(k) { return k.id === id; });
+    if (kw) {
+      document.getElementById('keywordId').value = kw.id;
+      document.getElementById('keywordModalTitle').textContent = 'Tetikleyici Düzenle';
+      document.getElementById('keywordText').value = kw.keyword;
+      document.getElementById('keywordMatchType').value = kw.match_type;
+      document.getElementById('keywordCategory').value = kw.category || '';
+      document.getElementById('keywordResponse').value = kw.response;
+      document.getElementById('keywordPriority').value = kw.priority || '0';
+      document.getElementById('keywordScope').value = kw.client_id || '';
+      document.getElementById('keywordModal').style.display = 'block';
+    }
+  });
+}
+
+function deleteKeyword(id) {
+  if (!confirm('Bu tetikleyiciyi silmek istediğinize emin misiniz?')) return;
+  fetch('/api/keywords/' + id, { method: 'DELETE' })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.success) { showToast('Başarılı', 'Tetikleyici silindi', 'success'); var row = document.querySelector('tr[data-id="' + id + '"]'); if (row) row.remove(); }
+    else { showToast('Hata', data.error, 'error'); }
+  });
+}
+
+function toggleKeyword(id, isActive) {
+  fetch('/api/keywords/' + id + '/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: isActive }) });
+}
+
+var keywordForm = document.getElementById('keywordForm');
+if (keywordForm) {
+  keywordForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var id = document.getElementById('keywordId').value;
+    var formData = {
+      keyword: document.getElementById('keywordText').value,
+      match_type: document.getElementById('keywordMatchType').value,
+      category: document.getElementById('keywordCategory').value || null,
+      response: document.getElementById('keywordResponse').value,
+      priority: parseInt(document.getElementById('keywordPriority').value) || 0,
+      client_id: document.getElementById('keywordScope').value || null
+    };
+    var url = id ? '/api/keywords/' + id : '/api/keywords';
+    var method = id ? 'PUT' : 'POST';
+    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.success) { showToast('Başarılı', 'Tetikleyici kaydedildi', 'success'); closeKeywordModal(); setTimeout(function() { location.reload(); }, 500); }
+      else { showToast('Hata', result.error, 'error'); }
+    });
+  });
+}
+
+// Test
+var testBtn = document.getElementById('testBtn');
+if (testBtn) {
+  testBtn.addEventListener('click', function() {
+    var message = document.getElementById('testMessage').value.trim();
+    if (!message) { showToast('Uyarı', 'Lütfen bir mesaj yazın', 'warning'); return; }
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Test Ediliyor...';
+    var startTime = Date.now();
+
+    fetch('/api/bots/' + clientId + '/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: message,
+        useKnowledge: document.getElementById('testWithKnowledge').checked,
+        useKeywords: document.getElementById('testWithKeywords').checked,
+        useAI: document.getElementById('testWithAI').checked
+      })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var elapsed = Date.now() - startTime;
+      document.getElementById('testResult').style.display = 'block';
+      document.getElementById('testTime').textContent = elapsed + 'ms';
+      if (data.success) {
+        document.getElementById('testSource').textContent = data.source || 'AI';
+        document.querySelector('.test-response').textContent = data.response;
+      } else {
+        document.getElementById('testSource').textContent = 'Hata';
+        document.querySelector('.test-response').textContent = 'Hata: ' + (data.error || 'Yanıt alınamadı');
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('testResult').style.display = 'block';
+      document.getElementById('testSource').textContent = 'Hata';
+      document.querySelector('.test-response').textContent = 'Sunucu hatası';
+    })
+    .finally(function() { testBtn.disabled = false; testBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Test Et'; });
+  });
+}
+
+// Freeze/Unfreeze
+function freezeClient(id) { document.getElementById('freezeModal').style.display = 'block'; }
+function closeFreezeModal() { document.getElementById('freezeModal').style.display = 'none'; }
+
+var freezeForm = document.getElementById('freezeForm');
+if (freezeForm) {
+  freezeForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var formData = new FormData(e.target);
+    fetch('/api/clients/' + clientId + '/freeze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: formData.get('message'), redirectPhone: formData.get('redirectPhone') }) })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.success) { showToast('Başarılı', 'Bot donduruldu', 'success'); setTimeout(function() { location.reload(); }, 500); }
+      else { showToast('Hata', result.error || 'Bir hata oluştu', 'error'); }
+    });
+  });
+}
+
+function unfreezeClient(id) {
+  fetch('/api/clients/' + id + '/unfreeze', { method: 'POST' })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) { showToast('Başarılı', 'Bot aktif edildi', 'success'); setTimeout(function() { location.reload(); }, 500); }
+    else { showToast('Hata', result.error || 'Bir hata oluştu', 'error'); }
+  });
+}
+
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeKeywordModal(); closeFreezeModal(); closeKnowledgeModal(); closeTextImportModal(); closeUrlImportModal(); closeCsvExampleModal(); } });
+setTimeout(function() { var alert = document.getElementById('savedAlert'); if (alert) alert.style.display = 'none'; }, 3000);
+
+// Init
+loadKnowledgeBase();
+</script>
+
+    </main>
+  </div>
+  <script src="/js/app.js"></script>
+</body>
+</html>

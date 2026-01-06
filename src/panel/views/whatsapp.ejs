@@ -1,661 +1,1133 @@
-<%- include('partials/header') %>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp</title>
+    <link rel="icon" href="https://web.whatsapp.com/favicon-64x64.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-<style>
-    /* WhatsApp Web Clone CSS - Refined Fixes */
-    :root {
-        --wa-bg-color: #efeae2;
-        --wa-header-bg: #f0f2f5;
-        --wa-sidebar-bg: #ffffff;
-        --wa-incoming-msg: #ffffff;
-        --wa-outgoing-msg: #d9fdd3;
-        --wa-border: #d1d7db;
-        --wa-primary: #008069;
-        --wa-text-primary: #111b21;
-        --wa-text-secondary: #54656f;
-        --wa-panel-bg: #ffffff;
-        --wa-hover-bg: #f5f6f6;
-    }
+        :root {
+            --wa-teal-green: #00a884;
+            --wa-teal-green-dark: #008069;
+            --wa-bg-default: #111b21;
+            --wa-bg-deeper: #0b141a;
+            --wa-bg-panel: #202c33;
+            --wa-bg-panel-header: #202c33;
+            --wa-bg-hover: #2a3942;
+            --wa-incoming-bg: #202c33;
+            --wa-outgoing-bg: #005c4b;
+            --wa-border: #222d34;
+            --wa-icon: #aebac1;
+            --wa-icon-hover: #d9dee0;
+            --wa-text-primary: #e9edef;
+            --wa-text-secondary: #8696a0;
+            --wa-dropdown-bg: #233138;
+            --wa-unread-marker: #00a884;
+            --wa-search-bg: #202c33;
+            --wa-input-bg: #2a3942;
+            --wa-chat-bg: #0b141a;
+            --wa-system-msg-bg: #182229;
+        }
 
-    body { 
-        overflow: hidden; 
-        background-color: #d1d7db; 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
+        body {
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            background-color: var(--wa-bg-deeper);
+            color: var(--wa-text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 6px !important; height: 6px !important; }
-    ::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.2); }
-    ::-webkit-scrollbar-track { background: hsla(0,0%,100%,0.1); }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
-    .wa-app {
-        display: flex;
-        height: calc(100vh - 80px);
-        width: 100%;
-        max-width: 1600px;
-        margin: 20px auto;
-        background-color: #fff;
-        box-shadow: 0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24);
-        position: relative;
-        overflow: hidden;
-    }
+        /* Ana Container */
+        .wa-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: var(--wa-bg-default);
+        }
 
-    /* SOL KOLON */
-    .wa-left-panel {
-        flex: 0 0 30%;
-        min-width: 300px;
-        max-width: 450px;
-        display: flex;
-        flex-direction: column;
-        border-right: 1px solid var(--wa-border);
-        background-color: var(--wa-sidebar-bg);
-        z-index: 2;
-    }
+        /* Üst Yeşil Bar */
+        .wa-top-bar {
+            height: 127px;
+            background-color: var(--wa-teal-green-dark);
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 0;
+        }
 
-    /* ORTA KOLON */
-    .wa-main-panel {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        background-color: var(--wa-bg-color);
-        background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
-        position: relative;
-        min-width: 400px;
-        z-index: 1;
-    }
+        /* Ana Uygulama Container */
+        .wa-app-container {
+            display: flex;
+            flex: 1;
+            margin: 19px auto;
+            max-width: 1600px;
+            width: calc(100% - 38px);
+            height: calc(100vh - 38px);
+            background-color: var(--wa-bg-default);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
 
-    /* SAĞ KOLON */
-    .wa-right-panel {
-        width: 0;
-        min-width: 0;
-        background-color: var(--wa-panel-bg);
-        border-left: 1px solid var(--wa-border);
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto;
-        transition: width 0.3s cubic-bezier(0.1, 0.82, 0.25, 1);
-        opacity: 0;
-    }
-    
-    .wa-right-panel.open { 
-        width: 400px;
-        min-width: 300px;
-        opacity: 1;
-    }
+        /* Sol Panel */
+        .wa-left-panel {
+            width: 30%;
+            min-width: 340px;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--wa-border);
+            background-color: var(--wa-bg-panel);
+        }
 
-    /* Headers */
-    .wa-header {
-        height: 60px;
-        min-height: 60px;
-        background-color: var(--wa-header-bg);
-        display: flex;
-        align-items: center;
-        padding: 10px 16px;
-        border-bottom: 1px solid var(--wa-border);
-        justify-content: space-between;
-        z-index: 10;
-    }
+        /* Sol Panel Header */
+        .wa-left-header {
+            height: 59px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background-color: var(--wa-bg-panel-header);
+        }
 
-    /* Search */
-    .wa-search-box {
-        padding: 8px 12px;
-        border-bottom: 1px solid var(--wa-border);
-        background: #fff;
-    }
-    .wa-search-input {
-        background-color: #f0f2f5;
-        border: none;
-        border-radius: 8px;
-        padding: 7px 32px 7px 12px;
-        width: 100%;
-        font-size: 14px;
-        outline: none;
-    }
-    .wa-search-input:focus {
-        background-color: #fff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
+        .wa-left-header .wa-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
 
-    /* Chat List Items */
-    .wa-chat-item {
-        display: flex;
-        align-items: center;
-        padding: 10px 15px;
-        cursor: pointer;
-        border-bottom: 1px solid #f5f6f6;
-        height: 72px;
-    }
-    .wa-chat-item:hover { background-color: var(--wa-hover-bg); }
-    .wa-chat-item.active { background-color: #f0f2f5; }
+        .wa-header-icons {
+            display: flex;
+            gap: 8px;
+        }
 
-    .wa-avatar {
-        min-width: 49px;
-        width: 49px;
-        height: 49px;
-        border-radius: 50%;
-        margin-right: 15px;
-        object-fit: cover;
-        background-color: #ddd; /* Yüklenirken gri */
-    }
-    .wa-avatar-lg {
-        width: 200px; height: 200px;
-        border-radius: 50%;
-        margin: 20px auto;
-        object-fit: cover;
-        display: block;
-        cursor: pointer;
-        transition: transform 0.2s;
-        background-color: #ddd;
-    }
-    .wa-avatar-lg:hover { transform: scale(1.02); }
+        .wa-icon-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            color: var(--wa-icon);
+            transition: background-color 0.15s;
+        }
 
-    /* Messages */
-    .wa-msg-area {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px 8%;
-        display: flex;
-        flex-direction: column;
-    }
-    .wa-msg {
-        max-width: 65%;
-        margin-bottom: 4px;
-        padding: 6px 7px 8px 9px;
-        border-radius: 7.5px;
-        font-size: 14.2px;
-        box-shadow: 0 1px 0.5px rgba(11,20,26,.13);
-        position: relative;
-        word-wrap: break-word;
-        white-space: pre-wrap;
-    }
-    .wa-msg.incoming { background: var(--wa-incoming-msg); align-self: flex-start; border-top-left-radius: 0; color:black; }
-    .wa-msg.outgoing { background: var(--wa-outgoing-msg); align-self: flex-end; border-top-right-radius: 0; color:black; }
+        .wa-icon-btn:hover {
+            background-color: var(--wa-bg-hover);
+            color: var(--wa-icon-hover);
+        }
 
-    .wa-msg-meta {
-        float: right;
-        margin-left: 8px;
-        margin-top: 4px;
-        font-size: 11px;
-        color: rgba(0, 0, 0, 0.45);
-        display: flex;
-        align-items: center;
-        height: 15px;
-        line-height: 15px;
-    }
+        .wa-icon-btn i {
+            font-size: 20px;
+        }
 
-    /* Right Panel Content */
-    .wa-info-section {
-        padding: 14px 20px;
-        background: #fff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        margin-bottom: 10px;
-    }
-    .wa-info-label {
-        font-size: 14px; color: var(--wa-text-secondary); margin-bottom: 4px;
-    }
-    .wa-info-value {
-        font-size: 16px; color: var(--wa-text-primary);
-    }
-    .wa-info-value.problem {
-        color: #d32f2f; font-weight: 500;
-    }
-    
-    .wa-btn-group {
-        display: flex; gap: 10px; padding: 20px;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    
-    .wa-action-btn {
-        flex: 1;
-        padding: 10px;
-        border: none;
-        border-radius: 8px;
-        font-size: 13px;
-        cursor: pointer;
-        display: flex; flex-direction: column; align-items: center; gap: 8px;
-        background: transparent; color: var(--wa-text-secondary);
-        transition: 0.2s;
-    }
-    .wa-action-btn:hover { background-color: var(--wa-hover-bg); color: var(--wa-text-primary); }
-    .wa-action-btn.danger:hover { color: #ea0038; background-color: #fde8ed; }
-    .wa-action-btn.active { color: var(--wa-primary); background-color: #e8f5e9; font-weight: 500; }
+        /* Arama Kutusu */
+        .wa-search-container {
+            padding: 8px 12px;
+            background-color: var(--wa-bg-panel);
+        }
 
-    /* Footer Input */
-    .wa-footer {
-        min-height: 62px;
-        padding: 5px 16px;
-        background: var(--wa-header-bg);
-        display: flex; align-items: center; gap: 10px;
-        z-index: 10;
-    }
-    .wa-input {
-        flex: 1; 
-        padding: 9px 12px; 
-        border-radius: 8px; 
-        border: 1px solid #fff; 
-        outline: none;
-        font-size: 15px;
-        background-color: #fff;
-        max-height: 100px;
-        overflow-y: auto;
-    }
-    .wa-input:focus { border-color: #fff; }
+        .wa-search-box {
+            display: flex;
+            align-items: center;
+            background-color: var(--wa-input-bg);
+            border-radius: 8px;
+            padding: 0 12px;
+            height: 35px;
+        }
 
-    /* Icons */
-    .wa-icon-btn {
-        padding: 8px;
-        border-radius: 50%;
-        cursor: pointer;
-        color: var(--wa-text-secondary);
-        transition: background-color 0.2s;
-    }
-    .wa-icon-btn:hover { background-color: rgba(0,0,0,0.05); }
+        .wa-search-box i {
+            color: var(--wa-icon);
+            font-size: 14px;
+            margin-right: 24px;
+        }
 
-    /* Empty State */
-    .wa-empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        background-color: var(--wa-header-bg);
-        border-bottom: 6px solid #4ADF83; 
-        text-align: center;
-        color: var(--wa-text-secondary);
-    }
-</style>
+        .wa-search-box input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--wa-text-primary);
+            font-size: 14px;
+            outline: none;
+        }
 
-<div class="container-fluid p-0">
-    <div class="wa-app">
-        
-        <div class="wa-left-panel">
-            <div class="wa-header">
-                <div class="d-flex align-items-center">
-                    <img src="https://ui-avatars.com/api/?name=Admin&background=00a884&color=fff" class="wa-avatar" style="width: 40px; height: 40px;">
-                    <span class="fw-bold ms-2 text-dark">Sohbetler</span>
+        .wa-search-box input::placeholder {
+            color: var(--wa-text-secondary);
+        }
+
+        /* Filtre Tabs */
+        .wa-filter-tabs {
+            display: flex;
+            padding: 8px 12px;
+            gap: 8px;
+            border-bottom: 1px solid var(--wa-border);
+        }
+
+        .wa-filter-tab {
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            background-color: var(--wa-input-bg);
+            color: var(--wa-text-secondary);
+            transition: all 0.15s;
+        }
+
+        .wa-filter-tab:hover {
+            background-color: var(--wa-bg-hover);
+        }
+
+        .wa-filter-tab.active {
+            background-color: var(--wa-teal-green-dark);
+            color: #fff;
+        }
+
+        /* Chat Listesi */
+        .wa-chat-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .wa-chat-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.15s;
+            border-bottom: 1px solid rgba(134,150,160,0.15);
+        }
+
+        .wa-chat-item:hover {
+            background-color: var(--wa-bg-hover);
+        }
+
+        .wa-chat-item.active {
+            background-color: var(--wa-input-bg);
+        }
+
+        .wa-chat-item .wa-avatar {
+            width: 49px;
+            height: 49px;
+            border-radius: 50%;
+            margin-right: 13px;
+            object-fit: cover;
+            background-color: var(--wa-bg-hover);
+        }
+
+        .wa-chat-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .wa-chat-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+
+        .wa-chat-name {
+            font-size: 16px;
+            color: var(--wa-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        .wa-chat-time {
+            font-size: 12px;
+            color: var(--wa-text-secondary);
+        }
+
+        .wa-chat-time.unread {
+            color: var(--wa-unread-marker);
+        }
+
+        .wa-chat-preview {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .wa-chat-preview-text {
+            font-size: 14px;
+            color: var(--wa-text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 240px;
+        }
+
+        .wa-chat-badge {
+            background-color: var(--wa-unread-marker);
+            color: var(--wa-bg-deeper);
+            font-size: 11px;
+            font-weight: 500;
+            padding: 2px 7px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+
+        /* Sağ Panel - Chat Area */
+        .wa-right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--wa-chat-bg);
+            background-image: url("data:image/svg+xml,%3Csvg width='412' height='421' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='doodles' width='412' height='421' patternUnits='userSpaceOnUse'%3E%3Crect fill='%230b141a' width='412' height='421'/%3E%3Cpath opacity='0.04' fill='%23ffffff' d='M200.7,308.9c-0.5,0-0.9-0.1-1.4-0.2c-2.1-0.5-3.7-2.2-4.1-4.4l-7.4-38.1l-9.8,15.6 c-1.1,1.8-3.1,2.9-5.2,2.8c-2.1-0.1-4-1.4-4.9-3.3l-11.7-24.7l-7.9,11.5c-1.2,1.7-3.1,2.7-5.2,2.6c-2.1-0.1-4-1.3-5-3.2 l-12.9-25.1l-5.9,13.6c-0.9,2.1-2.9,3.5-5.2,3.7c-2.3,0.2-4.4-0.9-5.7-2.8l-22.7-33.7l-6.6,7.3c-1.4,1.6-3.6,2.3-5.6,1.9 c-2.1-0.4-3.8-1.8-4.5-3.8l-15.1-42.3l-9.5,20c-1,2.1-3.1,3.4-5.4,3.5c-2.3,0.1-4.5-1.1-5.6-3.1l-22.3-39.1l-6.2,5.1 c-1.4,1.2-3.3,1.6-5.1,1.2c-1.8-0.4-3.3-1.6-4.1-3.3l-18.7-38.5l-12.4,18.3c-1.3,1.9-3.5,2.9-5.8,2.6c-2.3-0.3-4.2-1.8-5-3.9 l-13.9-36.4c-1.2-3.1,0.4-6.5,3.5-7.7c3.1-1.2,6.5,0.4,7.7,3.5l10.4,27.2l12.6-18.6c1.3-1.9,3.5-2.9,5.8-2.6 c2.3,0.3,4.2,1.8,5,3.9l16.4,33.8l5.9-4.9c1.5-1.2,3.5-1.6,5.3-1.1c1.9,0.5,3.4,1.9,4.1,3.7l19.8,34.7l9.3-19.6 c1-2.1,3.1-3.5,5.5-3.5c2.3,0,4.5,1.3,5.5,3.4l12.4,34.8l6.2-6.8c1.4-1.6,3.6-2.3,5.7-1.9c2.1,0.4,3.8,1.9,4.5,3.9l20.1,29.8 l5.5-12.6c0.9-2.2,3.1-3.6,5.4-3.7c2.4-0.1,4.6,1.2,5.7,3.3l11.2,21.8l7.7-11.2c1.2-1.7,3.1-2.7,5.2-2.6c2.1,0.1,4,1.3,5,3.1 l10.2,21.6l9.5-15.1c1.1-1.8,3.1-2.9,5.2-2.8c2.1,0.1,4,1.3,5,3.2l9.9,50.8c0.6,3.2-1.4,6.4-4.7,7 C201.3,308.9,201,308.9,200.7,308.9z'/%3E%3C/pattern%3E%3C/defs%3E%3Crect fill='url(%23doodles)' width='412' height='421'/%3E%3C/svg%3E");
+            position: relative;
+        }
+
+        /* Chat Header */
+        .wa-chat-header {
+            height: 59px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background-color: var(--wa-bg-panel-header);
+            border-bottom: 1px solid var(--wa-border);
+            z-index: 2;
+        }
+
+        .wa-chat-header-left {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .wa-chat-header .wa-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 15px;
+        }
+
+        .wa-chat-header-info {
+            flex: 1;
+        }
+
+        .wa-chat-header-name {
+            font-size: 16px;
+            color: var(--wa-text-primary);
+        }
+
+        .wa-chat-header-status {
+            font-size: 13px;
+            color: var(--wa-text-secondary);
+        }
+
+        /* Mesaj Alanı */
+        .wa-messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 60px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .wa-message {
+            max-width: 65%;
+            padding: 6px 7px 8px 9px;
+            border-radius: 7.5px;
+            margin-bottom: 2px;
+            position: relative;
+            font-size: 14.2px;
+            line-height: 19px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .wa-message.incoming {
+            background-color: var(--wa-incoming-bg);
+            color: var(--wa-text-primary);
+            align-self: flex-start;
+            border-top-left-radius: 0;
+        }
+
+        .wa-message.outgoing {
+            background-color: var(--wa-outgoing-bg);
+            color: var(--wa-text-primary);
+            align-self: flex-end;
+            border-top-right-radius: 0;
+        }
+
+        .wa-message-text {
+            margin-right: 50px;
+        }
+
+        .wa-message-meta {
+            position: absolute;
+            bottom: 5px;
+            right: 7px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .wa-message.incoming .wa-message-meta {
+            color: var(--wa-text-secondary);
+        }
+
+        .wa-message-meta i {
+            font-size: 14px;
+        }
+
+        .wa-message-meta .wa-read {
+            color: #53bdeb;
+        }
+
+        /* Tarih Etiketi */
+        .wa-date-label {
+            align-self: center;
+            background-color: var(--wa-system-msg-bg);
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            padding: 5px 12px;
+            border-radius: 7px;
+            margin: 10px 0;
+        }
+
+        /* Mesaj Girişi */
+        .wa-input-container {
+            padding: 10px 16px;
+            background-color: var(--wa-bg-panel-header);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .wa-input-box {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background-color: var(--wa-input-bg);
+            border-radius: 8px;
+            padding: 9px 12px;
+        }
+
+        .wa-input-box input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--wa-text-primary);
+            font-size: 15px;
+            outline: none;
+        }
+
+        .wa-input-box input::placeholder {
+            color: var(--wa-text-secondary);
+        }
+
+        /* Boş Durum */
+        .wa-empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--wa-bg-panel);
+            border-bottom: 6px solid var(--wa-teal-green);
+        }
+
+        .wa-empty-state img {
+            width: 320px;
+            margin-bottom: 40px;
+        }
+
+        .wa-empty-state h1 {
+            font-size: 32px;
+            font-weight: 300;
+            color: var(--wa-text-primary);
+            margin-bottom: 10px;
+        }
+
+        .wa-empty-state p {
+            font-size: 14px;
+            color: var(--wa-text-secondary);
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .wa-empty-state .wa-lock {
+            margin-top: 40px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            color: var(--wa-text-secondary);
+        }
+
+        /* Sağ Profil Panel */
+        .wa-profile-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 0;
+            background-color: var(--wa-bg-panel);
+            border-left: 1px solid var(--wa-border);
+            overflow: hidden;
+            transition: width 0.3s ease;
+            z-index: 10;
+        }
+
+        .wa-profile-panel.open {
+            width: 420px;
+        }
+
+        .wa-profile-header {
+            height: 59px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background-color: var(--wa-bg-panel-header);
+            gap: 20px;
+        }
+
+        .wa-profile-header-title {
+            font-size: 16px;
+            color: var(--wa-text-primary);
+        }
+
+        .wa-profile-content {
+            overflow-y: auto;
+            height: calc(100% - 59px);
+        }
+
+        .wa-profile-avatar-section {
+            padding: 30px 0;
+            text-align: center;
+            background-color: var(--wa-bg-panel);
+        }
+
+        .wa-profile-avatar-section .wa-avatar-large {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            object-fit: cover;
+        }
+
+        .wa-profile-name {
+            font-size: 21px;
+            color: var(--wa-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .wa-profile-phone {
+            font-size: 15px;
+            color: var(--wa-text-secondary);
+        }
+
+        .wa-profile-section {
+            padding: 14px 30px;
+            background-color: var(--wa-bg-panel);
+            margin-top: 10px;
+        }
+
+        .wa-profile-section-title {
+            font-size: 14px;
+            color: var(--wa-teal-green);
+            margin-bottom: 8px;
+        }
+
+        .wa-profile-section-value {
+            font-size: 16px;
+            color: var(--wa-text-primary);
+        }
+
+        .wa-profile-section-value.problem {
+            color: #f15c6d;
+        }
+
+        /* Action Buttons */
+        .wa-profile-actions {
+            display: flex;
+            padding: 20px 30px;
+            gap: 15px;
+            background-color: var(--wa-bg-panel);
+            margin-top: 10px;
+        }
+
+        .wa-profile-action {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 15px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.15s;
+            color: var(--wa-text-secondary);
+        }
+
+        .wa-profile-action:hover {
+            background-color: var(--wa-bg-hover);
+        }
+
+        .wa-profile-action.active {
+            color: var(--wa-teal-green);
+        }
+
+        .wa-profile-action.danger:hover {
+            color: #f15c6d;
+        }
+
+        .wa-profile-action i {
+            font-size: 22px;
+        }
+
+        .wa-profile-action span {
+            font-size: 12px;
+        }
+
+        /* AI Analysis */
+        .wa-ai-section {
+            padding: 14px 30px;
+            background-color: var(--wa-bg-panel);
+            margin-top: 10px;
+            border-left: 3px solid #f59f00;
+        }
+
+        .wa-ai-title {
+            font-size: 14px;
+            color: #f59f00;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .wa-ai-content {
+            font-size: 14px;
+            color: var(--wa-text-secondary);
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .wa-profile-panel.open { width: 350px; }
+        }
+
+        @media (max-width: 900px) {
+            .wa-top-bar { display: none; }
+            .wa-app-container {
+                margin: 0;
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .wa-left-panel {
+                min-width: 100%;
+                max-width: 100%;
+                width: 100%;
+                border-right: none;
+            }
+            .wa-right-panel {
+                display: none;
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 100;
+            }
+            .wa-right-panel.mobile-active {
+                display: flex;
+            }
+            .wa-profile-panel.open {
+                width: 100%;
+            }
+            .wa-messages-container {
+                padding: 10px 15px;
+            }
+            .wa-message {
+                max-width: 85%;
+            }
+            .wa-back-btn {
+                display: flex !important;
+            }
+            .wa-chat-header-left {
+                margin-left: 0;
+            }
+        }
+
+        /* Mobil için geri butonu */
+        .wa-back-btn {
+            display: none;
+            width: 40px;
+            height: 40px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            color: var(--wa-icon);
+            margin-right: 10px;
+        }
+        .wa-back-btn:hover {
+            background-color: var(--wa-bg-hover);
+            color: var(--wa-icon-hover);
+        }
+        .wa-back-btn i {
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wa-wrapper">
+        <div class="wa-top-bar"></div>
+
+        <div class="wa-app-container">
+            <!-- Sol Panel - Chat Listesi -->
+            <div class="wa-left-panel">
+                <div class="wa-left-header">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=00a884&color=fff" class="wa-avatar">
+                    <div class="wa-header-icons">
+                        <div class="wa-icon-btn"><i class="bi bi-people"></i></div>
+                        <div class="wa-icon-btn"><i class="bi bi-chat-right-text"></i></div>
+                        <div class="wa-icon-btn"><i class="bi bi-three-dots-vertical"></i></div>
+                    </div>
                 </div>
-                <div>
-                    <i class="bi bi-chat-left-text-fill fs-5 wa-icon-btn"></i>
-                    <i class="bi bi-three-dots-vertical fs-5 wa-icon-btn"></i>
+
+                <div class="wa-search-container">
+                    <div class="wa-search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" placeholder="Ara veya yeni sohbet başlat" id="searchInput">
+                    </div>
                 </div>
-            </div>
-            <div class="wa-search-box">
-                <div class="position-relative">
-                    <input type="text" class="wa-search-input" placeholder="Aratın veya yeni sohbet başlatın" id="searchInput">
-                    <i class="bi bi-search position-absolute text-secondary" style="left: 12px; top: 8px; font-size: 13px;"></i>
+
+                <div class="wa-filter-tabs">
+                    <div class="wa-filter-tab active">Tümü</div>
+                    <div class="wa-filter-tab">Okunmamış</div>
+                    <div class="wa-filter-tab">Gruplar</div>
                 </div>
-            </div>
-            <div style="flex:1; overflow-y:auto;" id="chatList">
-                <% chats.forEach(chat => { %>
-                <div class="wa-chat-item" onclick="loadChat('<%= chat.chat_id %>', '<%= chat.client_id %>', '<%= chat.full_name %>', '<%= chat.profile_photo_url || '' %>')">
-                    
-                    <img src="<%= chat.profile_photo_url || 'https://ui-avatars.com/api/?name=' + chat.full_name %>" 
-                         class="wa-avatar"
-                         onerror="this.src='https://ui-avatars.com/api/?name=<%= chat.full_name %>&background=random'">
-                    
-                    <div style="flex:1; overflow:hidden;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="fw-normal text-dark text-truncate" style="font-size: 16px;"><%= chat.full_name %></span>
-                            <small class="text-secondary" style="font-size: 12px;"><%= chat.last_message_at ? new Date(chat.last_message_at).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}) : '' %></small>
+
+                <div class="wa-chat-list" id="chatList">
+                    <% chats.forEach(chat => { %>
+                    <div class="wa-chat-item" onclick="loadChat('<%= chat.chat_id %>', '<%= chat.client_id %>', '<%= chat.full_name %>', '<%= chat.profile_photo_url || '' %>')">
+                        <img src="<%= chat.profile_photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(chat.full_name) + '&background=2a3942&color=aebac1' %>"
+                             class="wa-avatar"
+                             onerror="this.src='https://ui-avatars.com/api/?name=<%= encodeURIComponent(chat.full_name) %>&background=2a3942&color=aebac1'">
+                        <div class="wa-chat-item-content">
+                            <div class="wa-chat-item-row">
+                                <span class="wa-chat-name"><%= chat.full_name %></span>
+                                <span class="wa-chat-time <%= chat.msg_count > 0 ? 'unread' : '' %>">
+                                    <%= chat.last_message_at ? new Date(chat.last_message_at).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}) : '' %>
+                                </span>
+                            </div>
+                            <div class="wa-chat-preview">
+                                <span class="wa-chat-preview-text">
+                                    <i class="bi bi-check2-all" style="color: #53bdeb; margin-right: 3px;"></i>
+                                    Sohbeti görüntüle
+                                </span>
+                                <% if(chat.msg_count > 0) { %>
+                                    <span class="wa-chat-badge"><%= chat.msg_count %></span>
+                                <% } %>
+                            </div>
                         </div>
-                        <div class="d-flex justify-content-between mt-1 align-items-center">
-                            <small class="text-secondary text-truncate" style="max-width: 200px; font-size: 13px;">Sohbeti görüntülemek için tıklayın</small>
-                            <% if(chat.msg_count > 0) { %>
-                                <span class="badge rounded-pill bg-success fw-normal" style="font-size: 11px;"><%= chat.msg_count %></span>
-                            <% } %>
+                    </div>
+                    <% }) %>
+                </div>
+            </div>
+
+            <!-- Sağ Panel - Chat Alanı -->
+            <div class="wa-right-panel" id="mainPanel">
+                <!-- Boş Durum -->
+                <div class="wa-empty-state" id="emptyState">
+                    <img src="https://web.whatsapp.com/img/intro-connection-light_c98cc75f2aa905314d74e6e8ee549c4b.webp"
+                         onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg'; this.style.width='150px'; this.style.opacity='0.5';">
+                    <h1>WhatsApp Web</h1>
+                    <p>Mesajları okumak ve yanıtlamak için soldan bir sohbet seçin.<br>Mesajlarınız uçtan uca şifrelidir.</p>
+                    <div class="wa-lock">
+                        <i class="bi bi-lock-fill"></i>
+                        <span>Uçtan uca şifreli</span>
+                    </div>
+                </div>
+
+                <!-- Chat Arayüzü -->
+                <div id="chatInterface" style="display: none; flex-direction: column; height: 100%;">
+                    <div class="wa-chat-header">
+                        <div class="wa-back-btn" onclick="goBackToList()">
+                            <i class="bi bi-arrow-left"></i>
+                        </div>
+                        <div class="wa-chat-header-left" onclick="toggleProfilePanel()">
+                            <img id="headerAvatar" src="" class="wa-avatar">
+                            <div class="wa-chat-header-info">
+                                <div class="wa-chat-header-name" id="headerName">İsim</div>
+                                <div class="wa-chat-header-status" id="headerStatus">Bilgi için tıklayın</div>
+                            </div>
+                        </div>
+                        <div class="wa-header-icons">
+                            <div class="wa-icon-btn"><i class="bi bi-search"></i></div>
+                            <div class="wa-icon-btn"><i class="bi bi-three-dots-vertical"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="wa-messages-container" id="messagesArea"></div>
+
+                    <div class="wa-input-container">
+                        <div class="wa-icon-btn"><i class="bi bi-emoji-smile"></i></div>
+                        <div class="wa-icon-btn"><i class="bi bi-paperclip"></i></div>
+                        <div class="wa-input-box">
+                            <input type="text" placeholder="Bir mesaj yazın" id="messageInput" onkeypress="handleEnter(event)">
+                        </div>
+                        <div class="wa-icon-btn" id="btnMic"><i class="bi bi-mic"></i></div>
+                        <div class="wa-icon-btn" id="btnSend" onclick="sendMessage()" style="display: none;"><i class="bi bi-send-fill" style="color: var(--wa-teal-green);"></i></div>
+                    </div>
+                </div>
+
+                <!-- Profil Paneli -->
+                <div class="wa-profile-panel" id="profilePanel">
+                    <div class="wa-profile-header">
+                        <div class="wa-icon-btn" onclick="toggleProfilePanel()"><i class="bi bi-x-lg"></i></div>
+                        <span class="wa-profile-header-title">Kişi bilgisi</span>
+                    </div>
+                    <div class="wa-profile-content">
+                        <div class="wa-profile-avatar-section">
+                            <img id="profileAvatar" src="" class="wa-avatar-large">
+                            <div class="wa-profile-name" id="profileName">İsim</div>
+                            <div class="wa-profile-phone" id="profilePhone">+90 XXX XXX XX XX</div>
+                        </div>
+
+                        <div class="wa-profile-actions">
+                            <div class="wa-profile-action" id="btnTakeover" onclick="toggleTakeover()">
+                                <i class="bi bi-headset"></i>
+                                <span>Devral</span>
+                            </div>
+                            <div class="wa-profile-action danger" id="btnBlock" onclick="toggleBlock()">
+                                <i class="bi bi-slash-circle"></i>
+                                <span>Engelle</span>
+                            </div>
+                            <div class="wa-profile-action" onclick="analyzeUser()">
+                                <i class="bi bi-stars" style="color: #f59f00;"></i>
+                                <span>AI Analiz</span>
+                            </div>
+                        </div>
+
+                        <div class="wa-profile-section">
+                            <div class="wa-profile-section-title">Kişinin Sorunu</div>
+                            <div class="wa-profile-section-value problem" id="profileSubject">Henüz belirtilmemiş</div>
+                        </div>
+
+                        <div class="wa-profile-section">
+                            <div class="wa-profile-section-title">Şehir</div>
+                            <div class="wa-profile-section-value" id="profileCity">-</div>
+                        </div>
+
+                        <div class="wa-profile-section">
+                            <div class="wa-profile-section-title">Meslek</div>
+                            <div class="wa-profile-section-value" id="profileJob">-</div>
+                        </div>
+
+                        <div class="wa-profile-section">
+                            <div class="wa-profile-section-title">Yaş / Doğum Tarihi</div>
+                            <div class="wa-profile-section-value" id="profileBirth">-</div>
+                        </div>
+
+                        <div class="wa-profile-section">
+                            <div class="wa-profile-section-title">Anne Adı</div>
+                            <div class="wa-profile-section-value" id="profileMother">-</div>
+                        </div>
+
+                        <div class="wa-ai-section" id="aiSection" style="display: none;">
+                            <div class="wa-ai-title">
+                                <i class="bi bi-stars"></i>
+                                <span>AI Karakter Analizi</span>
+                            </div>
+                            <div class="wa-ai-content" id="aiAnalysis">...</div>
                         </div>
                     </div>
                 </div>
-                <% }) %>
             </div>
         </div>
-
-        <div class="wa-main-panel">
-            <div id="emptyState" class="wa-empty-state">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="80" style="opacity: 0.2; margin-bottom: 20px;">
-                <h2 class="fw-light mb-2">WhatsApp Web Paneli</h2>
-                <p class="small">Mesajları okumak ve yanıtlamak için soldan bir sohbet seçin.</p>
-                <p class="small mt-4 text-muted"><i class="bi bi-lock-fill"></i> Uçtan uca şifreli (Emülasyon)</p>
-            </div>
-
-            <div id="chatInterface" style="display: none; flex-direction: column; height: 100%;">
-                <div class="wa-header" style="cursor: pointer;" onclick="toggleRightPanel()">
-                    <div class="d-flex align-items-center">
-                        <img id="headerAvatar" src="" class="wa-avatar" style="width: 40px; height: 40px;">
-                        <div class="d-flex flex-column ms-2">
-                            <span class="fw-bold text-dark" id="headerName" style="font-size: 16px;">İsim</span>
-                            <small class="text-secondary" style="font-size: 13px;">Kişi bilgisi için tıklayın</small>
-                        </div>
-                    </div>
-                    <div>
-                        <i class="bi bi-search fs-5 wa-icon-btn me-2"></i>
-                        <i class="bi bi-three-dots-vertical fs-5 wa-icon-btn"></i>
-                    </div>
-                </div>
-
-                <div class="wa-msg-area" id="messagesArea"></div>
-
-                <div class="wa-footer">
-                    <i class="bi bi-emoji-smile fs-4 wa-icon-btn"></i>
-                    <i class="bi bi-paperclip fs-4 wa-icon-btn ms-2 me-2"></i>
-                    <input type="text" class="wa-input" id="messageInput" placeholder="Bir mesaj yazın" onkeypress="handleEnter(event)">
-                    <i class="bi bi-mic fs-4 wa-icon-btn ms-2" id="btnMic"></i>
-                    <i class="bi bi-send-fill fs-4 text-primary wa-icon-btn ms-2" style="display:none;" id="btnSend" onclick="sendMessage()"></i>
-                </div>
-            </div>
-        </div>
-
-        <div class="wa-right-panel" id="rightPanel">
-            <div class="wa-header ps-3">
-                <div class="d-flex align-items-center">
-                    <i class="bi bi-x-lg wa-icon-btn me-3" onclick="toggleRightPanel()"></i>
-                    <span class="fw-normal text-dark" style="font-size: 16px;">Kişi Bilgisi</span>
-                </div>
-            </div>
-            
-            <div style="flex: 1; overflow-y: auto;">
-                <div class="text-center bg-white pb-4 pt-4 mb-2 shadow-sm">
-                    <img id="cardAvatar" src="" class="wa-avatar-lg shadow-sm">
-                    <h2 class="fw-normal mb-1 mt-3" id="cardName" style="font-size: 22px;">İsim</h2>
-                    <p class="text-secondary mb-0" id="cardPhone" style="font-size: 16px;">+90 5XX XXX XX XX</p>
-                </div>
-
-                <div class="wa-info-section wa-btn-group">
-                    <button class="wa-action-btn" id="btnTakeover" onclick="toggleTakeover()">
-                        <div class="rounded-circle bg-light p-2 mb-1"><i class="bi bi-headset fs-5"></i></div>
-                        <span>Bota Devret</span>
-                    </button>
-                    <button class="wa-action-btn danger" id="btnBlock" onclick="toggleBlock()">
-                        <div class="rounded-circle bg-light p-2 mb-1"><i class="bi bi-slash-circle fs-5"></i></div>
-                        <span>Engelle</span>
-                    </button>
-                    <button class="wa-action-btn" onclick="analyzeUser()">
-                        <div class="rounded-circle bg-light p-2 mb-1"><i class="bi bi-stars fs-5 text-warning"></i></div>
-                        <span>AI Analiz</span>
-                    </button>
-                </div>
-
-                <div class="wa-info-section">
-                    <div class="wa-info-label">Kişinin Sorunu / Derdi</div>
-                    <div class="wa-info-value problem" id="cardSubject">Henüz belirtilmemiş</div>
-                </div>
-
-                <div class="wa-info-section">
-                    <div class="wa-info-label">Şehir</div>
-                    <div class="wa-info-value" id="cardCity">-</div>
-                </div>
-
-                <div class="wa-info-section">
-                    <div class="wa-info-label">Meslek</div>
-                    <div class="wa-info-value" id="cardJob">-</div>
-                </div>
-
-                <div class="wa-info-section">
-                    <div class="wa-info-label">Yaş / Doğum Tarihi</div>
-                    <div class="wa-info-value" id="cardBirth">-</div>
-                </div>
-
-                <div class="wa-info-section">
-                    <div class="wa-info-label">Anne Adı</div>
-                    <div class="wa-info-value" id="cardMother">-</div>
-                </div>
-
-                <div class="wa-info-section" id="aiAnalysisSection" style="display:none; border-left: 4px solid #ffc107;">
-                    <div class="wa-info-label text-warning d-flex align-items-center">
-                        <i class="bi bi-stars me-2"></i> Yapay Zeka Karakter Analizi
-                    </div>
-                    <div class="wa-info-value small mt-2" id="cardAnalysis" style="line-height: 1.5; font-style: italic;">...</div>
-                </div>
-            </div>
-        </div>
-
     </div>
-</div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-    const socket = io();
-    let currentChatId = null;
-    let currentClientId = null;
-    let currentProfile = null;
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentChatId = null;
+        let currentClientId = null;
+        let currentProfile = null;
 
-    function toggleRightPanel() {
-        document.getElementById('rightPanel').classList.toggle('open');
-    }
-
-    document.getElementById('messageInput').addEventListener('input', function() {
-        const hasText = this.value.trim().length > 0;
-        document.getElementById('btnMic').style.display = hasText ? 'none' : 'block';
-        document.getElementById('btnSend').style.display = hasText ? 'block' : 'none';
-    });
-
-    // Chat Yükle (Artık profileUrl'yi de alıyor)
-    async function loadChat(chatId, clientId, fullName, profileUrl) {
-        currentChatId = chatId;
-        currentClientId = clientId;
-
-        // UI Güncelle
-        document.getElementById('emptyState').style.display = 'none';
-        document.getElementById('chatInterface').style.display = 'flex';
-        document.getElementById('rightPanel').classList.add('open');
-
-        // Avatar Belirleme Mantığı
-        const avatarSrc = profileUrl && profileUrl !== 'null' ? profileUrl : `https://ui-avatars.com/api/?name=${fullName}&background=random`;
-
-        // Header Bilgileri
-        document.getElementById('headerName').innerText = fullName;
-        document.getElementById('headerAvatar').src = avatarSrc;
-        
-        // Hata durumunda fallback (Header için)
-        document.getElementById('headerAvatar').onerror = function() {
-            this.src = `https://ui-avatars.com/api/?name=${fullName}&background=random`;
-        };
-
-        // Kart Bilgileri (Varsayılan)
-        document.getElementById('cardAvatar').src = avatarSrc;
-        document.getElementById('cardAvatar').onerror = function() {
-            this.src = `https://ui-avatars.com/api/?name=${fullName}&background=random`;
-        };
-
-        // Mesajları Çek
-        const msgArea = document.getElementById('messagesArea');
-        msgArea.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-success"></div></div>';
-        
-        try {
-            const msgRes = await fetch(`/api/chat/${chatId}/messages`);
-            const msgData = await msgRes.json();
-            if(msgData.success) renderMessages(msgData.messages);
-
-            // Profil Detaylarını Çek
-            const profRes = await fetch(`/api/chat/${chatId}/profile`);
-            const profData = await profRes.json();
-            if(profData.success) {
-                currentProfile = profData.profile;
-                updateProfileCard(currentProfile);
-            }
-        } catch(e) { console.error(e); }
-        
-        document.querySelectorAll('.wa-chat-item').forEach(el => el.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-    }
-
-    // Profil Kartını Doldur
-    function updateProfileCard(p) {
-        document.getElementById('cardName').innerText = p.full_name || 'İsimsiz';
-        document.getElementById('cardPhone').innerText = p.phone || p.chat_id;
-        document.getElementById('cardCity').innerText = p.city || '-';
-        document.getElementById('cardJob').innerText = p.job || '-';
-        document.getElementById('cardBirth').innerText = p.birth_date || '-';
-        document.getElementById('cardMother').innerText = p.mother_name || '-';
-        document.getElementById('cardSubject').innerText = p.subject || 'Henüz belirtilmemiş';
-
-        // Eğer API'den gelen veride taze bir fotoğraf varsa onu da güncelle
-        if (p.profile_photo_url && p.profile_photo_url !== 'null') {
-             document.getElementById('cardAvatar').src = p.profile_photo_url;
-             document.getElementById('headerAvatar').src = p.profile_photo_url;
+        function toggleProfilePanel() {
+            document.getElementById('profilePanel').classList.toggle('open');
         }
 
-        // Buton Durumları
-        const btnBlock = document.getElementById('btnBlock');
-        const iconBlock = btnBlock.querySelector('i');
-        if(p.is_blocked) {
-            btnBlock.classList.add('active');
-            btnBlock.querySelector('span').innerText = 'Engeli Kaldır';
-            iconBlock.className = 'bi bi-check-circle fs-5';
-        } else {
-            btnBlock.classList.remove('active');
-            btnBlock.querySelector('span').innerText = 'Engelle';
-            iconBlock.className = 'bi bi-slash-circle fs-5';
+        // Mobil: Chat listesine geri dön
+        function goBackToList() {
+            document.getElementById('mainPanel').classList.remove('mobile-active');
+            document.getElementById('profilePanel').classList.remove('open');
         }
 
-        const btnTakeover = document.getElementById('btnTakeover');
-        const iconTakeover = btnTakeover.querySelector('i');
-        if(p.status === 'waiting' || p.status === 'admin') {
-             btnTakeover.querySelector('span').innerText = 'Bota Devret';
-             btnTakeover.classList.add('active');
-             iconTakeover.className = 'bi bi-robot fs-5';
-        } else {
-             btnTakeover.querySelector('span').innerText = 'Devral (Manuel)';
-             btnTakeover.classList.remove('active');
-             iconTakeover.className = 'bi bi-headset fs-5';
+        // Mobil kontrol
+        function isMobile() {
+            return window.innerWidth <= 900;
         }
 
-        if(p.ai_analysis) {
-            document.getElementById('aiAnalysisSection').style.display = 'block';
-            document.getElementById('cardAnalysis').innerText = p.ai_analysis;
-        } else {
-            document.getElementById('aiAnalysisSection').style.display = 'none';
-        }
-    }
-
-    function renderMessages(messages) {
-        const area = document.getElementById('messagesArea');
-        area.innerHTML = '';
-        
-        let lastDate = '';
-
-        messages.reverse().forEach(msg => {
-            const date = new Date(msg.created_at);
-            const dateStr = date.toLocaleDateString('tr-TR');
-            const timeStr = date.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
-            const isMe = msg.direction === 'outgoing';
-
-            if(dateStr !== lastDate) {
-                area.innerHTML += `
-                    <div class="text-center my-3">
-                        <span class="badge bg-white text-secondary fw-normal shadow-sm py-1 px-2 small text-uppercase" style="opacity:0.9">${dateStr}</span>
-                    </div>`;
-                lastDate = dateStr;
-            }
-
-            area.innerHTML += `
-                <div class="wa-msg ${isMe ? 'outgoing' : 'incoming'}">
-                    <div>${msg.content}</div>
-                    <div class="wa-msg-meta">
-                        ${timeStr} ${isMe ? '<i class="bi bi-check2-all ms-1 text-primary"></i>' : ''}
-                    </div>
-                </div>
-            `;
+        // Input değişikliğini izle
+        document.getElementById('messageInput').addEventListener('input', function() {
+            const hasText = this.value.trim().length > 0;
+            document.getElementById('btnMic').style.display = hasText ? 'none' : 'flex';
+            document.getElementById('btnSend').style.display = hasText ? 'flex' : 'none';
         });
-        area.scrollTop = area.scrollHeight;
-    }
 
-    async function analyzeUser() {
-        if(!currentChatId) return;
-        const btn = event.currentTarget;
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
-        
-        try {
-            const res = await fetch(`/api/chat/${currentChatId}/analyze`, { method: 'POST' });
-            const data = await res.json();
-            if(data.success) {
-                document.getElementById('aiAnalysisSection').style.display = 'block';
-                document.getElementById('cardAnalysis').innerText = data.analysis;
+        // Chat yükle
+        async function loadChat(chatId, clientId, fullName, profileUrl) {
+            currentChatId = chatId;
+            currentClientId = clientId;
+
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('chatInterface').style.display = 'flex';
+
+            // Mobilde sağ paneli göster
+            if (isMobile()) {
+                document.getElementById('mainPanel').classList.add('mobile-active');
+            }
+
+            const avatarSrc = profileUrl && profileUrl !== 'null'
+                ? profileUrl
+                : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(fullName) + '&background=2a3942&color=aebac1';
+
+            // Header güncelle
+            document.getElementById('headerName').innerText = fullName;
+            document.getElementById('headerAvatar').src = avatarSrc;
+            document.getElementById('headerAvatar').onerror = function() {
+                this.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(fullName) + '&background=2a3942&color=aebac1';
+            };
+
+            // Profil panel güncelle
+            document.getElementById('profileAvatar').src = avatarSrc;
+            document.getElementById('profileName').innerText = fullName;
+
+            // Mesajları yükle
+            const msgArea = document.getElementById('messagesArea');
+            msgArea.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner" style="width:32px;height:32px;border:3px solid var(--wa-border);border-top-color:var(--wa-teal-green);border-radius:50%;animation:spin 1s linear infinite;margin:auto;"></div></div>';
+
+            try {
+                const msgRes = await fetch('/api/chat/' + chatId + '/messages');
+                const msgData = await msgRes.json();
+                if(msgData.success) renderMessages(msgData.messages);
+
+                const profRes = await fetch('/api/chat/' + chatId + '/profile');
+                const profData = await profRes.json();
+                if(profData.success) {
+                    currentProfile = profData.profile;
+                    updateProfileCard(currentProfile);
+                }
+            } catch(e) { console.error(e); }
+
+            // Aktif chat'i işaretle
+            document.querySelectorAll('.wa-chat-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        function updateProfileCard(p) {
+            document.getElementById('profileName').innerText = p.full_name || 'İsimsiz';
+            document.getElementById('profilePhone').innerText = p.phone || p.chat_id;
+            document.getElementById('profileCity').innerText = p.city || '-';
+            document.getElementById('profileJob').innerText = p.job || '-';
+            document.getElementById('profileBirth').innerText = p.birth_date || '-';
+            document.getElementById('profileMother').innerText = p.mother_name || '-';
+            document.getElementById('profileSubject').innerText = p.subject || 'Henüz belirtilmemiş';
+
+            if (p.profile_photo_url && p.profile_photo_url !== 'null') {
+                document.getElementById('profileAvatar').src = p.profile_photo_url;
+                document.getElementById('headerAvatar').src = p.profile_photo_url;
+            }
+
+            // Engelle butonu
+            const btnBlock = document.getElementById('btnBlock');
+            if(p.is_blocked) {
+                btnBlock.classList.add('active');
+                btnBlock.querySelector('span').innerText = 'Engeli Kaldır';
+                btnBlock.querySelector('i').className = 'bi bi-check-circle';
             } else {
-                alert("Hata: " + data.error);
+                btnBlock.classList.remove('active');
+                btnBlock.querySelector('span').innerText = 'Engelle';
+                btnBlock.querySelector('i').className = 'bi bi-slash-circle';
             }
-        } catch(e) { alert("Analiz yapılamadı"); }
-        
-        btn.innerHTML = originalHtml;
-    }
 
-    async function toggleBlock() {
-        if(!currentProfile) return;
-        const newState = !currentProfile.is_blocked;
-        if(confirm(newState ? "Kişiyi engellemek istiyor musunuz?" : "Engeli kaldırmak istiyor musunuz?")) {
-            await fetch(`/api/chat/${currentChatId}/block`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ blocked: newState })
-            });
-            currentProfile.is_blocked = newState;
-            updateProfileCard(currentProfile);
+            // Devral butonu
+            const btnTakeover = document.getElementById('btnTakeover');
+            if(p.status === 'waiting' || p.status === 'admin') {
+                btnTakeover.querySelector('span').innerText = 'Bota Devret';
+                btnTakeover.classList.add('active');
+                btnTakeover.querySelector('i').className = 'bi bi-robot';
+            } else {
+                btnTakeover.querySelector('span').innerText = 'Devral';
+                btnTakeover.classList.remove('active');
+                btnTakeover.querySelector('i').className = 'bi bi-headset';
+            }
+
+            // AI Analiz
+            if(p.ai_analysis) {
+                document.getElementById('aiSection').style.display = 'block';
+                document.getElementById('aiAnalysis').innerText = p.ai_analysis;
+            } else {
+                document.getElementById('aiSection').style.display = 'none';
+            }
         }
-    }
 
-    async function toggleTakeover() {
-        if(!currentProfile) return;
-        const isBotActive = !(currentProfile.status === 'waiting' || currentProfile.status === 'admin');
-        
-        if(isBotActive) {
-            await fetch(`/api/chat/${currentChatId}/takeover`, { method: 'POST' });
-            currentProfile.status = 'admin';
-        } else {
-            await fetch(`/api/chat/${currentChatId}/release`, { method: 'POST' });
-            currentProfile.status = 'collecting';
-        }
-        updateProfileCard(currentProfile);
-    }
-
-    async function sendMessage() {
-        const input = document.getElementById('messageInput');
-        const text = input.value.trim();
-        if(!text) return;
-        
-        const area = document.getElementById('messagesArea');
-        const time = new Date().toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
-        area.innerHTML += `
-            <div class="wa-msg outgoing">
-                <div>${text}</div>
-                <div class="wa-msg-meta">${time} <i class="bi bi-clock ms-1"></i></div>
-            </div>
-        `;
-        area.scrollTop = area.scrollHeight;
-        input.value = '';
-        document.getElementById('btnMic').style.display = 'block';
-        document.getElementById('btnSend').style.display = 'none';
-
-        await fetch('/api/send', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ clientId: currentClientId, chatId: currentChatId, message: text })
-        });
-    }
-
-    function handleEnter(e) { if(e.key === 'Enter') sendMessage(); }
-    
-    document.getElementById('searchInput').addEventListener('keyup', function() {
-        const val = this.value.toLowerCase();
-        document.querySelectorAll('.wa-chat-item').forEach(el => {
-            el.style.display = el.innerText.toLowerCase().includes(val) ? 'flex' : 'none';
-        });
-    });
-
-    socket.on('newMessage', (data) => {
-        if(currentChatId === data.chatId) {
+        function renderMessages(messages) {
             const area = document.getElementById('messagesArea');
-            const isMe = data.direction === 'outgoing';
-            const time = new Date(data.timestamp).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
-            area.innerHTML += `
-                <div class="wa-msg ${isMe ? 'outgoing' : 'incoming'}">
-                    <div>${data.body}</div>
-                    <div class="wa-msg-meta">${time}</div>
-                </div>
-            `;
+            area.innerHTML = '';
+
+            let lastDate = '';
+
+            messages.reverse().forEach(function(msg) {
+                const date = new Date(msg.created_at);
+                const dateStr = date.toLocaleDateString('tr-TR');
+                const timeStr = date.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+                const isMe = msg.direction === 'outgoing';
+
+                if(dateStr !== lastDate) {
+                    area.innerHTML += '<div class="wa-date-label">' + dateStr + '</div>';
+                    lastDate = dateStr;
+                }
+
+                area.innerHTML +=
+                    '<div class="wa-message ' + (isMe ? 'outgoing' : 'incoming') + '">' +
+                        '<div class="wa-message-text">' + msg.content + '</div>' +
+                        '<div class="wa-message-meta">' +
+                            timeStr +
+                            (isMe ? ' <i class="bi bi-check2-all wa-read"></i>' : '') +
+                        '</div>' +
+                    '</div>';
+            });
             area.scrollTop = area.scrollHeight;
         }
-    });
-</script>
 
-<%- include('partials/footer') %>
+        async function analyzeUser() {
+            if(!currentChatId) return;
+            const btn = event.currentTarget;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<div style="width:20px;height:20px;border:2px solid var(--wa-border);border-top-color:var(--wa-teal-green);border-radius:50%;animation:spin 1s linear infinite;"></div>';
+
+            try {
+                const res = await fetch('/api/chat/' + currentChatId + '/analyze', { method: 'POST' });
+                const data = await res.json();
+                if(data.success) {
+                    document.getElementById('aiSection').style.display = 'block';
+                    document.getElementById('aiAnalysis').innerText = data.analysis;
+                } else {
+                    alert('Hata: ' + data.error);
+                }
+            } catch(e) { alert('Analiz yapılamadı'); }
+
+            btn.innerHTML = originalHtml;
+        }
+
+        async function toggleBlock() {
+            if(!currentProfile) return;
+            const newState = !currentProfile.is_blocked;
+            if(confirm(newState ? 'Kişiyi engellemek istiyor musunuz?' : 'Engeli kaldırmak istiyor musunuz?')) {
+                await fetch('/api/chat/' + currentChatId + '/block', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ blocked: newState })
+                });
+                currentProfile.is_blocked = newState;
+                updateProfileCard(currentProfile);
+            }
+        }
+
+        async function toggleTakeover() {
+            if(!currentProfile) return;
+            const isBotActive = !(currentProfile.status === 'waiting' || currentProfile.status === 'admin');
+
+            if(isBotActive) {
+                await fetch('/api/chat/' + currentChatId + '/takeover', { method: 'POST' });
+                currentProfile.status = 'admin';
+            } else {
+                await fetch('/api/chat/' + currentChatId + '/release', { method: 'POST' });
+                currentProfile.status = 'collecting';
+            }
+            updateProfileCard(currentProfile);
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if(!text) return;
+
+            const area = document.getElementById('messagesArea');
+            const time = new Date().toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+
+            area.innerHTML +=
+                '<div class="wa-message outgoing">' +
+                    '<div class="wa-message-text">' + text + '</div>' +
+                    '<div class="wa-message-meta">' + time + ' <i class="bi bi-clock"></i></div>' +
+                '</div>';
+
+            area.scrollTop = area.scrollHeight;
+            input.value = '';
+            document.getElementById('btnMic').style.display = 'flex';
+            document.getElementById('btnSend').style.display = 'none';
+
+            await fetch('/api/send', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ clientId: currentClientId, chatId: currentChatId, message: text })
+            });
+        }
+
+        function handleEnter(e) { if(e.key === 'Enter') sendMessage(); }
+
+        // Arama
+        document.getElementById('searchInput').addEventListener('keyup', function() {
+            const val = this.value.toLowerCase();
+            document.querySelectorAll('.wa-chat-item').forEach(function(el) {
+                el.style.display = el.innerText.toLowerCase().includes(val) ? 'flex' : 'none';
+            });
+        });
+
+        // Socket mesajları
+        socket.on('newMessage', function(data) {
+            if(currentChatId === data.chatId) {
+                const area = document.getElementById('messagesArea');
+                const isMe = data.direction === 'outgoing';
+                const time = new Date(data.timestamp).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+
+                area.innerHTML +=
+                    '<div class="wa-message ' + (isMe ? 'outgoing' : 'incoming') + '">' +
+                        '<div class="wa-message-text">' + data.body + '</div>' +
+                        '<div class="wa-message-meta">' + time + '</div>' +
+                    '</div>';
+
+                area.scrollTop = area.scrollHeight;
+            }
+        });
+    </script>
+
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>

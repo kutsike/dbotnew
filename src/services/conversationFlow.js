@@ -268,10 +268,11 @@ class ConversationFlow {
 
   /**
    * Geçmiş mesajlarda belirli bir soru sorulmuş mu kontrol et
+   * 4 ay = 172,800 dakika hafıza
    */
-  async hasAskedQuestion(chatId, fieldKey, lookbackMinutes = 60) {
+  async hasAskedQuestion(chatId, fieldKey, lookbackMinutes = 172800) {
     try {
-      const history = await this.db.getChatHistory(chatId, 20);
+      const history = await this.db.getChatHistory(chatId, 500);
       const lookbackTime = Date.now() - (lookbackMinutes * 60 * 1000);
 
       // Soru kalıpları
@@ -311,10 +312,11 @@ class ConversationFlow {
 
   /**
    * Kullanıcının bir soruya cevap verip vermediğini kontrol et
+   * 500 mesaj geçmişi kontrol eder
    */
   async hasUserResponded(chatId, fieldKey) {
     try {
-      const history = await this.db.getChatHistory(chatId, 10);
+      const history = await this.db.getChatHistory(chatId, 500);
 
       // Son 3 incoming mesaja bak
       const lastUserMessages = history
@@ -418,8 +420,8 @@ class ConversationFlow {
       const now = Date.now();
       const lastAt = profile?.last_question_at ? new Date(profile.last_question_at).getTime() : 0;
 
-      // 1. Geçmişte bu soru sorulmuş mu? (Son 60 dakika)
-      const alreadyAsked = await this.hasAskedQuestion(chatId, nextField.key, 60);
+      // 1. Geçmişte bu soru sorulmuş mu? (Son 4 ay = 172,800 dakika)
+      const alreadyAsked = await this.hasAskedQuestion(chatId, nextField.key, 172800);
 
       // 2. Kullanıcı cevap vermiş mi?
       const userResponded = await this.hasUserResponded(chatId, nextField.key);
@@ -453,9 +455,24 @@ class ConversationFlow {
         last_question_at: new Date()
       });
 
-      // KISA VE DOĞAL SORULAR (Abartısız)
+      // DERİN MANEVİYAT MODU: AI ile uzun, tasavvufi sorular sor
+      if (this.aiChat) {
+        try {
+          const aiQuestion = await this._generateReligousConversation(profile, nextField, message);
+          if (aiQuestion) {
+            return {
+              reply: aiQuestion,
+              action: "collecting_" + nextField.key
+            };
+          }
+        } catch (e) {
+          console.error('[ConversationFlow] AI soru oluşturma hatası:', e.message);
+        }
+      }
+
+      // Yedek: Manuel derin maneviyat soruları
       return {
-        reply: this._shortQuestion(nextField.key, warmName),
+        reply: this._manualReligiousQuestion(nextField.key, warmName),
         action: "collecting_" + nextField.key
       };
     }
@@ -463,7 +480,7 @@ class ConversationFlow {
     return { reply: "Teşekkürler kardeşim, notlarımıza aldık.", action: "default" };
   }
 
-  // --- KISA VE DOĞAL SORULAR (Abartısız) ---
+  // --- KISA VE DOĞAL SORULAR (Yedek - kullanılmıyor artık) ---
   _shortQuestion(fieldKey, warmName) {
     const questions = {
       full_name: `İsmini öğrenebilir miyim ${warmName}?`,

@@ -143,8 +143,9 @@ async analyzeUserCharacter(profile) {
   }
   /**
    * Sohbet geçmişini formatlı şekilde al
+   * 500 mesajlık süper hafıza sistemi
    */
-  async getFormattedHistory(chatId, limit = 12) {
+  async getFormattedHistory(chatId, limit = 500) {
     try {
       const history = await this.db.getChatHistory(chatId, limit);
       return history.map(h => ({
@@ -158,10 +159,11 @@ async analyzeUserCharacter(profile) {
 
   /**
    * Konuşma özetini oluştur (uzun konuşmalar için)
+   * 500 mesaj analizi - 4 ay boyunca hatırlar
    */
   async getSummaryContext(chatId, profile) {
     try {
-      const history = await this.db.getChatHistory(chatId, 30);
+      const history = await this.db.getChatHistory(chatId, 500);
 
       if (history.length === 0) return null;
 
@@ -198,10 +200,10 @@ async analyzeUserCharacter(profile) {
   async answerIslamicQuestion(message, context = {}) {
     const { chatId, profile } = context;
 
-    // Geçmiş mesajları al (Hafıza - artırıldı)
-    const historyMessages = await this.getFormattedHistory(chatId, 12);
+    // Geçmiş mesajları al (500 Mesajlık Süper Hafıza - 4 Ay)
+    const historyMessages = await this.getFormattedHistory(chatId, 500);
 
-    // Konuşma özetini al
+    // Konuşma özetini al (500 mesaj analizi)
     const summary = await this.getSummaryContext(chatId, profile);
 
     // Sistem promptu oluştur

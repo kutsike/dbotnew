@@ -1,0 +1,281 @@
+<%- include('partials/header', { title, page }) %>
+
+<div class="content-header">
+  <div style="display: flex; align-items: center; gap: 1rem;">
+    <a href="/appointments" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i></a>
+    <h2><i class="fas fa-calendar-check"></i> <%= appointment.full_name || 'Randevu' %></h2>
+    <% if (appointment.status === 'pending') { %>
+      <span class="badge badge-warning"><i class="fas fa-clock"></i> Bekliyor</span>
+    <% } else if (appointment.status === 'confirmed') { %>
+      <span class="badge badge-info"><i class="fas fa-check"></i> Onaylandı</span>
+    <% } else if (appointment.status === 'completed') { %>
+      <span class="badge badge-success"><i class="fas fa-check-double"></i> Tamamlandı</span>
+    <% } else if (appointment.status === 'cancelled') { %>
+      <span class="badge badge-danger"><i class="fas fa-times"></i> İptal</span>
+    <% } else { %>
+      <span class="badge badge-secondary"><%= appointment.status %></span>
+    <% } %>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-danger btn-sm" onclick="deleteAppointment(<%= appointment.id %>)">
+      <i class="fas fa-trash"></i> Sil
+    </button>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-8">
+    <!-- Randevu Bilgileri -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-info-circle"></i> Randevu Bilgileri</h3>
+      </div>
+      <div class="card-body">
+        <form id="appointmentForm">
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Ad Soyad</label>
+                <input type="text" name="full_name" class="form-control" value="<%= appointment.full_name || '' %>">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Telefon</label>
+                <input type="text" name="phone" class="form-control" value="<%= appointment.phone ? appointment.phone.split('@')[0] : '' %>" readonly>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Şehir</label>
+                <input type="text" name="city" class="form-control" value="<%= appointment.city || '' %>">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Durum</label>
+                <select name="status" class="form-control">
+                  <option value="pending" <%= appointment.status === 'pending' ? 'selected' : '' %>>Bekliyor</option>
+                  <option value="confirmed" <%= appointment.status === 'confirmed' ? 'selected' : '' %>>Onaylandı</option>
+                  <option value="completed" <%= appointment.status === 'completed' ? 'selected' : '' %>>Tamamlandı</option>
+                  <option value="cancelled" <%= appointment.status === 'cancelled' ? 'selected' : '' %>>İptal</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Konu / Talep</label>
+            <textarea name="subject" class="form-control" rows="4"><%= appointment.subject || '' %></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Notlar</label>
+            <textarea name="notes" class="form-control" rows="3"><%= appointment.notes || '' %></textarea>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Randevu Tarihi</label>
+                <input type="datetime-local" name="scheduled_at" class="form-control"
+                  value="<%= appointment.scheduled_at ? new Date(appointment.scheduled_at).toISOString().slice(0, 16) : '' %>">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label class="form-label">Randevu Süresi (dk)</label>
+                <input type="number" name="duration" class="form-control" value="<%= appointment.duration || 30 %>" min="15" step="15">
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Kaydet
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Profil Bilgileri -->
+    <% if (profile) { %>
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-user"></i> İlişkili Profil</h3>
+      </div>
+      <div class="card-body">
+        <div class="profile-summary">
+          <div class="profile-info">
+            <h4><%= profile.full_name || 'İsimsiz' %></h4>
+            <p><i class="fas fa-phone"></i> <%= profile.chat_id ? profile.chat_id.split('@')[0] : '-' %></p>
+            <p><i class="fas fa-map-marker-alt"></i> <%= profile.city || '-' %></p>
+            <p><i class="fas fa-female"></i> Anne: <%= profile.mother_name || '-' %></p>
+            <p><i class="fas fa-birthday-cake"></i> Doğum: <%= profile.birth_date || '-' %></p>
+          </div>
+          <a href="/profiles/<%= profile.id %>" class="btn btn-secondary">
+            <i class="fas fa-eye"></i> Profili Görüntüle
+          </a>
+        </div>
+      </div>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="col-4">
+    <!-- Hızlı İşlemler -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-bolt"></i> Hızlı İşlemler</h3>
+      </div>
+      <div class="card-body">
+        <% if (appointment.status === 'pending') { %>
+          <button class="btn btn-success w-100 mb-2" onclick="updateStatus('confirmed')">
+            <i class="fas fa-check"></i> Onayla
+          </button>
+        <% } %>
+        <% if (appointment.status === 'confirmed') { %>
+          <button class="btn btn-info w-100 mb-2" onclick="updateStatus('completed')">
+            <i class="fas fa-check-double"></i> Tamamlandı
+          </button>
+        <% } %>
+        <% if (appointment.status !== 'cancelled' && appointment.status !== 'completed') { %>
+          <button class="btn btn-danger w-100 mb-2" onclick="updateStatus('cancelled')">
+            <i class="fas fa-times"></i> İptal Et
+          </button>
+        <% } %>
+        <% if (appointment.status === 'cancelled' || appointment.status === 'completed') { %>
+          <button class="btn btn-warning w-100 mb-2" onclick="updateStatus('pending')">
+            <i class="fas fa-undo"></i> Tekrar Aç
+          </button>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Bilgiler -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fas fa-clock"></i> Zaman Bilgileri</h3>
+      </div>
+      <div class="card-body">
+        <div class="info-item">
+          <span class="info-label">Talep Tarihi:</span>
+          <span><%= new Date(appointment.requested_at).toLocaleString('tr-TR') %></span>
+        </div>
+        <% if (appointment.scheduled_at) { %>
+        <div class="info-item">
+          <span class="info-label">Randevu Tarihi:</span>
+          <span><%= new Date(appointment.scheduled_at).toLocaleString('tr-TR') %></span>
+        </div>
+        <% } %>
+        <% if (appointment.completed_at) { %>
+        <div class="info-item">
+          <span class="info-label">Tamamlanma:</span>
+          <span><%= new Date(appointment.completed_at).toLocaleString('tr-TR') %></span>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.row { display: flex; gap: 1rem; margin-bottom: 1rem; }
+.col-4 { flex: 0 0 33.333%; }
+.col-6 { flex: 1; }
+.col-8 { flex: 0 0 66.666%; }
+.w-100 { width: 100%; }
+.mb-2 { margin-bottom: 0.5rem; }
+
+.profile-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.profile-info h4 {
+  margin-bottom: 0.5rem;
+}
+.profile-info p {
+  margin: 0.25rem 0;
+  color: #94a3b8;
+}
+.profile-info i {
+  width: 20px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #334155;
+}
+.info-item:last-child {
+  border-bottom: none;
+}
+.info-label {
+  color: #94a3b8;
+}
+</style>
+
+<script>
+var appointmentId = <%= appointment.id %>;
+
+document.getElementById('appointmentForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var formData = new FormData(e.target);
+  var data = {};
+  formData.forEach(function(value, key) { data[key] = value; });
+
+  fetch('/api/appointments/' + appointmentId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) {
+      showToast('Başarılı', 'Randevu güncellendi', 'success');
+    } else {
+      showToast('Hata', result.error || 'Bir hata oluştu', 'error');
+    }
+  })
+  .catch(function(err) {
+    showToast('Hata', 'Sunucu hatası', 'error');
+  });
+});
+
+function updateStatus(status) {
+  fetch('/api/appointments/' + appointmentId + '/status', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: status })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) {
+      showToast('Başarılı', 'Durum güncellendi', 'success');
+      setTimeout(function() { location.reload(); }, 500);
+    } else {
+      showToast('Hata', result.error || 'Bir hata oluştu', 'error');
+    }
+  });
+}
+
+function deleteAppointment(id) {
+  if (!confirm('Bu randevuyu silmek istediğinize emin misiniz?')) return;
+  fetch('/api/appointments/' + id, { method: 'DELETE' })
+  .then(function(res) { return res.json(); })
+  .then(function(result) {
+    if (result.success) {
+      showToast('Başarılı', 'Randevu silindi', 'success');
+      setTimeout(function() { window.location.href = '/appointments'; }, 500);
+    } else {
+      showToast('Hata', result.error || 'Bir hata oluştu', 'error');
+    }
+  });
+}
+</script>
+
+<%- include('partials/footer') %>
