@@ -165,7 +165,7 @@ getDefaultCharacters() {
             const redirectPhone = botRow?.redirect_phone;
             const out = redirectPhone ? `${frozenMessage}\n\nGüncel numara: ${redirectPhone}` : frozenMessage;
             // Dondurulmuş olsa bile insansı gönder
-            await this._humanSend(client, chatId, out, { incomingText: msg.body || "" });
+            await this._humanSend(client, chatId, out, id);
             return;
           }
 
@@ -243,7 +243,8 @@ getDefaultCharacters() {
           if (delayService && delayService.calculateDelays) {
             // calculateDelays bize { readDelay, typeDelay } döner.
             // readDelay: Okuma süresi + Rastgele bekleme (1-10 dk) + Uzun mesaj bonusu
-            const delays = await delayService.calculateDelays(body, replyText);
+            // id parametresi bot-spesifik insanlaştırma ayarları için
+            const delays = await delayService.calculateDelays(body, replyText, id);
             readWait = delays.readDelay;
           }
 
@@ -256,7 +257,7 @@ getDefaultCharacters() {
 
           // 2. ADIM: Yazma Efekti ve Gönderme (Parçalı)
           // _humanSend fonksiyonu metni parçalara böler ve her parça için "Yazıyor..." efekti verir.
-          await this._humanSend(client, chatId, replyText);
+          await this._humanSend(client, chatId, replyText, id);
 
           // Kaydet (outgoing)
           await this.db.saveMessage(
@@ -325,6 +326,108 @@ getDefaultCharacters() {
     console.log(`🗑️ Bot ${id} silindi`);
   }
 
+  /**
+   * WhatsApp'tan mesajları sil
+   * @param {string|null} clientId - Bot ID (null ise tüm botlar)
+   * @returns {Promise<{deleted: number}>}
+   */
+  async clearMessagesFromWhatsApp(clientId = null) {
+    let totalDeleted = 0;
+
+    const clientsToProcess = clientId
+      ? [{ id: clientId }]
+      : Array.from(this.clients.keys()).map(id => ({ id }));
+
+    for (const { id } of clientsToProcess) {
+      const client = this.clients.get(id);
+      if (!client || !client.info) continue;
+
+      try {
+        // Veritabanından bu bot'un gönderdiği mesajları al (outgoing)
+        const [messages] = await this.db.pool.execute(
+          "SELECT chat_id, message_wweb_id FROM messages WHERE client_id = ? AND direction = 'outgoing' AND message_wweb_id IS NOT NULL",
+          [id]
+        );
+
+        // Her sohbet için mesajları sil
+        const chatGroups = {};
+        for (const msg of messages) {
+          if (!chatGroups[msg.chat_id]) chatGroups[msg.chat_id] = [];
+          chatGroups[msg.chat_id].push(msg.message_wweb_id);
+        }
+
+        for (const [chatId, messageIds] of Object.entries(chatGroups)) {
+          try {
+            const chat = await client.getChatById(chatId);
+            if (chat) {
+              // Sohbetteki tüm mesajları temizle
+              await chat.clearMessages();
+              totalDeleted += messageIds.length;
+              console.log(`[${id}] ${chatId} sohbetinden ${messageIds.length} mesaj silindi`);
+            }
+          } catch (chatErr) {
+            console.error(`[${id}] ${chatId} silme hatası:`, chatErr.message);
+          }
+        }
+      } catch (err) {
+        console.error(`[${id}] WhatsApp mesaj silme hatası:`, err.message);
+      }
+    }
+
+    return { deleted: totalDeleted };
+  }
+
+  /**
+   * WhatsApp hesabından çıkış yap
+   * @param {string} clientId - Bot ID
+   */
+  async logoutWhatsApp(clientId) {
+    const client = this.clients.get(clientId);
+    if (!client) {
+      console.log(`⚠️ Bot ${clientId} bulunamadı`);
+      return;
+    }
+
+    try {
+      // WhatsApp'tan çıkış yap
+      await client.logout();
+      console.log(`🚪 Bot ${clientId} WhatsApp'tan çıkış yaptı`);
+    } catch (err) {
+      console.error(`[${clientId}] Logout hatası:`, err.message);
+    }
+
+    try {
+      // Client'ı destroy et
+      await client.destroy();
+      this.clients.delete(clientId);
+    } catch (err) {
+      console.error(`[${clientId}] Destroy hatası:`, err.message);
+    }
+  }
+
+  /**
+   * Belirli bir sohbetin mesajlarını WhatsApp'tan sil
+   * @param {string} clientId - Bot ID
+   * @param {string} chatId - Sohbet ID
+   */
+  async clearChatFromWhatsApp(clientId, chatId) {
+    const client = this.clients.get(clientId);
+    if (!client || !client.info) return { deleted: 0 };
+
+    try {
+      const chat = await client.getChatById(chatId);
+      if (chat) {
+        await chat.clearMessages();
+        console.log(`[${clientId}] ${chatId} sohbeti WhatsApp'tan temizlendi`);
+        return { deleted: 1, success: true };
+      }
+    } catch (err) {
+      console.error(`[${clientId}] ${chatId} temizleme hatası:`, err.message);
+    }
+
+    return { deleted: 0, success: false };
+  }
+
   async freezeClient(id, message, redirectPhone) {
     await this.db.updateClient(id, this._sanitizeValues({ frozen: 1, frozen_message: message || null, redirect_phone: redirectPhone || null }));
     console.log(`❄️ Bot ${id} donduruldu`);
@@ -340,7 +443,7 @@ getDefaultCharacters() {
     const client = this.clients.get(clientId);
     if (!client) throw new Error("Bot bulunamadı");
 
-    await this._humanSend(client, chatId, message);
+    await this._humanSend(client, chatId, message, clientId);
 
     const profile = await this.db.getProfile(chatId, clientId);
     await this.db.saveMessage(
@@ -383,6 +486,7 @@ getDefaultCharacters() {
     return "";
   }
 
+<<<<<<< HEAD
   async _humanSend(client, chatId, text) {
     // Ayarları DB'den çek (JSON formatında)
     const configStr = await this.db.getSetting("humanization_config");
@@ -402,6 +506,15 @@ getDefaultCharacters() {
         Object.assign(config, parsed);
       }
     } catch (_) {}
+=======
+  async _humanSend(client, chatId, text, clientId = null) {
+    // Bot bazlı humanization ayarlarını çek (yoksa global)
+    const config = await this.db.getHumanizationConfig(clientId);
+
+    // Eski ayarlarla uyumluluk
+    if (!config.split_messages) config.split_messages = true;
+    if (!config.split_threshold) config.split_threshold = 240;
+>>>>>>> origin/claude/keyword-qa-system-DpwGd
 
     // Parçalara böl
     const chunks = config.split_messages

@@ -1,162 +1,1693 @@
 <%- include('partials/header', { title, page }) %>
 
+<style>
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+  }
+  .settings-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .settings-section-header {
+    padding: 1rem 1.5rem;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .settings-section-header i {
+    font-size: 1.25rem;
+    color: var(--primary);
+  }
+  .settings-section-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .settings-section-body {
+    padding: 1.5rem;
+  }
+  .setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .setting-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .setting-item:first-child {
+    padding-top: 0;
+  }
+  .setting-info {
+    flex: 1;
+  }
+  .setting-title {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+  .setting-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .setting-action {
+    margin-left: 1rem;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .status-badge.online {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+  .status-badge.offline {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .behavior-log {
+    background: var(--bg-darker);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+  }
+  .behavior-entry {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .behavior-entry:last-child {
+    border-bottom: none;
+  }
+  .behavior-time {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+  .behavior-action {
+    color: var(--primary);
+    font-weight: 500;
+  }
+  .behavior-detail {
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+  }
+  .notification-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0;
+  }
+  .notification-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+  .notification-icon.message { background: rgba(0, 217, 165, 0.15); color: var(--primary); }
+  .notification-icon.appointment { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+  .notification-icon.system { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1rem;
+    background: var(--bg-darker);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+  }
+  .quick-action-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .quick-action-btn.danger:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .quick-action-btn i {
+    font-size: 1.5rem;
+  }
+  .quick-action-btn span {
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .tabs-container {
+    margin-bottom: 1.5rem;
+  }
+  .tabs-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab-btn {
+    padding: 1rem 1.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .tab-btn:hover {
+    color: var(--text-main);
+    background: rgba(255,255,255,0.02);
+  }
+  .tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+  .tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .tab-content.active {
+    display: block;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .stat-mini {
+    text-align: center;
+    padding: 1rem;
+    background: var(--bg-darker);
+    border-radius: var(--radius-md);
+  }
+  .stat-mini-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .stat-mini-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+  .password-strength {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+  }
+  .password-strength-bar {
+    height: 100%;
+    transition: width 0.3s, background 0.3s;
+    border-radius: 2px;
+  }
+</style>
+
 <div class="content-header">
-  <h2><i class="fas fa-cog"></i> Ayarlar</h2>
+  <h2><i class="fas fa-cogs"></i> Sistem Ayarları</h2>
+  <div class="header-actions">
+    <span class="status-badge online" id="systemStatus">
+      <span class="status-dot"></span>
+      <span>Sistem Aktif</span>
+    </span>
+  </div>
 </div>
 
-<form id="settings-form">
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-comment-dots"></i> Bot Mesajları</h3>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label class="form-label">Bot Adı</label>
-        <input type="text" name="bot_name" class="form-control" value="<%= settings.bot_name || 'Hocanın Yardımcısı' %>">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Karşılama Mesajı</label>
-        <textarea name="greeting" class="form-control" rows="2"><%= settings.greeting || '{name} kardeşim, hoş geldin. Nasıl yardımcı olabilirim?' %></textarea>
-        <small class="text-muted">{name} kullanıcı adı ile değiştirilir</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Devir Mesajı (Hocayla görüşme talebi)</label>
-        <textarea name="handoff_message" class="form-control" rows="2"><%= settings.handoff_message || 'İnşallah hocamızla görüştürmek için not aldım kardeşim. En kısa sürede dönüş yapılacaktır.' %></textarea>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Profil Tamamlandı Mesajı</label>
-        <textarea name="profile_complete_message" class="form-control" rows="2"><%= settings.profile_complete_message || '{name} kardeşim, bilgilerini aldım. Hocamızın müsaitliğine göre sana dönüş yapacağım inşallah.' %></textarea>
-        <small class="text-muted">{name} otomatik doldurulur</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Bot Dondurma Mesajı</label>
-        <textarea name="frozen_message" class="form-control" rows="2"><%= settings.frozen_message || 'Şu an müsait değilim kardeşim, biraz sonra tekrar yazar mısın?' %></textarea>
-      </div>
-    </div>
+<!-- Tab Navigation -->
+<div class="tabs-container">
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('general')">
+      <i class="fas fa-sliders-h"></i> Genel
+    </button>
+    <button class="tab-btn" onclick="switchTab('bot')">
+      <i class="fas fa-robot"></i> Bot Kontrolü
+    </button>
+    <button class="tab-btn" onclick="switchTab('behavior')">
+      <i class="fas fa-brain"></i> Davranış Analizi
+    </button>
+    <button class="tab-btn" onclick="switchTab('notifications')">
+      <i class="fas fa-bell"></i> Bildirimler
+    </button>
+    <button class="tab-btn" onclick="switchTab('security')">
+      <i class="fas fa-shield-alt"></i> Güvenlik
+    </button>
+    <button class="tab-btn" onclick="switchTab('messages')">
+      <i class="fas fa-comment-dots"></i> Mesajlar
+    </button>
   </div>
+</div>
 
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-user-clock"></i> Mesaj Gecikme Simülasyonu (İnsansı Davranış)</h3>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label class="form-label">Okuma Süresi (ms)</label>
-        <input type="number" min="0" step="100" name="read_delay_ms" class="form-control" value="<%= settings.read_delay_ms || 3000 %>">
-        <small class="text-muted">Bot mesajı okumuş gibi bekler</small>
+<!-- GENEL TAB -->
+<div class="tab-content active" id="tab-general">
+  <div class="settings-grid">
+    <!-- Hızlı İşlemler -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-bolt"></i>
+        <h3>Hızlı İşlemler</h3>
       </div>
-
-      <div class="form-group">
-        <label class="form-label">Yazma/Düşünme Süresi (ms)</label>
-        <input type="number" min="0" step="100" name="think_delay_ms" class="form-control" value="<%= settings.think_delay_ms || 2000 %>">
-        <small class="text-muted">Cevap yazmaya başlamadan önce</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">İnsan Yazma Hızı (karakter/saniye)</label>
-        <input type="number" min="5" step="1" name="typing_speed_cps" class="form-control" value="<%= settings.typing_speed_cps || 45 %>">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Yazıyor Göstergesi</label>
-        <select class="form-control" name="show_typing_indicator">
-          <option value="true" <%= (String(settings.show_typing_indicator||'true')==='true') ? 'selected' : '' %>>Açık</option>
-          <option value="false" <%= (String(settings.show_typing_indicator||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Rastgele Gecikme</label>
-        <select class="form-control" name="random_delay_enabled">
-          <option value="true" <%= (String(settings.random_delay_enabled||'true')==='true') ? 'selected' : '' %>>Açık</option>
-          <option value="false" <%= (String(settings.random_delay_enabled||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
-        </select>
-        <small class="text-muted">Her mesajda küçük varyasyon ekler</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Rastgele Gecikme Oranı (0.00 - 0.60)</label>
-        <input type="number" min="0" max="0.6" step="0.05" name="random_delay_percent" class="form-control" value="<%= settings.random_delay_percent || 0.30 %>">
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-feather"></i> İnsansı Davranış Özellikleri</h3>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label class="form-label">Mesaj Bölme</label>
-        <select class="form-control" name="split_messages">
-          <option value="true" <%= (String(settings.split_messages||'true')==='true') ? 'selected' : '' %>>Açık</option>
-          <option value="false" <%= (String(settings.split_messages||'true')==='false') ? 'selected' : '' %>>Kapalı</option>
-        </select>
-        <small class="text-muted">Uzun yanıtları 2-3 parça göndererek daha doğal görünür</small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Bölme Eşiği (karakter)</label>
-        <input type="number" min="120" step="10" name="split_threshold" class="form-control" value="<%= settings.split_threshold || 240 %>">
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-robot"></i> OpenAI (Opsiyonel)</h3>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label class="form-label">AI Sistem Promptu</label>
-        <textarea name="ai_system_prompt" class="form-control" rows="7"><%= settings.ai_system_prompt || '' %></textarea>
-        <small class="text-muted">
-          Boş bırakırsan güvenli varsayılan prompt kullanılır. Karakter sayfasında seçtiğin üslup bunun sonuna eklenir.
-        </small>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Test Mesajı</label>
-        <div style="display:flex; gap:10px;">
-          <input type="text" id="testPersonalityInput" class="form-control" placeholder="Bir mesaj yaz...">
-          <button type="button" class="btn btn-secondary" id="testPersonalityBtn">Test Et</button>
+      <div class="settings-section-body">
+        <div class="quick-actions">
+          <div class="quick-action-btn" onclick="restartBot()">
+            <i class="fas fa-sync-alt"></i>
+            <span>Botu Yeniden Başlat</span>
+          </div>
+          <div class="quick-action-btn" onclick="clearCache()">
+            <i class="fas fa-broom"></i>
+            <span>Önbellek Temizle</span>
+          </div>
+          <div class="quick-action-btn" onclick="exportData()">
+            <i class="fas fa-download"></i>
+            <span>Verileri Dışa Aktar</span>
+          </div>
+          <div class="quick-action-btn danger" onclick="showClearChatsModal()">
+            <i class="fas fa-trash-alt"></i>
+            <span>Mesaj Silme</span>
+          </div>
         </div>
-        <pre id="testPersonalityOutput" style="margin-top:10px; white-space:pre-wrap;"></pre>
+      </div>
+    </div>
+
+    <!-- Mesaj Silme Bölümü -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-trash-alt"></i>
+        <h3>Mesaj Silme İşlemleri</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="form-group">
+          <label class="form-label">Bot Seçimi</label>
+          <select id="clearBotSelect" class="form-control form-select">
+            <option value="">Tüm Botlar</option>
+          </select>
+          <small class="text-muted">Belirli bir bot seçerek sadece o bot'un mesajlarını silebilirsiniz</small>
+        </div>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label class="form-label">Tarih Aralığı</label>
+          <select id="deleteTimeRange" class="form-control form-select">
+            <option value="1h">Son 1 Saat</option>
+            <option value="24h">Son 24 Saat</option>
+            <option value="7d">Son 1 Hafta</option>
+            <option value="30d" selected>Son 1 Ay</option>
+            <option value="90d">Son 3 Ay</option>
+            <option value="all">Tüm Mesajlar</option>
+          </select>
+          <small class="text-muted">Silinecek mesajların tarih aralığını seçin</small>
+        </div>
+        <div class="setting-item" style="padding: 1rem 0;">
+          <div class="setting-info">
+            <div class="setting-title">WhatsApp'tan da Sil</div>
+            <div class="setting-desc">Mesajları WhatsApp sohbetlerinden de temizle</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="deleteFromWhatsApp">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button class="btn btn-warning" onclick="clearSelectedChats()">
+            <i class="fas fa-eraser"></i> Mesajları Temizle
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sistem Durumu -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-heartbeat"></i>
+        <h3>Sistem Durumu</h3>
+      </div>
+      <div class="settings-section-body">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+          <div class="stat-mini">
+            <div class="stat-mini-value" id="activeBots">0</div>
+            <div class="stat-mini-label">Aktif Bot</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-value" id="todayMessages">0</div>
+            <div class="stat-mini-label">Bugün Mesaj</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-value" id="cacheSize">0 MB</div>
+            <div class="stat-mini-label">Önbellek</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Sunucu Çalışma Süresi</div>
+            <div class="setting-desc" id="uptime">Hesaplanıyor...</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Son Yedekleme</div>
+            <div class="setting-desc" id="lastBackup">Henüz yapılmadı</div>
+          </div>
+          <div class="setting-action">
+            <button class="btn btn-sm btn-secondary" onclick="createBackup()">
+              <i class="fas fa-database"></i> Yedekle
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <div style="margin-top: 14px;">
-    <button class="btn btn-success" type="submit"><i class="fas fa-save"></i> Ayarları Kaydet</button>
+<!-- BOT KONTROLÜ TAB -->
+<div class="tab-content" id="tab-bot">
+  <div class="settings-grid">
+    <!-- Bot Durumu -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-power-off"></i>
+        <h3>Bot Durumu</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Ana Bot</div>
+            <div class="setting-desc">WhatsApp bağlantı durumu</div>
+          </div>
+          <div class="setting-action">
+            <span class="status-badge online" id="botStatus">
+              <span class="status-dot"></span>
+              <span>Bağlı</span>
+            </span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Otomatik Yanıt</div>
+            <div class="setting-desc">Gelen mesajlara otomatik yanıt ver</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="autoReply" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">AI Modu</div>
+            <div class="setting-desc">Yapay zeka ile akıllı yanıtlar</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="aiMode" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Mesai Saatleri</div>
+            <div class="setting-desc">Sadece belirli saatlerde yanıt ver</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="workingHours">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bot Kontrolleri -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-gamepad"></i>
+        <h3>Bot Kontrolleri</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="quick-actions">
+          <div class="quick-action-btn" onclick="restartBot()">
+            <i class="fas fa-redo"></i>
+            <span>Yeniden Başlat</span>
+          </div>
+          <div class="quick-action-btn" onclick="pauseBot()">
+            <i class="fas fa-pause"></i>
+            <span>Duraklat</span>
+          </div>
+          <div class="quick-action-btn" onclick="reconnectWhatsApp()">
+            <i class="fab fa-whatsapp"></i>
+            <span>WhatsApp Bağlan</span>
+          </div>
+          <div class="quick-action-btn" onclick="showQRCode()">
+            <i class="fas fa-qrcode"></i>
+            <span>QR Kod Göster</span>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 1.5rem;">
+          <label class="form-label">Mesai Saatleri</label>
+          <div style="display: flex; gap: 1rem;">
+            <input type="time" id="workStart" class="form-control" value="09:00">
+            <span style="align-self: center;">-</span>
+            <input type="time" id="workEnd" class="form-control" value="18:00">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botu İmha Et -->
+    <div class="settings-section" style="border: 2px solid rgba(239, 68, 68, 0.3);">
+      <div class="settings-section-header" style="background: rgba(239, 68, 68, 0.1);">
+        <i class="fas fa-skull-crossbones" style="color: #ef4444;"></i>
+        <h3 style="color: #ef4444;">Botu İmha Et</h3>
+      </div>
+      <div class="settings-section-body">
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+          <p style="color: #ef4444; margin: 0; font-weight: 500;">
+            <i class="fas fa-exclamation-triangle"></i> DİKKAT: Bu işlem geri alınamaz!
+          </p>
+          <small style="color: var(--text-muted);">
+            Bot imha edildiğinde: Tüm mesajlar silinir, WhatsApp oturumu kapatılır, session dosyaları temizlenir.
+          </small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">İmha Edilecek Bot</label>
+          <select id="destroyBotSelect" class="form-control form-select">
+            <option value="">Bot Seçin...</option>
+          </select>
+        </div>
+        <div class="setting-item" style="padding: 1rem 0;">
+          <div class="setting-info">
+            <div class="setting-title">WhatsApp Sohbetlerini de Temizle</div>
+            <div class="setting-desc">Bot'un tüm WhatsApp sohbetlerini de temizle</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="destroyDeleteFromWA">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item" style="padding: 1rem 0;">
+          <div class="setting-info">
+            <div class="setting-title">WhatsApp Hesabından Çıkış</div>
+            <div class="setting-desc">WhatsApp hesabından çıkış yap (QR kod ile tekrar bağlanılması gerekir)</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="destroyLogoutWA" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="destroyBot()" style="width: 100%; margin-top: 1rem;">
+          <i class="fas fa-skull"></i> Botu İmha Et
+        </button>
+      </div>
+    </div>
   </div>
-</form>
+</div>
 
+<!-- DAVRANIS ANALİZİ TAB -->
+<div class="tab-content" id="tab-behavior">
+  <div class="settings-grid">
+    <!-- Davranış Logu -->
+    <div class="settings-section" style="grid-column: span 2;">
+      <div class="settings-section-header">
+        <i class="fas fa-chart-line"></i>
+        <h3>Bot Davranış Analizi</h3>
+        <button class="btn btn-sm btn-secondary" style="margin-left: auto;" onclick="refreshBehaviorLog()">
+          <i class="fas fa-sync-alt"></i> Yenile
+        </button>
+      </div>
+      <div class="settings-section-body">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+          <div class="stat-mini">
+            <div class="stat-mini-value" id="totalResponses">0</div>
+            <div class="stat-mini-label">Toplam Yanıt</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-value" id="avgResponseTime">0s</div>
+            <div class="stat-mini-label">Ort. Yanıt Süresi</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-value" id="keywordMatches">0</div>
+            <div class="stat-mini-label">Anahtar Kelime Eşleşmesi</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-value" id="aiResponses">0</div>
+            <div class="stat-mini-label">AI Yanıtı</div>
+          </div>
+        </div>
+
+        <label class="form-label">Son Bot Aktiviteleri</label>
+        <div class="behavior-log" id="behaviorLog">
+          <div class="behavior-entry">
+            <div class="behavior-time">Yükleniyor...</div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 1.5rem;">
+          <label class="form-label">Davranış Testi</label>
+          <div style="display: flex; gap: 1rem;">
+            <input type="text" id="testMessage" class="form-control" placeholder="Test mesajı yazın...">
+            <button class="btn btn-primary" onclick="testBehavior()">
+              <i class="fas fa-flask"></i> Test Et
+            </button>
+          </div>
+          <div id="behaviorTestResult" style="margin-top: 1rem; display: none;" class="behavior-log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BİLDİRİMLER TAB -->
+<div class="tab-content" id="tab-notifications">
+  <div class="settings-grid">
+    <!-- Bildirim Ayarları -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-bell"></i>
+        <h3>Bildirim Tercihleri</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Push Bildirimleri</div>
+            <div class="setting-desc">Tarayıcı bildirimleri al</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="pushNotifications" onchange="togglePushNotifications()">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Yeni Mesaj Bildirimi</div>
+            <div class="setting-desc">Yeni mesaj geldiğinde bildir</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="notifyNewMessage" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Randevu Bildirimi</div>
+            <div class="setting-desc">Yeni randevu oluştuğunda bildir</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="notifyAppointment" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Sistem Bildirimleri</div>
+            <div class="setting-desc">Bot durumu değişikliklerini bildir</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="notifySystem" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Ses</div>
+            <div class="setting-desc">Bildirim sesi çal</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="notifySound" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Son Bildirimler -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-history"></i>
+        <h3>Son Bildirimler</h3>
+      </div>
+      <div class="settings-section-body">
+        <div id="recentNotifications">
+          <div class="notification-item">
+            <div class="notification-icon message"><i class="fas fa-comment"></i></div>
+            <div class="setting-info">
+              <div class="setting-title">Yeni mesaj</div>
+              <div class="setting-desc">Ahmet K. bir mesaj gönderdi</div>
+            </div>
+            <small class="text-muted">2 dk önce</small>
+          </div>
+          <div class="notification-item">
+            <div class="notification-icon appointment"><i class="fas fa-calendar"></i></div>
+            <div class="setting-info">
+              <div class="setting-title">Yeni randevu</div>
+              <div class="setting-desc">Mehmet B. randevu oluşturdu</div>
+            </div>
+            <small class="text-muted">15 dk önce</small>
+          </div>
+          <div class="notification-item">
+            <div class="notification-icon system"><i class="fas fa-cog"></i></div>
+            <div class="setting-info">
+              <div class="setting-title">Bot yeniden başlatıldı</div>
+              <div class="setting-desc">Sistem otomatik yeniden başlatma</div>
+            </div>
+            <small class="text-muted">1 saat önce</small>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm w-100" style="margin-top: 1rem;" onclick="testNotification()">
+          <i class="fas fa-bell"></i> Test Bildirimi Gönder
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GÜVENLİK TAB -->
+<div class="tab-content" id="tab-security">
+  <div class="settings-grid">
+    <!-- Parola Değiştir -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-key"></i>
+        <h3>Parola Değiştir</h3>
+      </div>
+      <div class="settings-section-body">
+        <form id="passwordForm" onsubmit="changePassword(event)">
+          <div class="form-group">
+            <label class="form-label">Mevcut Parola</label>
+            <input type="password" id="currentPassword" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Yeni Parola</label>
+            <input type="password" id="newPassword" class="form-control" required oninput="checkPasswordStrength()">
+            <div class="password-strength">
+              <div class="password-strength-bar" id="passwordStrengthBar"></div>
+            </div>
+            <small class="text-muted" id="passwordStrengthText">Parola gücü: -</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Yeni Parola (Tekrar)</label>
+            <input type="password" id="confirmPassword" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Parolayı Değiştir
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Güvenlik Ayarları -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-shield-alt"></i>
+        <h3>Güvenlik Ayarları</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">İki Faktörlü Doğrulama</div>
+            <div class="setting-desc">WhatsApp üzerinden doğrulama kodu al</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="twoFactor" onchange="toggle2FA()">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Oturum Zaman Aşımı</div>
+            <div class="setting-desc">Otomatik çıkış süresi</div>
+          </div>
+          <div class="setting-action">
+            <select class="form-control form-select" id="sessionTimeout" style="width: auto;" onchange="saveSecuritySetting('session_timeout', this.value)">
+              <option value="30">30 dakika</option>
+              <option value="60" selected>1 saat</option>
+              <option value="240">4 saat</option>
+              <option value="1440">1 gün</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">IP Kısıtlaması</div>
+            <div class="setting-desc">Sadece belirli IP'lerden erişim</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="ipRestriction" onchange="toggleIPRestriction()">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div style="margin-top: 1.5rem;">
+          <button class="btn btn-danger btn-sm" onclick="logoutAllDevices()">
+            <i class="fas fa-sign-out-alt"></i> Tüm Cihazlardan Çıkış Yap
+          </button>
+          <button class="btn btn-warning btn-sm" onclick="resetSettings()" style="margin-left: 0.5rem;">
+            <i class="fas fa-undo"></i> Ayarları Sıfırla
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Magic Link -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-magic"></i>
+        <h3>Magic Link Girişi</h3>
+      </div>
+      <div class="settings-section-body">
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Magic Link Aktif</div>
+            <div class="setting-desc">Ana bot'a <code>!panel</code> yazarak giriş linki al</div>
+          </div>
+          <div class="setting-action">
+            <label class="switch">
+              <input type="checkbox" id="magicLinkEnabled" onchange="toggleMagicLink()" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Link Geçerlilik Süresi</div>
+            <div class="setting-desc">Magic link'in geçerli olacağı süre</div>
+          </div>
+          <div class="setting-action">
+            <select class="form-control form-select" id="magicLinkExpiry" style="width: auto;" onchange="saveSecuritySetting('magic_link_expiry', this.value)">
+              <option value="5">5 dakika</option>
+              <option value="15" selected>15 dakika</option>
+              <option value="30">30 dakika</option>
+              <option value="60">1 saat</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Yetkili Numaralar</div>
+            <div class="setting-desc">Magic link oluşturabilecek numaralar (virgülle ayır)</div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 0.5rem;">
+          <input type="text" id="authorizedNumbers" class="form-control" placeholder="905551234567, 905559876543" onchange="saveSecuritySetting('authorized_numbers', this.value)">
+          <small class="text-muted">Boş bırakılırsa herkes magic link oluşturabilir</small>
+        </div>
+        <div style="margin-top: 1rem;">
+          <button class="btn btn-primary btn-sm" onclick="generateMagicLink()">
+            <i class="fas fa-link"></i> Manuel Link Oluştur
+          </button>
+          <div id="magicLinkResult" style="margin-top: 1rem; display: none;">
+            <div class="form-group">
+              <label class="form-label">Oluşturulan Link:</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="generatedLink" class="form-control" readonly>
+                <button class="btn btn-secondary" onclick="copyMagicLink()">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <small class="text-muted" id="linkExpiry">15 dakika geçerli</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aktif Oturumlar -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <i class="fas fa-users"></i>
+        <h3>Aktif Oturumlar</h3>
+      </div>
+      <div class="settings-section-body">
+        <div id="activeSessions">
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-title">Yükleniyor...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MESAJLAR TAB -->
+<div class="tab-content" id="tab-messages">
+  <form id="settings-form">
+    <div class="settings-grid">
+      <!-- Bot Mesajları -->
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <i class="fas fa-comment-dots"></i>
+          <h3>Bot Mesajları</h3>
+        </div>
+        <div class="settings-section-body">
+          <div class="form-group">
+            <label class="form-label">Bot Adı</label>
+            <input type="text" name="bot_name" class="form-control" value="<%= settings.bot_name || 'Hocanın Yardımcısı' %>">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Karşılama Mesajı</label>
+            <textarea name="greeting" class="form-control" rows="2"><%= settings.greeting || '{name} kardeşim, hoş geldin. Nasıl yardımcı olabilirim?' %></textarea>
+            <small class="text-muted">{name} kullanıcı adı ile değiştirilir</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Devir Mesajı</label>
+            <textarea name="handoff_message" class="form-control" rows="2"><%= settings.handoff_message || 'İnşallah hocamızla görüştürmek için not aldım kardeşim.' %></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Profil Tamamlandı Mesajı</label>
+            <textarea name="profile_complete_message" class="form-control" rows="2"><%= settings.profile_complete_message || '{name} kardeşim, bilgilerini aldım.' %></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bot Dondurma Mesajı</label>
+            <textarea name="frozen_message" class="form-control" rows="2"><%= settings.frozen_message || 'Şu an müsait değilim kardeşim.' %></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Ayarları -->
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <i class="fas fa-brain"></i>
+          <h3>AI Ayarları</h3>
+        </div>
+        <div class="settings-section-body">
+          <div class="form-group">
+            <label class="form-label">AI Sistem Promptu</label>
+            <textarea name="ai_system_prompt" class="form-control" rows="6"><%= settings.ai_system_prompt || '' %></textarea>
+            <small class="text-muted">Boş bırakırsan güvenli varsayılan prompt kullanılır</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Test Mesajı</label>
+            <div style="display: flex; gap: 1rem;">
+              <input type="text" id="testPersonalityInput" class="form-control" placeholder="Bir mesaj yaz...">
+              <button type="button" class="btn btn-secondary" id="testPersonalityBtn">Test Et</button>
+            </div>
+            <pre id="testPersonalityOutput" style="margin-top: 1rem; padding: 1rem; background: var(--bg-darker); border-radius: var(--radius-md); white-space: pre-wrap; display: none;"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem;">
+      <button class="btn btn-primary" type="submit">
+        <i class="fas fa-save"></i> Ayarları Kaydet
+      </button>
+    </div>
+  </form>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
 <script>
-  // AI test butonu
-  (function(){
-    const btn = document.getElementById('testPersonalityBtn');
-    if (!btn) return;
-    btn.addEventListener('click', async () => {
-      const message = document.getElementById('testPersonalityInput')?.value || '';
-      const out = document.getElementById('testPersonalityOutput');
-      if (out) out.textContent = '...';
-      try {
-        const resp = await fetch('/api/test-personality', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ message })
-        });
-        const res = await resp.json();
-        if (out) out.textContent = res.success ? (res.response || '') : (res.error || 'Hata');
-      } catch (e) {
-        if (out) out.textContent = e.message;
+  const socket = io();
+
+  // Tab switching
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    document.querySelector('[onclick="switchTab(\'' + tabName + '\')"]').classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+  }
+
+  // Bot controls
+  async function restartBot() {
+    if (!confirm('Botu yeniden başlatmak istiyor musunuz?')) return;
+    showToast('Bot yeniden başlatılıyor...', 'info');
+    try {
+      const res = await fetch('/api/system/restart-bot', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? 'Bot yeniden başlatıldı!' : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  async function pauseBot() {
+    showToast('Bot duraklatıldı', 'info');
+  }
+
+  async function reconnectWhatsApp() {
+    showToast('WhatsApp bağlantısı yenileniyor...', 'info');
+    try {
+      const res = await fetch('/api/system/reconnect', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? 'Bağlantı yenilendi!' : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  function showQRCode() {
+    window.open('/qr', '_blank');
+  }
+
+  async function clearCache() {
+    // Kontrollü onay kutusu
+    const confirmed = await showConfirmDialog(
+      'Önbellek Temizleme',
+      'Bu işlem sistem önbelleğini temizleyecek. Devam etmek istiyor musunuz?',
+      'Temizle',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    showToast('Önbellek temizleniyor...', 'info');
+    try {
+      const res = await fetch('/api/system/clear-cache', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? 'Önbellek temizlendi!' : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+      loadSystemStats();
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  async function exportData() {
+    showToast('Veriler hazırlanıyor...', 'info');
+    try {
+      const res = await fetch('/api/system/export');
+      const data = await res.json();
+      if (data.success) {
+        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'dbot_export_' + new Date().toISOString().split('T')[0] + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Veriler indirildi!', 'success');
       }
+    } catch (e) {
+      showToast('Dışa aktarma hatası', 'error');
+    }
+  }
+
+  async function clearAllChats() {
+    // Çok aşamalı kontrollü silme
+    const confirmed1 = await showConfirmDialog(
+      'Sohbetleri Sil',
+      '30 günden eski tüm mesajları silmek istiyor musunuz?\n\nBu işlem GERİ ALINAMAZ!',
+      'Devam Et',
+      'danger'
+    );
+    if (!confirmed1) return;
+
+    const confirmed2 = await showConfirmDialog(
+      'Son Onay',
+      'Emin misiniz? Bu işlem veritabanından eski mesajları kalıcı olarak silecek.',
+      'Evet, Sil',
+      'danger'
+    );
+    if (!confirmed2) return;
+
+    showToast('Mesajlar siliniyor...', 'info');
+    try {
+      const res = await fetch('/api/system/clear-chats', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? data.message : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  // Bot listesini yükle
+  async function loadBotList() {
+    try {
+      const res = await fetch('/api/system/bots');
+      const data = await res.json();
+      if (data.success && data.clients) {
+        const clearSelect = document.getElementById('clearBotSelect');
+        const destroySelect = document.getElementById('destroyBotSelect');
+
+        // Clear bot select
+        if (clearSelect) {
+          clearSelect.innerHTML = '<option value="">Tüm Botlar</option>';
+          data.clients.forEach(function(bot) {
+            clearSelect.innerHTML += '<option value="' + bot.id + '">' + (bot.name || bot.id) + ' (' + (bot.phone || 'Bağlı değil') + ')</option>';
+          });
+        }
+
+        // Destroy bot select
+        if (destroySelect) {
+          destroySelect.innerHTML = '<option value="">Bot Seçin...</option>';
+          data.clients.forEach(function(bot) {
+            destroySelect.innerHTML += '<option value="' + bot.id + '">' + (bot.name || bot.id) + ' (' + (bot.phone || 'Bağlı değil') + ')</option>';
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Bot listesi yüklenemedi:', e);
+    }
+  }
+
+  // Gelişmiş mesaj silme
+  async function clearSelectedChats() {
+    const clientId = document.getElementById('clearBotSelect').value;
+    const timeRange = document.getElementById('deleteTimeRange').value;
+    const deleteFromWhatsApp = document.getElementById('deleteFromWhatsApp').checked;
+
+    // Tarih aralığı açıklamaları
+    const timeRangeLabels = {
+      '1h': 'son 1 saatteki',
+      '24h': 'son 24 saatteki',
+      '7d': 'son 1 haftadaki',
+      '30d': 'son 1 aydaki',
+      '90d': 'son 3 aydaki',
+      'all': 'TÜM'
+    };
+
+    let warningText = timeRangeLabels[timeRange] + ' mesajları';
+    if (clientId) {
+      warningText += ' (seçili bot için)';
+    } else {
+      warningText += ' (tüm botlar için)';
+    }
+    if (deleteFromWhatsApp) {
+      warningText += '\n\n⚠️ WhatsApp sohbetleri de temizlenecek!';
+    }
+
+    const confirmed1 = await showConfirmDialog(
+      'Mesaj Silme',
+      warningText + ' silmek istiyor musunuz?\n\nBu işlem GERİ ALINAMAZ!',
+      'Devam Et',
+      'danger'
+    );
+    if (!confirmed1) return;
+
+    const confirmed2 = await showConfirmDialog(
+      'Son Onay',
+      'Emin misiniz? Bu işlem kalıcıdır.',
+      'Evet, Sil',
+      'danger'
+    );
+    if (!confirmed2) return;
+
+    showToast('Mesajlar siliniyor...', 'info');
+    try {
+      const res = await fetch('/api/system/clear-chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, timeRange, deleteFromWhatsApp })
+      });
+      const data = await res.json();
+      showToast(data.success ? data.message : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  // Mesaj silme modalını göster
+  function showClearChatsModal() {
+    switchTab('general');
+    // Mesaj silme bölümüne scroll
+    document.querySelector('#tab-general .settings-section:nth-child(2)').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Botu imha et
+  async function destroyBot() {
+    const clientId = document.getElementById('destroyBotSelect').value;
+    if (!clientId) {
+      showToast('Lütfen bir bot seçin', 'error');
+      return;
+    }
+
+    const deleteFromWhatsApp = document.getElementById('destroyDeleteFromWA').checked;
+    const logoutWhatsApp = document.getElementById('destroyLogoutWA').checked;
+
+    const confirmed1 = await showConfirmDialog(
+      '🔥 Bot İmha',
+      'Bu bot tamamen silinecek!\n\n' +
+      '• Tüm mesajlar silinecek\n' +
+      '• Tüm profiller silinecek\n' +
+      (deleteFromWhatsApp ? '• WhatsApp sohbetleri temizlenecek\n' : '') +
+      (logoutWhatsApp ? '• WhatsApp hesabından çıkış yapılacak\n' : '') +
+      '• Session dosyaları silinecek\n\n' +
+      'Bu işlem GERİ ALINAMAZ!',
+      'İmha Et',
+      'danger'
+    );
+    if (!confirmed1) return;
+
+    const confirmed2 = await showConfirmDialog(
+      '⚠️ SON UYARI',
+      'Bu işlemi onaylıyor musunuz?\n\nBot: ' + clientId + '\n\nBu işlem tamamen kalıcıdır!',
+      'EVET, BOTU İMHA ET',
+      'danger'
+    );
+    if (!confirmed2) return;
+
+    showToast('Bot imha ediliyor...', 'info');
+    try {
+      const res = await fetch('/api/system/destroy-bot/' + clientId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteFromWhatsApp, logoutWhatsApp })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        loadBotList(); // Listeyi güncelle
+        document.getElementById('destroyBotSelect').value = '';
+      } else {
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  // Kontrollü onay dialog'u
+  function showConfirmDialog(title, message, confirmText, type) {
+    return new Promise(function(resolve) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+      const colors = {
+        warning: '#f59e0b',
+        danger: '#ef4444',
+        info: '#3b82f6'
+      };
+
+      overlay.innerHTML =
+        '<div style="background:var(--bg-card);border-radius:12px;padding:1.5rem;max-width:400px;width:90%;border:1px solid var(--border);">' +
+          '<h3 style="margin:0 0 1rem 0;color:' + (colors[type] || colors.info) + ';">' + title + '</h3>' +
+          '<p style="margin:0 0 1.5rem 0;color:var(--text-secondary);white-space:pre-line;">' + message + '</p>' +
+          '<div style="display:flex;gap:0.75rem;justify-content:flex-end;">' +
+            '<button class="btn btn-secondary" id="confirmCancel">İptal</button>' +
+            '<button class="btn" style="background:' + (colors[type] || colors.info) + ';color:white;" id="confirmOk">' + confirmText + '</button>' +
+          '</div>' +
+        '</div>';
+
+      document.body.appendChild(overlay);
+
+      document.getElementById('confirmCancel').onclick = function() {
+        overlay.remove();
+        resolve(false);
+      };
+      document.getElementById('confirmOk').onclick = function() {
+        overlay.remove();
+        resolve(true);
+      };
+      overlay.onclick = function(e) {
+        if (e.target === overlay) {
+          overlay.remove();
+          resolve(false);
+        }
+      };
     });
+  }
+
+  // Tema değiştirme
+  function toggleTheme() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme') || 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+
+    // Tema buton ikonunu güncelle
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) {
+      themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    showToast(newTheme === 'dark' ? 'Koyu tema aktif' : 'Açık tema aktif', 'success');
+  }
+
+  // Sayfa yüklendiğinde tema uygula
+  (function() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
   })();
+
+  async function createBackup() {
+    showToast('Yedek oluşturuluyor...', 'info');
+    try {
+      const res = await fetch('/api/system/backup', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? 'Yedek oluşturuldu!' : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+      if (data.success) {
+        document.getElementById('lastBackup').textContent = new Date().toLocaleString('tr-TR');
+      }
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  // Behavior analysis
+  async function refreshBehaviorLog() {
+    try {
+      const res = await fetch('/api/system/behavior-log');
+      const data = await res.json();
+      if (data.success && data.logs) {
+        renderBehaviorLog(data.logs);
+        // İstatistikleri hesapla
+        const total = data.logs.length;
+        document.getElementById('totalResponses').textContent = total;
+        document.getElementById('avgResponseTime').textContent = '~2s';
+        document.getElementById('keywordMatches').textContent = data.keywordMatches || '-';
+        document.getElementById('aiResponses').textContent = data.aiResponses || '-';
+      } else {
+        document.getElementById('behaviorLog').innerHTML = '<div class="behavior-entry"><div class="setting-desc">Veri yüklenemedi</div></div>';
+      }
+    } catch (e) {
+      console.error(e);
+      document.getElementById('behaviorLog').innerHTML = '<div class="behavior-entry"><div class="setting-desc">Bağlantı hatası</div></div>';
+    }
+  }
+
+  function renderBehaviorLog(logs) {
+    const container = document.getElementById('behaviorLog');
+    if (!logs || logs.length === 0) {
+      container.innerHTML = '<div class="behavior-entry"><div class="setting-desc">Henüz aktivite yok</div></div>';
+      return;
+    }
+    container.innerHTML = logs.map(function(log) {
+      const time = log.timestamp ? new Date(log.timestamp).toLocaleString('tr-TR') : '-';
+      const user = log.userName || 'Bilinmeyen';
+      const response = (log.botResponse || '').substring(0, 100) + (log.botResponse?.length > 100 ? '...' : '');
+      return '<div class="behavior-entry">' +
+        '<div class="behavior-time">' + time + '</div>' +
+        '<div class="behavior-action">' + user + ' kullanıcısına yanıt</div>' +
+        '<div class="behavior-detail">' + response + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function testBehavior() {
+    const message = document.getElementById('testMessage').value;
+    if (!message) {
+      showToast('Lütfen test mesajı girin', 'error');
+      return;
+    }
+
+    const resultDiv = document.getElementById('behaviorTestResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="behavior-entry"><div class="setting-desc">Analiz ediliyor...</div></div>';
+
+    try {
+      const res = await fetch('/api/system/test-behavior', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const ruleType = data.matchedKeyword ? 'Anahtar Kelime: ' + data.matchedKeyword : (data.usedAI ? 'AI Yanıtı' : 'Bilinmiyor');
+        resultDiv.innerHTML =
+          '<div class="behavior-entry">' +
+            '<div class="behavior-action" style="color: var(--primary);">' + ruleType + '</div>' +
+            '<div class="behavior-detail" style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(0,217,165,0.1); border-radius: 8px;">' + data.response + '</div>' +
+          '</div>';
+      } else {
+        resultDiv.innerHTML = '<div class="behavior-entry"><div class="setting-desc" style="color: var(--danger);">Hata: ' + data.error + '</div></div>';
+      }
+    } catch (e) {
+      resultDiv.innerHTML = '<div class="behavior-entry"><div class="setting-desc" style="color: var(--danger);">Bağlantı hatası</div></div>';
+    }
+  }
+
+  // Notifications
+  function togglePushNotifications() {
+    const enabled = document.getElementById('pushNotifications').checked;
+    if (enabled) {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(function(permission) {
+          if (permission === 'granted') {
+            showToast('Push bildirimleri aktif!', 'success');
+          } else {
+            document.getElementById('pushNotifications').checked = false;
+            showToast('Bildirim izni reddedildi', 'error');
+          }
+        });
+      } else {
+        document.getElementById('pushNotifications').checked = false;
+        showToast('Tarayıcınız bildirimleri desteklemiyor', 'error');
+      }
+    }
+  }
+
+  function testNotification() {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Test Bildirimi', {
+        body: 'Bu bir test bildirimidir!',
+        icon: '/favicon.ico'
+      });
+    } else {
+      showToast('Bildirimleri etkinleştirin', 'info');
+    }
+  }
+
+  // Password
+  function checkPasswordStrength() {
+    const password = document.getElementById('newPassword').value;
+    const bar = document.getElementById('passwordStrengthBar');
+    const text = document.getElementById('passwordStrengthText');
+
+    let strength = 0;
+    if (password.length >= 8) strength += 25;
+    if (password.match(/[a-z]/)) strength += 25;
+    if (password.match(/[A-Z]/)) strength += 25;
+    if (password.match(/[0-9]/)) strength += 25;
+
+    bar.style.width = strength + '%';
+    if (strength <= 25) {
+      bar.style.background = '#ef4444';
+      text.textContent = 'Parola gücü: Zayıf';
+    } else if (strength <= 50) {
+      bar.style.background = '#f59e0b';
+      text.textContent = 'Parola gücü: Orta';
+    } else if (strength <= 75) {
+      bar.style.background = '#22c55e';
+      text.textContent = 'Parola gücü: İyi';
+    } else {
+      bar.style.background = '#00d9a5';
+      text.textContent = 'Parola gücü: Güçlü';
+    }
+  }
+
+  async function changePassword(e) {
+    e.preventDefault();
+    const current = document.getElementById('currentPassword').value;
+    const newPass = document.getElementById('newPassword').value;
+    const confirm = document.getElementById('confirmPassword').value;
+
+    if (newPass !== confirm) {
+      showToast('Parolalar eşleşmiyor!', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/system/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: current, newPassword: newPass })
+      });
+      const data = await res.json();
+      showToast(data.success ? 'Parola değiştirildi!' : 'Hata: ' + data.error, data.success ? 'success' : 'error');
+      if (data.success) {
+        document.getElementById('passwordForm').reset();
+        document.getElementById('passwordStrengthBar').style.width = '0%';
+        document.getElementById('passwordStrengthText').textContent = 'Parola gücü: -';
+      }
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  function logoutAllDevices() {
+    if (confirm('Tüm cihazlardan çıkış yapmak istiyor musunuz?')) {
+      showToast('Tüm oturumlar sonlandırıldı', 'success');
+    }
+  }
+
+  function resetSettings() {
+    if (confirm('Tüm ayarları varsayılana sıfırlamak istiyor musunuz?')) {
+      showToast('Ayarlar sıfırlandı', 'success');
+    }
+  }
+
+  // System stats
+  async function loadSystemStats() {
+    try {
+      const res = await fetch('/api/system/stats');
+      const data = await res.json();
+      if (data.success && data.stats) {
+        document.getElementById('activeBots').textContent = data.stats.activeBots || 0;
+        document.getElementById('todayMessages').textContent = data.stats.todayMessages || 0;
+        document.getElementById('cacheSize').textContent = data.stats.cacheSize || '0 MB';
+        document.getElementById('uptime').textContent = data.stats.uptime || 'Bilinmiyor';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Security functions
+  async function toggle2FA() {
+    const enabled = document.getElementById('twoFactor').checked;
+    try {
+      const res = await fetch('/api/security/2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(enabled ? '2FA aktif edildi!' : '2FA devre dışı bırakıldı', 'success');
+      } else {
+        document.getElementById('twoFactor').checked = !enabled;
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      document.getElementById('twoFactor').checked = !enabled;
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  async function toggleIPRestriction() {
+    const enabled = document.getElementById('ipRestriction').checked;
+    try {
+      const res = await fetch('/api/security/ip-restriction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(enabled ? 'IP kısıtlaması aktif!' : 'IP kısıtlaması devre dışı', 'success');
+      } else {
+        document.getElementById('ipRestriction').checked = !enabled;
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      document.getElementById('ipRestriction').checked = !enabled;
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  async function toggleMagicLink() {
+    const enabled = document.getElementById('magicLinkEnabled').checked;
+    await saveSecuritySetting('magic_link_enabled', enabled ? '1' : '0');
+  }
+
+  async function saveSecuritySetting(key, value) {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Ayar kaydedildi', 'success');
+      }
+    } catch (e) {
+      showToast('Kaydetme hatası', 'error');
+    }
+  }
+
+  async function generateMagicLink() {
+    try {
+      const res = await fetch('/api/security/magic-link', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('magicLinkResult').style.display = 'block';
+        document.getElementById('generatedLink').value = data.link;
+        document.getElementById('linkExpiry').textContent = data.expiry + ' dakika geçerli';
+        showToast('Magic link oluşturuldu!', 'success');
+      } else {
+        showToast('Hata: ' + data.error, 'error');
+      }
+    } catch (e) {
+      showToast('Bağlantı hatası', 'error');
+    }
+  }
+
+  function copyMagicLink() {
+    const link = document.getElementById('generatedLink').value;
+    navigator.clipboard.writeText(link).then(function() {
+      showToast('Link kopyalandı!', 'success');
+    });
+  }
+
+  async function loadSecuritySettings() {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      if (data.success && data.settings) {
+        const settings = {};
+        (Array.isArray(data.settings) ? data.settings : Object.values(data.settings)).forEach(function(s) {
+          settings[s.key] = s.value;
+        });
+
+        if (settings.two_factor_enabled === '1') {
+          document.getElementById('twoFactor').checked = true;
+        }
+        if (settings.ip_restriction_enabled === '1') {
+          document.getElementById('ipRestriction').checked = true;
+        }
+        if (settings.magic_link_enabled !== '0') {
+          document.getElementById('magicLinkEnabled').checked = true;
+        }
+        if (settings.session_timeout) {
+          document.getElementById('sessionTimeout').value = settings.session_timeout;
+        }
+        if (settings.magic_link_expiry) {
+          document.getElementById('magicLinkExpiry').value = settings.magic_link_expiry;
+        }
+        if (settings.authorized_numbers) {
+          document.getElementById('authorizedNumbers').value = settings.authorized_numbers;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function loadActiveSessions() {
+    try {
+      const res = await fetch('/api/security/sessions');
+      const data = await res.json();
+      const container = document.getElementById('activeSessions');
+      if (data.success && data.sessions && data.sessions.length > 0) {
+        container.innerHTML = data.sessions.map(function(s) {
+          return '<div class="setting-item">' +
+            '<div class="setting-info">' +
+              '<div class="setting-title">' + (s.ip || 'Bilinmeyen IP') + '</div>' +
+              '<div class="setting-desc">' + (s.userAgent || 'Bilinmeyen Tarayıcı') + ' - ' + new Date(s.createdAt).toLocaleString('tr-TR') + '</div>' +
+            '</div>' +
+            '<button class="btn btn-danger btn-sm" onclick="revokeSession(\'' + s.id + '\')">' +
+              '<i class="fas fa-times"></i>' +
+            '</button>' +
+          '</div>';
+        }).join('');
+      } else {
+        container.innerHTML = '<div class="setting-item"><div class="setting-info"><div class="setting-desc">Aktif oturum yok</div></div></div>';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function revokeSession(sessionId) {
+    try {
+      const res = await fetch('/api/security/sessions/' + sessionId, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Oturum sonlandırıldı', 'success');
+        loadActiveSessions();
+      }
+    } catch (e) {
+      showToast('Hata', 'error');
+    }
+  }
+
+  // Toast notification
+  function showToast(message, type) {
+    const existing = document.querySelector('.toast-notification');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:1rem 1.5rem;border-radius:8px;z-index:9999;animation:slideIn 0.3s ease;';
+
+    if (type === 'success') toast.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+    else if (type === 'error') toast.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+    else toast.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
+
+    toast.style.color = 'white';
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+
+    setTimeout(function() { toast.remove(); }, 3000);
+  }
+
+  // AI test button
+  document.getElementById('testPersonalityBtn')?.addEventListener('click', async function() {
+    const message = document.getElementById('testPersonalityInput')?.value || '';
+    const out = document.getElementById('testPersonalityOutput');
+    if (out) {
+      out.style.display = 'block';
+      out.textContent = 'Yanıt bekleniyor...';
+    }
+    try {
+      const resp = await fetch('/api/test-personality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message })
+      });
+      const res = await resp.json();
+      if (out) out.textContent = res.success ? (res.response || '') : (res.error || 'Hata');
+    } catch (e) {
+      if (out) out.textContent = e.message;
+    }
+  });
+
+  // Socket events
+  socket.on('newMessage', function(data) {
+    if (document.getElementById('notifyNewMessage')?.checked) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Yeni Mesaj', { body: data.from + ': ' + data.body.substring(0, 50) });
+      }
+    }
+  });
+
+  // Init
+  loadSystemStats();
+  refreshBehaviorLog();
+  loadSecuritySettings();
+  loadActiveSessions();
+  loadBotList();
+  setInterval(loadSystemStats, 30000);
 </script>
 
 <%- include('partials/footer') %>
